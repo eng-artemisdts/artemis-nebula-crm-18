@@ -46,7 +46,14 @@ serve(async (req) => {
     let event;
     
     try {
-      event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret || "");
+      // CRITICAL: Deno requires explicit CryptoProvider
+      event = await stripe.webhooks.constructEventAsync(
+        body, 
+        signature, 
+        webhookSecret || "",
+        undefined,
+        Stripe.createSubtleCryptoProvider()
+      );
       logStep("Webhook signature verified", { eventType: event.type });
     } catch (err: any) {
       logStep("ERROR: Invalid signature", { 
