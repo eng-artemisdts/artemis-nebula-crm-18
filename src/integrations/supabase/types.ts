@@ -14,7 +14,105 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      lead_categories: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      leads: {
+        Row: {
+          category: string | null
+          contact_email: string | null
+          contact_whatsapp: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          integration_start_time: string | null
+          name: string
+          payment_link_url: string | null
+          payment_status: string | null
+          payment_stripe_id: string | null
+          source: string | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string | null
+          contact_email?: string | null
+          contact_whatsapp?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          integration_start_time?: string | null
+          name: string
+          payment_link_url?: string | null
+          payment_status?: string | null
+          payment_stripe_id?: string | null
+          source?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string | null
+          contact_email?: string | null
+          contact_whatsapp?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          integration_start_time?: string | null
+          name?: string
+          payment_link_url?: string | null
+          payment_status?: string | null
+          payment_stripe_id?: string | null
+          source?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      settings: {
+        Row: {
+          created_at: string | null
+          default_integration_start_time: string | null
+          id: string
+          n8n_webhook_url: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          default_integration_start_time?: string | null
+          id?: string
+          n8n_webhook_url?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          default_integration_start_time?: string | null
+          id?: string
+          n8n_webhook_url?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
