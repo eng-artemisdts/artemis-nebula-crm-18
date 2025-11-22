@@ -22,11 +22,11 @@ const Landing = () => {
 
         <div className="relative z-10 container mx-auto px-6 py-20 md:py-32">
           <div className="max-w-4xl mx-auto text-center space-y-8">
-            <div className="mb-8 animate-scale-in">
+            <div className="mb-4 animate-scale-in">
               <img 
                 src="/src/assets/logo.png" 
                 alt="Artemis Nebula" 
-                className="h-32 md:h-40 mx-auto hover-scale" 
+                className="h-40 md:h-52 mx-auto hover-scale" 
               />
             </div>
             
