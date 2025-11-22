@@ -75,10 +75,11 @@ serve(async (req) => {
           quantity: 1,
         },
       ],
+      payment_method_types: ['card', 'boleto'],
       metadata: {
         lead_id: leadId,
         lead_name: lead.name,
-        lead_amount: lead.payment_amount.toString(),
+        lead_amount: amount.toString(),
       },
     });
 
