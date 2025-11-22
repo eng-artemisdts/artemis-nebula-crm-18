@@ -19,7 +19,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_ANON_KEY") ?? ""
     );
 
-    const { leadId } = await req.json();
+    const { leadId, paymentAmount } = await req.json();
     
     if (!leadId) {
       throw new Error("Lead ID is required");
@@ -39,14 +39,17 @@ serve(async (req) => {
       throw new Error("Lead not found");
     }
 
+    // Determine amount: prefer value from request, fallback to DB
+    const amount = typeof paymentAmount === "number" ? paymentAmount : lead.payment_amount;
+
     // Validate payment amount
-    if (!lead.payment_amount || lead.payment_amount <= 0) {
-      console.error("[CREATE-PAYMENT-LINK] Invalid payment amount:", lead.payment_amount);
+    if (!amount || amount <= 0) {
+      console.error("[CREATE-PAYMENT-LINK] Invalid payment amount:", amount);
       throw new Error("O lead precisa ter um valor válido definido antes de gerar o link de pagamento");
     }
 
     console.log(`[CREATE-PAYMENT-LINK] Lead full data:`, JSON.stringify(lead));
-    console.log(`[CREATE-PAYMENT-LINK] Lead amount: R$ ${lead.payment_amount}`);
+    console.log(`[CREATE-PAYMENT-LINK] Using amount: R$ ${amount} (from ${typeof paymentAmount === "number" ? "request" : "lead"})`);
 
     // Initialize Stripe
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
@@ -54,7 +57,7 @@ serve(async (req) => {
     });
 
     // Convert BRL to cents
-    const amountInCents = Math.round(lead.payment_amount * 100);
+    const amountInCents = Math.round(amount * 100);
     console.log(`[CREATE-PAYMENT-LINK] Amount in cents: ${amountInCents}`);
 
     // Create a payment link with dynamic price
@@ -88,6 +91,7 @@ serve(async (req) => {
         payment_link_url: paymentLink.url,
         payment_stripe_id: paymentLink.id,
         payment_status: "link_gerado",
+        payment_amount: amount,
       })
       .eq("id", leadId);
 
