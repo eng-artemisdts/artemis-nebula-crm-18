@@ -36,7 +36,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <Link to="/dashboard" className="flex items-center gap-3 group">
-              <img src={logo} alt="Artemis Nebula" className="h-8 transition-transform group-hover:scale-105" />
+              <img src={logo} alt="Artemis Nebula" className="h-10 transition-transform group-hover:scale-105" />
             </Link>
             <div className="flex items-center gap-2">
               <nav className="flex items-center gap-1">

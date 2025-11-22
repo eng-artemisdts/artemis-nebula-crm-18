@@ -11,12 +11,7 @@ const Landing = () => {
         
         <nav className="relative z-10 container mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <img src="/src/assets/logo.png" alt="Artemis Nebula" className="h-10 w-10" />
-              <span className="text-2xl font-bold bg-gradient-to-r from-primary to-cosmic-glow bg-clip-text text-transparent">
-                Artemis Nebula
-              </span>
-            </div>
+            <img src="/src/assets/logo.png" alt="Artemis Nebula" className="h-12" />
             <Link to="/login">
               <Button variant="outline" className="border-primary/50 hover:bg-primary/10">
                 Entrar

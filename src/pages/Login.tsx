@@ -106,11 +106,8 @@ const Login = () => {
       
       <div className="relative z-10 w-full max-w-md space-y-8">
         <div className="text-center space-y-2">
-          <Link to="/" className="inline-flex items-center gap-3 mb-6">
-            <img src="/src/assets/logo.png" alt="Artemis Nebula" className="h-12 w-12" />
-            <span className="text-3xl font-bold bg-gradient-to-r from-primary to-cosmic-glow bg-clip-text text-transparent">
-              Artemis Nebula
-            </span>
+          <Link to="/" className="inline-block mb-6">
+            <img src="/src/assets/logo.png" alt="Artemis Nebula" className="h-16 mx-auto" />
           </Link>
           <h1 className="text-3xl font-bold">
             {isSignUp ? "Criar Conta" : "Bem-vindo de volta"}
