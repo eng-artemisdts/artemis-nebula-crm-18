@@ -27,6 +27,7 @@ const LeadForm = () => {
     contact_whatsapp: "",
     source: "",
     integration_start_time: "09:00",
+    payment_amount: "",
   });
   const [paymentData, setPaymentData] = useState({
     payment_link_url: "",
@@ -65,6 +66,12 @@ const LeadForm = () => {
           contact_whatsapp: data.contact_whatsapp || "",
           source: data.source || "",
           integration_start_time: data.integration_start_time?.slice(0, 5) || "09:00",
+          payment_amount: data.payment_amount 
+            ? data.payment_amount.toLocaleString("pt-BR", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })
+            : "",
         });
         setPaymentData({
           payment_link_url: data.payment_link_url || "",
@@ -83,9 +90,15 @@ const LeadForm = () => {
     setLoading(true);
 
     try {
+      // Parse payment amount from formatted string
+      const paymentAmount = formData.payment_amount
+        ? parseFloat(formData.payment_amount.replace(/\./g, "").replace(",", "."))
+        : null;
+
       const leadData = {
         ...formData,
         integration_start_time: `${formData.integration_start_time}:00+00`,
+        payment_amount: paymentAmount,
       };
 
       if (isEdit) {
@@ -126,6 +139,16 @@ const LeadForm = () => {
   const handleGeneratePaymentLink = async () => {
     if (!isEdit) {
       toast.error("Salve o lead primeiro antes de gerar um link de pagamento");
+      return;
+    }
+
+    // Validate payment amount
+    const amount = formData.payment_amount
+      ? parseFloat(formData.payment_amount.replace(/\./g, "").replace(",", "."))
+      : 0;
+    
+    if (!amount || amount <= 0) {
+      toast.error("Defina um valor válido para a proposta antes de gerar o link");
       return;
     }
 
@@ -277,6 +300,39 @@ const LeadForm = () => {
               />
               <p className="text-xs text-muted-foreground">
                 Horário diário para iniciar o fluxo de automação
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="payment_amount">Valor da Proposta (R$)</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
+                  R$
+                </span>
+                <Input
+                  id="payment_amount"
+                  type="text"
+                  value={formData.payment_amount}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, "");
+                    if (value === "") {
+                      setFormData({ ...formData, payment_amount: "" });
+                      return;
+                    }
+                    const numbers = value;
+                    const amount = parseFloat(numbers) / 100;
+                    const formatted = amount.toLocaleString("pt-BR", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    });
+                    setFormData({ ...formData, payment_amount: formatted });
+                  }}
+                  placeholder="0,00"
+                  className="pl-12"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Valor individual desta proposta em Reais
               </p>
             </div>
           </Card>

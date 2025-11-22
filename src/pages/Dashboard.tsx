@@ -3,7 +3,7 @@ import { Layout } from "@/components/Layout";
 import { StatsCard } from "@/components/StatsCard";
 import { LeadCard } from "@/components/LeadCard";
 import { Button } from "@/components/ui/button";
-import { Users, DollarSign, TrendingUp, Target, Plus } from "lucide-react";
+import { Users, DollarSign, TrendingUp, Target, Plus, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -54,6 +54,16 @@ const Dashboard = () => {
     perdidos: getLeadsByStatus("perdido").length,
   };
 
+  const financialStats = {
+    totalValue: leads.reduce((sum, lead) => sum + (lead.payment_amount || 0), 0),
+    paidValue: leads
+      .filter(l => l.status === "pago")
+      .reduce((sum, lead) => sum + (lead.payment_amount || 0), 0),
+    pendingValue: leads
+      .filter(l => l.payment_link_url && l.status !== "pago" && l.status !== "perdido")
+      .reduce((sum, lead) => sum + (lead.payment_amount || 0), 0),
+  };
+
   return (
     <Layout>
       <div className="space-y-8 animate-fade-in">
@@ -99,6 +109,35 @@ const Dashboard = () => {
             value={stats.total > 0 ? Math.round((stats.pagos / stats.total) * 100) : 0}
             icon={TrendingUp}
           />
+        </div>
+
+        {/* Financial Stats */}
+        <div>
+          <h2 className="text-2xl font-bold mb-6">Métricas Financeiras</h2>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <StatsCard
+              title="Valor Total Propostas"
+              value={`R$ ${(financialStats.totalValue / 1000).toFixed(1)}k`}
+              icon={DollarSign}
+            />
+            <StatsCard
+              title="Valor Pago"
+              value={`R$ ${(financialStats.paidValue / 1000).toFixed(1)}k`}
+              icon={TrendingUp}
+            />
+            <StatsCard
+              title="Valor Pendente"
+              value={`R$ ${(financialStats.pendingValue / 1000).toFixed(1)}k`}
+              icon={Clock}
+            />
+            <StatsCard
+              title="Taxa de Conversão $"
+              value={financialStats.totalValue > 0 
+                ? `${Math.round((financialStats.paidValue / financialStats.totalValue) * 100)}%`
+                : "0%"}
+              icon={Target}
+            />
+          </div>
         </div>
 
         {/* Kanban Board */}

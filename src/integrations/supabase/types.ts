@@ -48,6 +48,8 @@ export type Database = {
           id: string
           integration_start_time: string | null
           name: string
+          paid_at: string | null
+          payment_amount: number | null
           payment_link_url: string | null
           payment_status: string | null
           payment_stripe_id: string | null
@@ -64,6 +66,8 @@ export type Database = {
           id?: string
           integration_start_time?: string | null
           name: string
+          paid_at?: string | null
+          payment_amount?: number | null
           payment_link_url?: string | null
           payment_status?: string | null
           payment_stripe_id?: string | null
@@ -80,6 +84,8 @@ export type Database = {
           id?: string
           integration_start_time?: string | null
           name?: string
+          paid_at?: string | null
+          payment_amount?: number | null
           payment_link_url?: string | null
           payment_status?: string | null
           payment_stripe_id?: string | null
