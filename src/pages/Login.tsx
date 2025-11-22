@@ -25,6 +25,7 @@ const Login = () => {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
             },
           }
         );
@@ -175,13 +176,21 @@ const Login = () => {
           </div>
         </form>
 
-        {!isSignUp && (
-          <div className="text-center text-sm text-muted-foreground bg-muted/30 rounded-lg p-4 border border-border/30">
-            <p className="font-semibold mb-1">Usuário padrão para teste:</p>
-            <p>Email: admin@email.com</p>
-            <p>Senha: 132566@</p>
-          </div>
-        )}
+        <div className="text-center text-sm text-muted-foreground bg-muted/30 rounded-lg p-4 border border-border/30">
+          {!isSignUp ? (
+            <>
+              <p className="font-semibold mb-1">Primeiro acesso?</p>
+              <p>Clique em "Não tem uma conta? Cadastre-se"</p>
+              <p className="mt-2 text-xs">Use o email: admin@email.com e senha: 132566@</p>
+            </>
+          ) : (
+            <>
+              <p className="font-semibold mb-1">Criar conta admin:</p>
+              <p>Email: admin@email.com</p>
+              <p>Senha: 132566@</p>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-3xl animate-glow-pulse -z-10" />
