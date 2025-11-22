@@ -45,6 +45,7 @@ serve(async (req) => {
       throw new Error("O lead precisa ter um valor válido definido antes de gerar o link de pagamento");
     }
 
+    console.log(`[CREATE-PAYMENT-LINK] Lead full data:`, JSON.stringify(lead));
     console.log(`[CREATE-PAYMENT-LINK] Lead amount: R$ ${lead.payment_amount}`);
 
     // Initialize Stripe
