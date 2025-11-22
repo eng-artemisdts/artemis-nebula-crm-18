@@ -25,6 +25,8 @@ serve(async (req) => {
       throw new Error("Lead ID is required");
     }
 
+    console.log(`[CREATE-PAYMENT-LINK] Processing lead: ${leadId}`);
+
     // Get lead information
     const { data: lead, error: leadError } = await supabaseClient
       .from("leads")
@@ -33,15 +35,28 @@ serve(async (req) => {
       .single();
 
     if (leadError || !lead) {
+      console.error("[CREATE-PAYMENT-LINK] Lead not found:", leadError);
       throw new Error("Lead not found");
     }
+
+    // Validate payment amount
+    if (!lead.payment_amount || lead.payment_amount <= 0) {
+      console.error("[CREATE-PAYMENT-LINK] Invalid payment amount:", lead.payment_amount);
+      throw new Error("O lead precisa ter um valor válido definido antes de gerar o link de pagamento");
+    }
+
+    console.log(`[CREATE-PAYMENT-LINK] Lead amount: R$ ${lead.payment_amount}`);
 
     // Initialize Stripe
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
       apiVersion: "2025-08-27.basil",
     });
 
-    // Create a payment link with a fixed price (you can customize this)
+    // Convert BRL to cents
+    const amountInCents = Math.round(lead.payment_amount * 100);
+    console.log(`[CREATE-PAYMENT-LINK] Amount in cents: ${amountInCents}`);
+
+    // Create a payment link with dynamic price
     const paymentLink = await stripe.paymentLinks.create({
       line_items: [
         {
@@ -51,7 +66,7 @@ serve(async (req) => {
               name: `Serviço - ${lead.name}`,
               description: lead.description || "Serviço Artemis Digital Solutions",
             },
-            unit_amount: 50000, // R$ 500.00 (amount in cents)
+            unit_amount: amountInCents,
           },
           quantity: 1,
         },
@@ -59,8 +74,11 @@ serve(async (req) => {
       metadata: {
         lead_id: leadId,
         lead_name: lead.name,
+        lead_amount: lead.payment_amount.toString(),
       },
     });
+
+    console.log(`[CREATE-PAYMENT-LINK] Payment link created: ${paymentLink.url}`);
 
     // Update lead with payment information
     const { error: updateError } = await supabaseClient
@@ -73,10 +91,11 @@ serve(async (req) => {
       .eq("id", leadId);
 
     if (updateError) {
+      console.error("[CREATE-PAYMENT-LINK] Error updating lead:", updateError);
       throw updateError;
     }
 
-    console.log(`Payment link created for lead ${leadId}: ${paymentLink.url}`);
+    console.log(`[CREATE-PAYMENT-LINK] Success for lead ${leadId}`);
 
     return new Response(
       JSON.stringify({ 
@@ -89,7 +108,7 @@ serve(async (req) => {
       }
     );
   } catch (error: any) {
-    console.error("Error creating payment link:", error);
+    console.error("[CREATE-PAYMENT-LINK] Error:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {

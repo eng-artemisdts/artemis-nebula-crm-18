@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Mail, Phone, Clock, DollarSign } from "lucide-react";
+import { Mail, Phone, Clock, DollarSign, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
@@ -17,6 +17,8 @@ type Lead = {
   integration_start_time: string | null;
   payment_link_url: string | null;
   payment_status: string;
+  payment_amount: number | null;
+  paid_at: string | null;
   created_at: string;
 };
 
@@ -77,6 +79,27 @@ export const LeadCard = ({ lead }: { lead: Lead }) => {
             </a>
           )}
         </div>
+
+        {lead.payment_amount && (
+          <div className="flex items-center justify-between p-2 bg-accent/10 rounded-md">
+            <span className="text-sm font-medium">Valor da Proposta:</span>
+            <span className="text-lg font-bold text-accent">
+              {new Intl.NumberFormat("pt-BR", {
+                style: "currency",
+                currency: "BRL",
+              }).format(lead.payment_amount)}
+            </span>
+          </div>
+        )}
+
+        {lead.status === "pago" && lead.paid_at && (
+          <div className="flex items-center gap-2 p-2 bg-status-pago/10 rounded-md">
+            <CheckCircle className="w-4 h-4 text-status-pago" />
+            <span className="text-xs text-status-pago">
+              Pago em {format(new Date(lead.paid_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+            </span>
+          </div>
+        )}
 
         <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/50">
           <div className="flex items-center gap-1">
