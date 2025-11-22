@@ -42,14 +42,19 @@ serve(async (req) => {
 
     // Validate webhook signature
     const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
+    logStep("Webhook secret configured", { hasSecret: !!webhookSecret, secretPrefix: webhookSecret?.substring(0, 10) });
     let event;
     
     try {
       event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret || "");
       logStep("Webhook signature verified", { eventType: event.type });
     } catch (err: any) {
-      logStep("ERROR: Invalid signature", { message: err.message });
-      return new Response(JSON.stringify({ error: "Invalid signature" }), {
+      logStep("ERROR: Invalid signature", { 
+        message: err.message,
+        signatureReceived: signature.substring(0, 20) + "...",
+        bodyLength: body.length 
+      });
+      return new Response(JSON.stringify({ error: "Invalid signature", details: err.message }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 400,
       });
