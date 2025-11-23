@@ -15,6 +15,9 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  closestCenter,
+  DragOverEvent,
+  useDroppable,
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 
@@ -26,6 +29,46 @@ const statusColumns = [
   { id: "pago", label: "Pago" },
   { id: "perdido", label: "Perdido" },
 ];
+
+const StatusColumn = ({ 
+  column, 
+  columnLeads 
+}: { 
+  column: { id: string; label: string }; 
+  columnLeads: any[] 
+}) => {
+  const { setNodeRef, isOver } = useDroppable({
+    id: column.id,
+  });
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between p-3 rounded-lg bg-card border border-border">
+        <h3 className="font-semibold text-sm">{column.label}</h3>
+        <span className="text-xs font-medium px-2 py-1 rounded-full bg-primary/10 text-primary">
+          {columnLeads.length}
+        </span>
+      </div>
+      <div
+        ref={setNodeRef}
+        className={`space-y-3 min-h-[200px] p-2 rounded-lg transition-all ${
+          isOver ? 'bg-primary/5 border-2 border-primary border-dashed' : 'border-2 border-transparent'
+        }`}
+        data-status={column.id}
+      >
+        {columnLeads.length > 0 ? (
+          columnLeads.map((lead) => (
+            <LeadCard key={lead.id} lead={lead} isDraggable />
+          ))
+        ) : (
+          <div className="p-4 text-center text-sm text-muted-foreground border-2 border-dashed border-border rounded-lg">
+            Nenhum lead
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -77,7 +120,18 @@ const Dashboard = () => {
     if (!over) return;
 
     const leadId = active.id as string;
-    const newStatus = over.id as string;
+    let newStatus: string;
+
+    // Verifica se o over.id é um status de coluna ou um ID de lead
+    const statusIds = statusColumns.map(c => c.id);
+    if (statusIds.includes(over.id as string)) {
+      newStatus = over.id as string;
+    } else {
+      // Se foi solto em cima de outro lead, pega o status daquele lead
+      const targetLead = leads.find((l) => l.id === over.id);
+      if (!targetLead) return;
+      newStatus = targetLead.status;
+    }
 
     // Encontra o lead que está sendo movido
     const lead = leads.find((l) => l.id === leadId);
@@ -210,40 +264,17 @@ const Dashboard = () => {
             sensors={sensors}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
+            collisionDetection={closestCenter}
           >
             <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
               {statusColumns.map((column) => {
                 const columnLeads = getLeadsByStatus(column.id);
                 return (
-                  <SortableContext
+                  <StatusColumn
                     key={column.id}
-                    id={column.id}
-                    items={columnLeads.map((l) => l.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between p-3 rounded-lg bg-card border border-border">
-                        <h3 className="font-semibold text-sm">{column.label}</h3>
-                        <span className="text-xs font-medium px-2 py-1 rounded-full bg-primary/10 text-primary">
-                          {columnLeads.length}
-                        </span>
-                      </div>
-                      <div
-                        className="space-y-3 min-h-[100px] p-2 rounded-lg transition-colors"
-                        data-status={column.id}
-                      >
-                        {columnLeads.length > 0 ? (
-                          columnLeads.map((lead) => (
-                            <LeadCard key={lead.id} lead={lead} isDraggable />
-                          ))
-                        ) : (
-                          <div className="p-4 text-center text-sm text-muted-foreground border-2 border-dashed border-border rounded-lg">
-                            Nenhum lead
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </SortableContext>
+                    column={column}
+                    columnLeads={columnLeads}
+                  />
                 );
               })}
             </div>
