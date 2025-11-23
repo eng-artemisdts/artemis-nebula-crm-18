@@ -41,7 +41,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
               <img 
                 src={logo} 
                 alt="Artemis Nebula" 
-                className="w-[300px] h-[300px] relative z-10 transition-all duration-500 group-hover:scale-105 drop-shadow-2xl object-contain" 
+                className="w-[200px] h-[200px] relative z-10 transition-all duration-500 group-hover:scale-105 drop-shadow-2xl object-contain" 
               />
             </div>
           </Link>
