@@ -1,11 +1,15 @@
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Mail, Phone, Clock, DollarSign, CheckCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Mail, Phone, Clock, DollarSign, CheckCircle, MessageCircle } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useState } from "react";
 
 type Lead = {
   id: string;
@@ -32,6 +36,8 @@ export const LeadCard = ({
   isDraggable?: boolean;
 }) => {
   const navigate = useNavigate();
+  const [isStartingConversation, setIsStartingConversation] = useState(false);
+  
   const {
     attributes,
     listeners,
@@ -49,6 +55,56 @@ export const LeadCard = ({
     transition,
     opacity: isDragging ? 0.5 : 1,
   };
+
+  const handleStartConversation = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsStartingConversation(true);
+
+    try {
+      // Busca as configurações do webhook
+      const { data: settings } = await supabase
+        .from("settings")
+        .select("n8n_webhook_url")
+        .single();
+
+      // Atualiza o status do lead
+      const { error: updateError } = await supabase
+        .from("leads")
+        .update({ status: "conversa_iniciada" })
+        .eq("id", lead.id);
+
+      if (updateError) throw updateError;
+
+      // Se há webhook configurado, envia os dados
+      if (settings?.n8n_webhook_url) {
+        await fetch(settings.n8n_webhook_url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            leadId: lead.id,
+            name: lead.name,
+            email: lead.contact_email,
+            whatsapp: lead.contact_whatsapp,
+            category: lead.category,
+            description: lead.description,
+            action: "start_conversation"
+          })
+        });
+      }
+
+      toast.success("Conversa iniciada com sucesso!");
+      
+      // Recarrega a página para atualizar o estado
+      window.location.reload();
+    } catch (error: any) {
+      toast.error("Erro ao iniciar conversa");
+      console.error(error);
+    } finally {
+      setIsStartingConversation(false);
+    }
+  };
+
+  const canStartConversation = lead.status === "novo" && (lead.contact_whatsapp || lead.contact_email);
 
   return (
     <Card
@@ -132,6 +188,18 @@ export const LeadCard = ({
               Pago em {format(new Date(lead.paid_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
             </span>
           </div>
+        )}
+
+        {canStartConversation && (
+          <Button
+            onClick={handleStartConversation}
+            disabled={isStartingConversation}
+            className="w-full gap-2"
+            size="sm"
+          >
+            <MessageCircle className="w-4 h-4" />
+            {isStartingConversation ? "Iniciando..." : "Iniciar Conversa"}
+          </Button>
         )}
 
         <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/50">
