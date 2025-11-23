@@ -65,7 +65,7 @@ export const LeadCard = ({
       const { data: settings } = await supabase
         .from("settings")
         .select("n8n_webhook_url")
-        .single();
+        .maybeSingle();
 
       // Atualiza o status do lead
       const { error: updateError } = await supabase
@@ -77,25 +77,27 @@ export const LeadCard = ({
 
       // Se há webhook configurado, envia os dados
       if (settings?.n8n_webhook_url) {
-        await fetch(settings.n8n_webhook_url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            leadId: lead.id,
-            name: lead.name,
-            email: lead.contact_email,
-            whatsapp: lead.contact_whatsapp,
-            category: lead.category,
-            description: lead.description,
-            action: "start_conversation"
-          })
-        });
+        try {
+          await fetch(settings.n8n_webhook_url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              leadId: lead.id,
+              name: lead.name,
+              email: lead.contact_email,
+              whatsapp: lead.contact_whatsapp,
+              category: lead.category,
+              description: lead.description,
+              action: "start_conversation"
+            })
+          });
+        } catch (webhookError) {
+          console.error("Erro ao enviar webhook:", webhookError);
+          // Não falha a operação se o webhook falhar
+        }
       }
 
-      toast.success("Conversa iniciada com sucesso!");
-      
-      // Recarrega a página para atualizar o estado
-      window.location.reload();
+      toast.success("Conversa iniciada! Atualize a página para ver as mudanças.");
     } catch (error: any) {
       toast.error("Erro ao iniciar conversa");
       console.error(error);
