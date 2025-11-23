@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_interaction_settings: {
+        Row: {
+          additional_instructions: string | null
+          conversation_focus: string
+          created_at: string
+          id: string
+          main_objective: string
+          name: string
+          priority: string
+          rejection_action: string
+          tone: string
+          updated_at: string
+        }
+        Insert: {
+          additional_instructions?: string | null
+          conversation_focus: string
+          created_at?: string
+          id?: string
+          main_objective: string
+          name: string
+          priority?: string
+          rejection_action?: string
+          tone?: string
+          updated_at?: string
+        }
+        Update: {
+          additional_instructions?: string | null
+          conversation_focus?: string
+          created_at?: string
+          id?: string
+          main_objective?: string
+          name?: string
+          priority?: string
+          rejection_action?: string
+          tone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       lead_categories: {
         Row: {
           created_at: string | null
