@@ -91,10 +91,13 @@ export const LeadCard = ({
         .select("n8n_webhook_url")
         .maybeSingle();
 
-      // Atualiza o status do lead
+      // Atualiza o status do lead e marca WhatsApp como verificado
       const { error: updateError } = await supabase
         .from("leads")
-        .update({ status: "conversa_iniciada" })
+        .update({ 
+          status: "conversa_iniciada",
+          whatsapp_verified: true
+        })
         .eq("id", lead.id);
 
       if (updateError) throw updateError;

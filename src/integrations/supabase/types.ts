@@ -98,6 +98,7 @@ export type Database = {
           source: string | null
           status: string
           updated_at: string | null
+          whatsapp_verified: boolean | null
         }
         Insert: {
           category?: string | null
@@ -116,6 +117,7 @@ export type Database = {
           source?: string | null
           status?: string
           updated_at?: string | null
+          whatsapp_verified?: boolean | null
         }
         Update: {
           category?: string | null
@@ -134,6 +136,7 @@ export type Database = {
           source?: string | null
           status?: string
           updated_at?: string | null
+          whatsapp_verified?: boolean | null
         }
         Relationships: []
       }
