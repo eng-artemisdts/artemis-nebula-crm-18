@@ -44,8 +44,20 @@ serve(async (req) => {
     const geocodeData = await geocodeResponse.json();
 
     if (geocodeData.status !== "OK" || geocodeData.results.length === 0) {
-      logStep("Geocoding failed", { status: geocodeData.status });
-      throw new Error(`Location not found: ${geocodeData.status}`);
+      logStep("Geocoding failed", {
+        status: geocodeData.status,
+        error_message: geocodeData.error_message,
+      });
+
+      let userMessage = "Erro ao consultar localização.";
+      if (geocodeData.status === "REQUEST_DENIED") {
+        userMessage =
+          "Google Places API negou a requisição. Verifique se a chave está correta, se o faturamento está ativo e se as APIs Geocoding, Places e Place Details estão habilitadas e sem restrições de uso.";
+      } else if (geocodeData.status === "ZERO_RESULTS") {
+        userMessage = "Localização não encontrada para o endereço informado.";
+      }
+
+      throw new Error(userMessage);
     }
 
     const { lat, lng } = geocodeData.results[0].geometry.location;
