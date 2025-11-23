@@ -176,21 +176,23 @@ const Login = () => {
           </div>
         </form>
 
-        <div className="text-center text-sm text-muted-foreground bg-muted/30 rounded-lg p-4 border border-border/30">
-          {!isSignUp ? (
-            <>
-              <p className="font-semibold mb-1">Primeiro acesso?</p>
-              <p>Clique em "Não tem uma conta? Cadastre-se"</p>
-              <p className="mt-2 text-xs">Use o email: admin@email.com e senha: 132566@</p>
-            </>
-          ) : (
-            <>
-              <p className="font-semibold mb-1">Criar conta admin:</p>
-              <p>Email: admin@email.com</p>
-              <p>Senha: 132566@</p>
-            </>
-          )}
-        </div>
+        {import.meta.env.DEV && (
+          <div className="text-center text-sm text-muted-foreground bg-muted/30 rounded-lg p-4 border border-border/30">
+            {!isSignUp ? (
+              <>
+                <p className="font-semibold mb-1">Primeiro acesso?</p>
+                <p>Clique em "Não tem uma conta? Cadastre-se"</p>
+                <p className="mt-2 text-xs">Use o email: admin@email.com e senha: 132566@</p>
+              </>
+            ) : (
+              <>
+                <p className="font-semibold mb-1">Criar conta admin:</p>
+                <p>Email: admin@email.com</p>
+                <p>Senha: 132566@</p>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-3xl animate-glow-pulse -z-10" />

@@ -89,6 +89,7 @@ export type Database = {
           description: string | null
           id: string
           integration_start_time: string | null
+          is_test: boolean | null
           name: string
           paid_at: string | null
           payment_amount: number | null
@@ -108,6 +109,7 @@ export type Database = {
           description?: string | null
           id?: string
           integration_start_time?: string | null
+          is_test?: boolean | null
           name: string
           paid_at?: string | null
           payment_amount?: number | null
@@ -127,6 +129,7 @@ export type Database = {
           description?: string | null
           id?: string
           integration_start_time?: string | null
+          is_test?: boolean | null
           name?: string
           paid_at?: string | null
           payment_amount?: number | null
