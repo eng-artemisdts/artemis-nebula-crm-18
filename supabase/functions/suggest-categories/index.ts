@@ -30,11 +30,39 @@ serve(async (req) => {
         messages: [
           { 
             role: 'system', 
-            content: 'Você é um assistente especializado em criar categorias de leads para negócios. Quando o usuário descrever um tipo de negócio ou necessidade, sugira de 3 a 5 categorias relevantes de leads. Para cada categoria, forneça um nome curto e uma descrição detalhada. Responda APENAS em formato JSON com a estrutura: {"categories": [{"name": "Nome", "description": "Descrição"}]}' 
+            content: 'Você é um assistente especializado em criar categorias de leads para negócios. Quando o usuário descrever um tipo de negócio ou necessidade, sugira de 3 a 5 categorias relevantes de leads.' 
           },
           { role: 'user', content: prompt }
         ],
-        max_completion_tokens: 800,
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "suggest_categories",
+              description: "Retornar 3-5 sugestões de categorias de leads relevantes.",
+              parameters: {
+                type: "object",
+                properties: {
+                  categories: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        name: { type: "string", description: "Nome curto da categoria" },
+                        description: { type: "string", description: "Descrição detalhada da categoria" }
+                      },
+                      required: ["name", "description"],
+                      additionalProperties: false
+                    }
+                  }
+                },
+                required: ["categories"],
+                additionalProperties: false
+              }
+            }
+          }
+        ],
+        tool_choice: { type: "function", function: { name: "suggest_categories" } },
       }),
     });
 
@@ -47,22 +75,14 @@ serve(async (req) => {
     const data = await response.json();
     console.log('OpenAI response:', data);
 
-    const generatedText = data.choices[0].message.content;
-    
-    // Parse JSON from the response
-    let categories;
-    try {
-      const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        categories = JSON.parse(jsonMatch[0]).categories;
-      } else {
-        throw new Error('No JSON found in response');
-      }
-    } catch (parseError) {
-      console.error('Error parsing categories:', parseError);
-      throw new Error('Failed to parse categories from AI response');
+    // Extract categories from tool call
+    const toolCall = data.choices[0].message.tool_calls?.[0];
+    if (!toolCall) {
+      console.error('No tool call in response');
+      throw new Error('Failed to get categories from AI response');
     }
 
+    const categories = JSON.parse(toolCall.function.arguments).categories;
     console.log('Parsed categories:', categories);
 
     return new Response(JSON.stringify({ categories }), {
