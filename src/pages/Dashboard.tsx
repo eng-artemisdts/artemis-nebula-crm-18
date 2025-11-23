@@ -3,7 +3,7 @@ import { Layout } from "@/components/Layout";
 import { StatsCard } from "@/components/StatsCard";
 import { LeadCard } from "@/components/LeadCard";
 import { Button } from "@/components/ui/button";
-import { Users, DollarSign, TrendingUp, Target, Plus, Clock } from "lucide-react";
+import { Users, DollarSign, TrendingUp, Target, Plus, Clock, Mail, MessageSquare } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -196,14 +196,34 @@ const Dashboard = () => {
               Visão geral dos seus leads e conversões
             </p>
           </div>
-          <Button
-            onClick={() => navigate("/lead/new")}
-            className="gap-2"
-            size="lg"
-          >
-            <Plus className="w-4 h-4" />
-            Novo Lead
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              onClick={() => toast.info("Funcionalidade de captura via Email será implementada em breve")}
+              variant="outline"
+              className="gap-2"
+              size="lg"
+            >
+              <Mail className="w-4 h-4" />
+              Capturar via Email
+            </Button>
+            <Button
+              onClick={() => toast.info("Funcionalidade de captura via WhatsApp será implementada em breve")}
+              variant="outline"
+              className="gap-2"
+              size="lg"
+            >
+              <MessageSquare className="w-4 h-4" />
+              Capturar via WhatsApp
+            </Button>
+            <Button
+              onClick={() => navigate("/lead/new")}
+              className="gap-2"
+              size="lg"
+            >
+              <Plus className="w-4 h-4" />
+              Novo Lead
+            </Button>
+          </div>
         </div>
 
         {/* Stats */}
