@@ -9,6 +9,8 @@ import Dashboard from "./pages/Dashboard";
 import LeadForm from "./pages/LeadForm";
 import Leads from "./pages/Leads";
 import Categories from "./pages/Categories";
+import CategoryManager from "./pages/CategoryManager";
+import LeadSearch from "./pages/LeadSearch";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -53,6 +55,22 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <Categories />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/category-manager"
+            element={
+              <ProtectedRoute>
+                <CategoryManager />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/lead-search"
+            element={
+              <ProtectedRoute>
+                <LeadSearch />
               </ProtectedRoute>
             }
           />
