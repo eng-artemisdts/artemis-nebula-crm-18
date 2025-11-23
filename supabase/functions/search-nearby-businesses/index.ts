@@ -20,7 +20,7 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    const { location, categories, radius } = await req.json();
+    const { location, categories, radius = 5000 } = await req.json();
     
     if (!location || !categories || categories.length === 0) {
       throw new Error("Location and categories are required");
@@ -28,49 +28,89 @@ serve(async (req) => {
 
     logStep("Request parameters", { location, categories, radius });
 
-    // Mock data para demonstração
-    // Em produção, você deve integrar com uma API real como:
-    // - Google Places API
-    // - Yelp API
-    // - Foursquare API
-    // - TomTom Search API
-    
-    const mockBusinesses = [
-      {
-        name: "Empresa Tech Solutions",
-        address: `Rua das Flores, 123 - ${location}`,
-        phone: "(11) 98765-4321",
-        category: categories[0],
-        rating: 4.5,
-        latitude: -23.5505,
-        longitude: -46.6333,
-      },
-      {
-        name: "Digital Innovations Ltda",
-        address: `Av. Paulista, 1000 - ${location}`,
-        phone: "(11) 91234-5678",
-        category: categories[0],
-        rating: 4.8,
-        latitude: -23.5615,
-        longitude: -46.6562,
-      },
-      {
-        name: "WebSoft Desenvolvimento",
-        address: `Rua dos Bandeirantes, 456 - ${location}`,
-        phone: "(11) 99876-5432",
-        category: categories[0],
-        rating: 4.2,
-        latitude: -23.5489,
-        longitude: -46.6388,
-      },
-    ];
+    // Get Google Places API key
+    const apiKey = Deno.env.get("GOOGLE_PLACES_API_KEY");
+    if (!apiKey) {
+      throw new Error("GOOGLE_PLACES_API_KEY not configured");
+    }
 
-    logStep("Returning mock businesses", { count: mockBusinesses.length });
+    logStep("API key found");
+
+    // Step 1: Geocode the location to get lat/lng
+    const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(location)}&key=${apiKey}`;
+    logStep("Geocoding location", { url: geocodeUrl.replace(apiKey, "***") });
+
+    const geocodeResponse = await fetch(geocodeUrl);
+    const geocodeData = await geocodeResponse.json();
+
+    if (geocodeData.status !== "OK" || geocodeData.results.length === 0) {
+      logStep("Geocoding failed", { status: geocodeData.status });
+      throw new Error(`Location not found: ${geocodeData.status}`);
+    }
+
+    const { lat, lng } = geocodeData.results[0].geometry.location;
+    logStep("Location geocoded", { lat, lng });
+
+    // Step 2: Search for nearby businesses for each category
+    const allBusinesses: any[] = [];
+    
+    for (const category of categories) {
+      logStep("Searching for category", { category });
+
+      // Use Text Search API for better category matching
+      const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(category)}&location=${lat},${lng}&radius=${radius}&language=pt-BR&key=${apiKey}`;
+      
+      const searchResponse = await fetch(searchUrl);
+      const searchData = await searchResponse.json();
+      
+      logStep("Search response", { status: searchData.status, results: searchData.results?.length || 0 });
+
+      if (searchData.status === "OK" && searchData.results) {
+        // Get details for each place to get phone numbers
+        for (const place of searchData.results) {
+          try {
+            const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,formatted_address,formatted_phone_number,rating,geometry&language=pt-BR&key=${apiKey}`;
+            
+            const detailsResponse = await fetch(detailsUrl);
+            const detailsData = await detailsResponse.json();
+            
+            if (detailsData.status === "OK" && detailsData.result) {
+              const business = {
+                name: detailsData.result.name,
+                address: detailsData.result.formatted_address || place.vicinity,
+                phone: detailsData.result.formatted_phone_number || null,
+                category: category,
+                rating: detailsData.result.rating || null,
+                latitude: detailsData.result.geometry?.location?.lat || null,
+                longitude: detailsData.result.geometry?.location?.lng || null,
+              };
+              
+              allBusinesses.push(business);
+            }
+          } catch (detailError: any) {
+            logStep("Error fetching place details", { error: detailError.message, placeId: place.place_id });
+            // Continue with basic info if details fail
+            const business = {
+              name: place.name,
+              address: place.formatted_address || place.vicinity,
+              phone: null,
+              category: category,
+              rating: place.rating || null,
+              latitude: place.geometry?.location?.lat || null,
+              longitude: place.geometry?.location?.lng || null,
+            };
+            allBusinesses.push(business);
+          }
+        }
+      }
+    }
+
+    logStep("Search completed", { totalBusinesses: allBusinesses.length });
 
     return new Response(
       JSON.stringify({ 
-        businesses: mockBusinesses,
-        total: mockBusinesses.length 
+        businesses: allBusinesses,
+        total: allBusinesses.length 
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -90,7 +130,9 @@ serve(async (req) => {
 });
 
 /* 
-EXEMPLO DE INTEGRAÇÃO COM API REAL (Google Places API):
+DOCUMENTAÇÃO DA API - Google Places Integration
+
+Esta edge function busca negócios próximos usando Google Places API.
 
 Parâmetros JSON esperados pela função:
 {
@@ -108,69 +150,32 @@ Resposta JSON retornada:
     {
       "name": "Nome do Negócio",
       "address": "Endereço completo",
-      "phone": "(11) 98765-4321",       // Opcional
+      "phone": "(11) 98765-4321",       // Pode ser null
       "category": "Categoria do lead",
-      "rating": 4.5,                     // Opcional
-      "latitude": -23.5505,              // Opcional
-      "longitude": -46.6333              // Opcional
+      "rating": 4.5,                     // Pode ser null
+      "latitude": -23.5505,              // Pode ser null
+      "longitude": -46.6333              // Pode ser null
     }
   ],
   "total": 10
 }
 
-Para implementar com Google Places API:
+APIs do Google utilizadas:
+1. Geocoding API - converte endereço em coordenadas lat/lng
+2. Places Text Search API - busca negócios por categoria e localização
+3. Place Details API - obtém informações detalhadas incluindo telefone
+
+Requisitos:
 1. Obtenha uma API key em: https://console.cloud.google.com/
-2. Ative a Google Places API
-3. Adicione a API key nos secrets do Supabase: GOOGLE_PLACES_API_KEY
-4. Substitua a seção de mock data por:
+2. Ative as seguintes APIs no projeto:
+   - Geocoding API
+   - Places API (New)
+   - Place Details API
+3. Configure limites de uso e faturamento se necessário
+4. A API key já está configurada em GOOGLE_PLACES_API_KEY
 
-const apiKey = Deno.env.get("GOOGLE_PLACES_API_KEY");
-if (!apiKey) {
-  throw new Error("GOOGLE_PLACES_API_KEY not configured");
-}
-
-// Geocode da localização
-const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(location)}&key=${apiKey}`;
-const geocodeResponse = await fetch(geocodeUrl);
-const geocodeData = await geocodeResponse.json();
-
-if (geocodeData.status !== "OK" || geocodeData.results.length === 0) {
-  throw new Error("Location not found");
-}
-
-const { lat, lng } = geocodeData.results[0].geometry.location;
-
-// Busca de lugares próximos para cada categoria
-const allBusinesses = [];
-for (const category of categories) {
-  const searchUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&type=establishment&keyword=${encodeURIComponent(category)}&key=${apiKey}`;
-  
-  const searchResponse = await fetch(searchUrl);
-  const searchData = await searchResponse.json();
-  
-  if (searchData.status === "OK") {
-    const businesses = searchData.results.map((place: any) => ({
-      name: place.name,
-      address: place.vicinity,
-      phone: place.formatted_phone_number,
-      category: category,
-      rating: place.rating,
-      latitude: place.geometry.location.lat,
-      longitude: place.geometry.location.lng,
-    }));
-    
-    allBusinesses.push(...businesses);
-  }
-}
-
-return new Response(
-  JSON.stringify({ 
-    businesses: allBusinesses,
-    total: allBusinesses.length 
-  }),
-  {
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-    status: 200,
-  }
-);
+Limites do Google Places API (com cobrança):
+- Text Search: $32 por 1.000 requisições
+- Place Details: $17 por 1.000 requisições
+- Geocoding: $5 por 1.000 requisições
 */
