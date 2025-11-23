@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Plus, Search, Filter } from "lucide-react";
+import { Plus, Search, Filter, CheckSquare, Square, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const Leads = () => {
   const navigate = useNavigate();
@@ -18,6 +19,8 @@ const Leads = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [categories, setCategories] = useState<any[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
 
   const fetchLeads = async () => {
     try {
@@ -70,6 +73,43 @@ const Leads = () => {
     setFilteredLeads(filtered);
   }, [searchQuery, statusFilter, categoryFilter, leads]);
 
+  const toggleSelection = (id: string) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === filteredLeads.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredLeads.map(l => l.id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    
+    if (!confirm(`Deseja realmente excluir ${selectedIds.length} lead(s)?`)) return;
+
+    setLoading(true);
+    const { error } = await supabase
+      .from("leads")
+      .delete()
+      .in("id", selectedIds);
+
+    if (error) {
+      toast.error("Erro ao excluir leads");
+      console.error(error);
+    } else {
+      toast.success(`${selectedIds.length} lead(s) excluído(s) com sucesso!`);
+      setSelectedIds([]);
+      setIsSelectionMode(false);
+      fetchLeads();
+    }
+    setLoading(false);
+  };
+
   return (
     <Layout>
       <div className="space-y-6 animate-fade-in">
@@ -80,10 +120,60 @@ const Leads = () => {
               {filteredLeads.length} lead(s) encontrado(s)
             </p>
           </div>
-          <Button onClick={() => navigate("/lead/new")} size="lg" className="gap-2">
-            <Plus className="w-4 h-4" />
-            Novo Lead
-          </Button>
+          <div className="flex gap-2">
+            {filteredLeads.length > 0 && (
+              <>
+                {isSelectionMode ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={toggleSelectAll}
+                    >
+                      {selectedIds.length === filteredLeads.length ? (
+                        <>
+                          <Square className="w-4 h-4 mr-2" />
+                          Desmarcar Todos
+                        </>
+                      ) : (
+                        <>
+                          <CheckSquare className="w-4 h-4 mr-2" />
+                          Selecionar Todos
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={handleBulkDelete}
+                      disabled={selectedIds.length === 0 || loading}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Excluir {selectedIds.length > 0 && `(${selectedIds.length})`}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsSelectionMode(false);
+                        setSelectedIds([]);
+                      }}
+                    >
+                      Cancelar
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsSelectionMode(true)}
+                  >
+                    Selecionar Múltiplos
+                  </Button>
+                )}
+              </>
+            )}
+            <Button onClick={() => navigate("/lead/new")} size="lg" className="gap-2">
+              <Plus className="w-4 h-4" />
+              Novo Lead
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -140,7 +230,23 @@ const Leads = () => {
         ) : filteredLeads.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredLeads.map((lead) => (
-              <LeadCard key={lead.id} lead={lead} />
+              <div key={lead.id} className="relative">
+                {isSelectionMode && (
+                  <div className="absolute top-4 right-4 z-10">
+                    <Checkbox
+                      checked={selectedIds.includes(lead.id)}
+                      onCheckedChange={() => toggleSelection(lead.id)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                )}
+                <div onClick={isSelectionMode ? (e) => {
+                  e.preventDefault();
+                  toggleSelection(lead.id);
+                } : undefined}>
+                  <LeadCard lead={lead} />
+                </div>
+              </div>
             ))}
           </div>
         ) : (

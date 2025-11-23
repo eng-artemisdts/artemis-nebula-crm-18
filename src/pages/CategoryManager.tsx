@@ -7,7 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, Save, X, Sparkles } from "lucide-react";
+import { Plus, Edit, Trash2, Save, X, Sparkles, CheckSquare, Square } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +26,8 @@ const CategoryManager = () => {
   const [isAiDialogOpen, setIsAiDialogOpen] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [suggestedCategories, setSuggestedCategories] = useState<any[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -145,6 +148,43 @@ const CategoryManager = () => {
     setIsDialogOpen(false);
   };
 
+  const toggleSelection = (id: string) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === categories.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(categories.map(c => c.id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    
+    if (!confirm(`Deseja realmente excluir ${selectedIds.length} categoria(s)?`)) return;
+
+    setLoading(true);
+    const { error } = await supabase
+      .from("lead_categories")
+      .delete()
+      .in("id", selectedIds);
+
+    if (error) {
+      toast.error("Erro ao excluir categorias");
+      console.error(error);
+    } else {
+      toast.success(`${selectedIds.length} categoria(s) excluída(s) com sucesso!`);
+      setSelectedIds([]);
+      setIsSelectionMode(false);
+      fetchCategories();
+    }
+    setLoading(false);
+  };
+
   return (
     <Layout>
       <div className="space-y-6 animate-fade-in">
@@ -156,6 +196,54 @@ const CategoryManager = () => {
             </p>
           </div>
           <div className="flex gap-2">
+            {categories.length > 0 && (
+              <>
+                {isSelectionMode ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={toggleSelectAll}
+                    >
+                      {selectedIds.length === categories.length ? (
+                        <>
+                          <Square className="w-4 h-4 mr-2" />
+                          Desmarcar Todos
+                        </>
+                      ) : (
+                        <>
+                          <CheckSquare className="w-4 h-4 mr-2" />
+                          Selecionar Todos
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={handleBulkDelete}
+                      disabled={selectedIds.length === 0 || loading}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Excluir {selectedIds.length > 0 && `(${selectedIds.length})`}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsSelectionMode(false);
+                        setSelectedIds([]);
+                      }}
+                    >
+                      Cancelar
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsSelectionMode(true)}
+                  >
+                    Selecionar Múltiplos
+                  </Button>
+                )}
+              </>
+            )}
             <Dialog open={isAiDialogOpen} onOpenChange={setIsAiDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" onClick={() => { setAiPrompt(""); setSuggestedCategories([]); }}>
@@ -270,31 +358,41 @@ const CategoryManager = () => {
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {categories.map((category) => (
-            <Card key={category.id} className="p-4 space-y-3">
+            <Card key={category.id} className="p-4 space-y-3 relative">
+              {isSelectionMode && (
+                <div className="absolute top-4 right-4">
+                  <Checkbox
+                    checked={selectedIds.includes(category.id)}
+                    onCheckedChange={() => toggleSelection(category.id)}
+                  />
+                </div>
+              )}
               <div>
                 <h3 className="font-semibold text-lg">{category.name}</h3>
                 <p className="text-sm text-muted-foreground">
                   {category.description || "Sem descrição"}
                 </p>
               </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleEdit(category)}
-                  className="flex-1"
-                >
-                  <Edit className="w-4 h-4 mr-1" />
-                  Editar
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => handleDelete(category.id)}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
+              {!isSelectionMode && (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEdit(category)}
+                    className="flex-1"
+                  >
+                    <Edit className="w-4 h-4 mr-1" />
+                    Editar
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleDelete(category.id)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
             </Card>
           ))}
         </div>
