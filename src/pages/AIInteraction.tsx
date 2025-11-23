@@ -187,6 +187,74 @@ DIRETRIZES:
     });
   };
 
+  const createDefaultSettings = async () => {
+    setLoading(true);
+    
+    const defaultConfigs = [
+      {
+        name: "Venda de Landing Page",
+        conversation_focus: "desenvolvimento de landing pages de alta conversão",
+        priority: "high",
+        rejection_action: "offer_alternative",
+        tone: "professional",
+        main_objective: "Convencer o lead a solicitar um orçamento para uma landing page focada em conversão para seu negócio",
+        additional_instructions: "Enfatize que landing pages são ideais para campanhas específicas, captação de leads e conversão. Mencione integração com ferramentas de marketing e CRM. Destaque o foco em resultados mensuráveis."
+      },
+      {
+        name: "Venda de Site Institucional",
+        conversation_focus: "desenvolvimento de sites institucionais responsivos",
+        priority: "medium",
+        rejection_action: "follow_up",
+        tone: "friendly",
+        main_objective: "Agendar uma reunião para apresentar como um site institucional pode fortalecer a presença digital do negócio",
+        additional_instructions: "Explique a importância de ter uma presença profissional online. Mencione que o site é responsivo (funciona em celular e computador) e que é a base da presença digital. Fale sobre seções como quem somos, serviços, depoimentos e contato."
+      },
+      {
+        name: "Venda de E-commerce",
+        conversation_focus: "desenvolvimento de lojas virtuais para pequenos varejistas",
+        priority: "high",
+        rejection_action: "ask_reason",
+        tone: "enthusiastic",
+        main_objective: "Demonstrar como um e-commerce pode expandir as vendas do negócio e agendar uma demonstração",
+        additional_instructions: "Destaque a oportunidade de vender 24/7, alcançar novos clientes e organizar melhor os pedidos. Mencione integração com meios de pagamento, cálculo de frete e gestão de catálogo. Enfatize que a solução é pensada para pequenos negócios com recursos limitados."
+      },
+      {
+        name: "Venda de Automação de Processos",
+        conversation_focus: "automação de fluxos e processos repetitivos",
+        priority: "medium",
+        rejection_action: "offer_alternative",
+        tone: "professional",
+        main_objective: "Identificar processos manuais que podem ser automatizados e propor uma reunião de mapeamento",
+        additional_instructions: "Pergunte sobre tarefas repetitivas que tomam tempo da equipe. Mencione exemplos como integração entre formulários e planilhas, envio automático de e-mails, sincronização de dados entre sistemas. Enfatize ganhos: redução de erros, economia de tempo e mais foco em tarefas estratégicas."
+      },
+      {
+        name: "Venda de Chatbot WhatsApp",
+        conversation_focus: "implementação de chatbots de atendimento",
+        priority: "medium",
+        rejection_action: "follow_up",
+        tone: "friendly",
+        main_objective: "Apresentar os benefícios de um chatbot para atendimento e coletar informações sobre o volume de atendimentos do lead",
+        additional_instructions: "Explique que o chatbot atende 24/7, responde dúvidas frequentes rapidamente e organiza o fluxo de atendimento. Mencione que funciona no WhatsApp e site. Enfatize que não substitui humanos, mas complementa o atendimento, dando agilidade sem perder qualidade."
+      }
+    ];
+
+    try {
+      const { error } = await supabase
+        .from("ai_interaction_settings")
+        .insert(defaultConfigs);
+
+      if (error) throw error;
+      
+      toast.success(`${defaultConfigs.length} configurações padrão criadas com sucesso!`);
+      fetchSettings();
+    } catch (error: any) {
+      toast.error("Erro ao criar configurações padrão");
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Layout>
       <div className="space-y-6 animate-fade-in">
@@ -197,16 +265,26 @@ DIRETRIZES:
               Configure como a IA deve interagir com cada lead
             </p>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={(open) => {
-            setDialogOpen(open);
-            if (!open) resetForm();
-          }}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Nova Configuração
+          <div className="flex gap-2">
+            {settings.length === 0 && (
+              <Button
+                variant="outline"
+                onClick={createDefaultSettings}
+                disabled={loading}
+              >
+                Criar Configurações Padrão
               </Button>
-            </DialogTrigger>
+            )}
+            <Dialog open={dialogOpen} onOpenChange={(open) => {
+              setDialogOpen(open);
+              if (!open) resetForm();
+            }}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Nova Configuração
+                </Button>
+              </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>
@@ -344,6 +422,7 @@ DIRETRIZES:
               </form>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         {loading && settings.length === 0 ? (
