@@ -133,6 +133,7 @@ const LeadSearch = () => {
         status: "novo",
         contact_whatsapp: business.phone || null,
         source: "Busca Automática",
+        whatsapp_verified: true, // Marca como verificado pois veio da busca
       }));
 
       const { error } = await supabase.from("leads").insert(leadsToInsert);
