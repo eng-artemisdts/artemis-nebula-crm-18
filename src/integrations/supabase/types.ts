@@ -17,6 +17,7 @@ export type Database = {
       ai_interaction_settings: {
         Row: {
           additional_instructions: string | null
+          closing_instructions: string | null
           conversation_focus: string
           created_at: string
           id: string
@@ -29,6 +30,7 @@ export type Database = {
         }
         Insert: {
           additional_instructions?: string | null
+          closing_instructions?: string | null
           conversation_focus: string
           created_at?: string
           id?: string
@@ -41,6 +43,7 @@ export type Database = {
         }
         Update: {
           additional_instructions?: string | null
+          closing_instructions?: string | null
           conversation_focus?: string
           created_at?: string
           id?: string

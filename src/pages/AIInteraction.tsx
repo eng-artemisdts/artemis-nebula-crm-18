@@ -20,6 +20,7 @@ interface AIInteractionSetting {
   tone: string;
   main_objective: string;
   additional_instructions: string | null;
+  closing_instructions: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -39,6 +40,7 @@ const AIInteraction = () => {
     tone: "professional",
     main_objective: "",
     additional_instructions: "",
+    closing_instructions: "",
   });
 
   useEffect(() => {
@@ -79,6 +81,8 @@ ESTRATÉGIA QUANDO O LEAD REJEITAR: ${
         ? "Pergunte educadamente o motivo da rejeição"
         : "Agradeça educadamente e encerre a conversa"
     }
+
+${data.closing_instructions ? `COMO FINALIZAR QUANDO NÃO FECHAR:\n${data.closing_instructions}` : ""}
 
 ${data.additional_instructions ? `INSTRUÇÕES ADICIONAIS:\n${data.additional_instructions}` : ""}
 
@@ -134,6 +138,7 @@ DIRETRIZES:
       tone: setting.tone,
       main_objective: setting.main_objective,
       additional_instructions: setting.additional_instructions || "",
+      closing_instructions: setting.closing_instructions || "",
     });
     setDialogOpen(true);
   };
@@ -164,6 +169,7 @@ DIRETRIZES:
       tone: setting.tone,
       main_objective: setting.main_objective,
       additional_instructions: setting.additional_instructions || "",
+      closing_instructions: setting.closing_instructions || "",
     });
     setPreviewPrompt(prompt);
     setPreviewOpen(true);
@@ -184,6 +190,7 @@ DIRETRIZES:
       tone: "professional",
       main_objective: "",
       additional_instructions: "",
+      closing_instructions: "",
     });
   };
 
@@ -198,7 +205,8 @@ DIRETRIZES:
         rejection_action: "offer_alternative",
         tone: "professional",
         main_objective: "Convencer o lead a solicitar um orçamento para uma landing page focada em conversão para seu negócio",
-        additional_instructions: "Enfatize que landing pages são ideais para campanhas específicas, captação de leads e conversão. Mencione integração com ferramentas de marketing e CRM. Destaque o foco em resultados mensuráveis."
+        additional_instructions: "Enfatize que landing pages são ideais para campanhas específicas, captação de leads e conversão. Mencione integração com ferramentas de marketing e CRM. Destaque o foco em resultados mensuráveis.",
+        closing_instructions: "Agradeça o tempo do lead. Deixe um material educativo sobre landing pages. Ofereça enviar casos de sucesso por e-mail. Pergunte se pode entrar em contato em 15 dias para ver se houve mudança de cenário."
       },
       {
         name: "Venda de Site Institucional",
@@ -207,7 +215,8 @@ DIRETRIZES:
         rejection_action: "follow_up",
         tone: "friendly",
         main_objective: "Agendar uma reunião para apresentar como um site institucional pode fortalecer a presença digital do negócio",
-        additional_instructions: "Explique a importância de ter uma presença profissional online. Mencione que o site é responsivo (funciona em celular e computador) e que é a base da presença digital. Fale sobre seções como quem somos, serviços, depoimentos e contato."
+        additional_instructions: "Explique a importância de ter uma presença profissional online. Mencione que o site é responsivo (funciona em celular e computador) e que é a base da presença digital. Fale sobre seções como quem somos, serviços, depoimentos e contato.",
+        closing_instructions: "Seja cordial e compreensivo. Compartilhe um checklist gratuito 'Como avaliar se seu site está profissional'. Mantenha o contato aberto para quando estiver pronto. Ofereça adicionar no LinkedIn para compartilhar conteúdos sobre presença digital."
       },
       {
         name: "Venda de E-commerce",
@@ -216,7 +225,8 @@ DIRETRIZES:
         rejection_action: "ask_reason",
         tone: "enthusiastic",
         main_objective: "Demonstrar como um e-commerce pode expandir as vendas do negócio e agendar uma demonstração",
-        additional_instructions: "Destaque a oportunidade de vender 24/7, alcançar novos clientes e organizar melhor os pedidos. Mencione integração com meios de pagamento, cálculo de frete e gestão de catálogo. Enfatize que a solução é pensada para pequenos negócios com recursos limitados."
+        additional_instructions: "Destaque a oportunidade de vender 24/7, alcançar novos clientes e organizar melhor os pedidos. Mencione integração com meios de pagamento, cálculo de frete e gestão de catálogo. Enfatize que a solução é pensada para pequenos negócios com recursos limitados.",
+        closing_instructions: "Entenda o motivo da não conversão. Se for timing, agende contato para daqui 30 dias. Se for investimento, ofereça plano em etapas (começar com MVP). Envie calculadora de ROI para e-commerce. Mantenha relacionamento enviando conteúdo sobre vendas online."
       },
       {
         name: "Venda de Automação de Processos",
@@ -225,7 +235,8 @@ DIRETRIZES:
         rejection_action: "offer_alternative",
         tone: "professional",
         main_objective: "Identificar processos manuais que podem ser automatizados e propor uma reunião de mapeamento",
-        additional_instructions: "Pergunte sobre tarefas repetitivas que tomam tempo da equipe. Mencione exemplos como integração entre formulários e planilhas, envio automático de e-mails, sincronização de dados entre sistemas. Enfatize ganhos: redução de erros, economia de tempo e mais foco em tarefas estratégicas."
+        additional_instructions: "Pergunte sobre tarefas repetitivas que tomam tempo da equipe. Mencione exemplos como integração entre formulários e planilhas, envio automático de e-mails, sincronização de dados entre sistemas. Enfatize ganhos: redução de erros, economia de tempo e mais foco em tarefas estratégicas.",
+        closing_instructions: "Ofereça um diagnóstico gratuito de processos que podem ser automatizados. Envie um guia '5 sinais de que sua empresa precisa de automação'. Agende contato em 60 dias para revisar se a situação mudou. Deixe canal aberto para dúvidas sobre automação."
       },
       {
         name: "Venda de Chatbot WhatsApp",
@@ -234,7 +245,8 @@ DIRETRIZES:
         rejection_action: "follow_up",
         tone: "friendly",
         main_objective: "Apresentar os benefícios de um chatbot para atendimento e coletar informações sobre o volume de atendimentos do lead",
-        additional_instructions: "Explique que o chatbot atende 24/7, responde dúvidas frequentes rapidamente e organiza o fluxo de atendimento. Mencione que funciona no WhatsApp e site. Enfatize que não substitui humanos, mas complementa o atendimento, dando agilidade sem perder qualidade."
+        additional_instructions: "Explique que o chatbot atende 24/7, responde dúvidas frequentes rapidamente e organiza o fluxo de atendimento. Mencione que funciona no WhatsApp e site. Enfatize que não substitui humanos, mas complementa o atendimento, dando agilidade sem perder qualidade.",
+        closing_instructions: "Entenda se é falta de urgência ou receio da tecnologia. Ofereça teste gratuito por 7 dias. Compartilhe vídeo curto mostrando chatbot em ação. Pergunte se pode recontatar quando o volume de atendimentos aumentar. Adicione no grupo de dicas de atendimento no WhatsApp."
       },
       {
         name: "Black Friday - Chatbot WhatsApp",
@@ -243,7 +255,8 @@ DIRETRIZES:
         rejection_action: "ask_reason",
         tone: "enthusiastic",
         main_objective: "Criar urgência e convencer o lead a contratar um chatbot WhatsApp para não perder vendas durante a Black Friday",
-        additional_instructions: "URGÊNCIA É FUNDAMENTAL! Enfatize que a Black Friday está chegando e o lead pode perder muitas vendas por não conseguir atender todos os clientes. Destaque: volume alto de mensagens simultâneas, chatbot responde instantaneamente, não perde nenhum cliente, atende 24/7 durante o evento, qualifica leads automaticamente direcionando para vendedores apenas clientes prontos para comprar. Mencione que a implementação é rápida (pode estar pronto antes da Black Friday) e o ROI é imediato no evento. Use dados: 'loja que não responde em até 5 minutos perde 80% das vendas'. Ofereça condição especial com desconto para quem fechar hoje."
+        additional_instructions: "URGÊNCIA É FUNDAMENTAL! Enfatize que a Black Friday está chegando e o lead pode perder muitas vendas por não conseguir atender todos os clientes. Destaque: volume alto de mensagens simultâneas, chatbot responde instantaneamente, não perde nenhum cliente, atende 24/7 durante o evento, qualifica leads automaticamente direcionando para vendedores apenas clientes prontos para comprar. Mencione que a implementação é rápida (pode estar pronto antes da Black Friday) e o ROI é imediato no evento. Use dados: 'loja que não responde em até 5 minutos perde 80% das vendas'. Ofereça condição especial com desconto para quem fechar hoje.",
+        closing_instructions: "Reforce a URGÊNCIA: 'Cada dia sem chatbot é dinheiro deixado na mesa'. Se não fechar agora, mencione que para o próximo ano precisa planejar com antecedência. Ofereça último desconto válido só nas próximas 24h. Envie estudo de caso de loja que faturou 3x mais na Black Friday com chatbot. Se realmente não der, capture compromisso de conversar em janeiro para preparar próximas datas sazonais."
       }
     ];
 
@@ -396,6 +409,24 @@ DIRETRIZES:
                       <SelectItem value="polite_end">Encerrar Educadamente</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="closing_instructions">
+                    Como Finalizar Quando Não Fechar (Opcional)
+                  </Label>
+                  <Textarea
+                    id="closing_instructions"
+                    value={formData.closing_instructions}
+                    onChange={(e) =>
+                      setFormData({ ...formData, closing_instructions: e.target.value })
+                    }
+                    placeholder="Ex: Agradeça o tempo, envie material educativo, agende follow-up"
+                    rows={4}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Instruções específicas sobre como encerrar a conversa de forma estratégica quando o lead não converter
+                  </p>
                 </div>
 
                 <div className="space-y-2">
