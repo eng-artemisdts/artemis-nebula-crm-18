@@ -1,16 +1,37 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Home, Users, Settings, List, LogOut, FolderKanban, SearchCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { NavLink } from "@/components/NavLink";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+  useSidebar,
+} from "@/components/ui/sidebar";
 import logo from "@/assets/logo.png";
 
-export const Layout = ({ children }: { children: React.ReactNode }) => {
-  const location = useLocation();
+const menuItems = [
+  { title: "Painel", url: "/dashboard", icon: Home },
+  { title: "Todos os Leads", url: "/leads", icon: List },
+  { title: "Buscar Leads", url: "/lead-search", icon: SearchCheck },
+  { title: "Categorias", url: "/categories", icon: Users },
+  { title: "Gerenciar Categorias", url: "/category-manager", icon: FolderKanban },
+  { title: "Configurações", url: "/settings", icon: Settings },
+];
+
+function AppSidebar() {
+  const { state, open } = useSidebar();
   const navigate = useNavigate();
   const { toast } = useToast();
-
-  const isActive = (path: string) => location.pathname === path;
+  const location = useLocation();
 
   const handleLogout = async () => {
     try {
@@ -29,111 +50,84 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const isCollapsed = state === "collapsed";
+  const isClosed = !open;
+
   return (
-    <div className="min-h-screen bg-background flex">
-      {/* Sidebar */}
-      <aside className="w-80 bg-card border-r border-border flex flex-col fixed left-0 top-0 h-screen">
+    <Sidebar collapsible="icon">
+      <SidebarContent>
         {/* Logo */}
-        <div className="p-8 border-b border-border bg-gradient-to-br from-primary/5 to-accent/5">
-          <Link to="/dashboard" className="block group">
-            <div className="relative">
+        <div className={`border-b border-border bg-gradient-to-br from-primary/5 to-accent/5 transition-all ${isCollapsed ? 'p-2' : 'p-8'}`}>
+          <NavLink to="/dashboard" className="block group">
+            <div className="relative flex items-center justify-center">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-accent/30 blur-2xl opacity-50 group-hover:opacity-100 transition-opacity duration-500"></div>
               <img 
                 src={logo} 
                 alt="Artemis Nebula" 
-                className="w-[200px] h-[200px] relative z-10 transition-all duration-500 group-hover:scale-105 drop-shadow-2xl object-contain" 
+                className={`relative z-10 transition-all duration-500 group-hover:scale-105 drop-shadow-2xl object-contain ${
+                  isCollapsed ? 'w-10 h-10' : 'w-[200px] h-[200px]'
+                }`}
               />
             </div>
-          </Link>
+          </NavLink>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 overflow-y-auto">
-          <div className="space-y-2">
-            <Link
-              to="/dashboard"
-              className={`flex items-center gap-3 px-4 py-3 transition-all ${
-                isActive("/dashboard")
-                  ? "bg-primary text-primary-foreground shadow-lg"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
-              }`}
-            >
-              <Home className="w-5 h-5" />
-              <span className="font-medium">Painel</span>
-            </Link>
-            <Link
-              to="/leads"
-              className={`flex items-center gap-3 px-4 py-3 transition-all ${
-                isActive("/leads")
-                  ? "bg-primary text-primary-foreground shadow-lg"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
-              }`}
-            >
-              <List className="w-5 h-5" />
-              <span className="font-medium">Todos os Leads</span>
-            </Link>
-            <Link
-              to="/lead-search"
-              className={`flex items-center gap-3 px-4 py-3 transition-all ${
-                isActive("/lead-search")
-                  ? "bg-primary text-primary-foreground shadow-lg"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
-              }`}
-            >
-              <SearchCheck className="w-5 h-5" />
-              <span className="font-medium">Buscar Leads</span>
-            </Link>
-            <Link
-              to="/categories"
-              className={`flex items-center gap-3 px-4 py-3 transition-all ${
-                isActive("/categories")
-                  ? "bg-primary text-primary-foreground shadow-lg"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
-              }`}
-            >
-              <Users className="w-5 h-5" />
-              <span className="font-medium">Categorias</span>
-            </Link>
-            <Link
-              to="/category-manager"
-              className={`flex items-center gap-3 px-4 py-3 transition-all ${
-                isActive("/category-manager")
-                  ? "bg-primary text-primary-foreground shadow-lg"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
-              }`}
-            >
-              <FolderKanban className="w-5 h-5" />
-              <span className="font-medium">Gerenciar Categorias</span>
-            </Link>
-            <Link
-              to="/settings"
-              className={`flex items-center gap-3 px-4 py-3 transition-all ${
-                isActive("/settings")
-                  ? "bg-primary text-primary-foreground shadow-lg"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
-              }`}
-            >
-              <Settings className="w-5 h-5" />
-              <span className="font-medium">Configurações</span>
-            </Link>
-          </div>
-        </nav>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {menuItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild isActive={location.pathname === item.url}>
+                    <NavLink 
+                      to={item.url} 
+                      className="flex items-center gap-3 px-4 py-3 transition-all hover:bg-secondary/50"
+                      activeClassName="bg-primary text-primary-foreground shadow-lg"
+                    >
+                      <item.icon className="w-5 h-5 shrink-0" />
+                      {!isCollapsed && <span className="font-medium">{item.title}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
         {/* Logout Button */}
-        <div className="p-4 border-t border-border">
+        <div className="mt-auto p-4 border-t border-border">
           <Button
             variant="ghost"
-            className="w-full justify-start gap-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+            className={`w-full gap-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 ${
+              isCollapsed ? 'justify-center px-2' : 'justify-start'
+            }`}
             onClick={handleLogout}
           >
-            <LogOut className="h-5 w-5" />
-            <span className="font-medium">Sair</span>
+            <LogOut className="h-5 w-5 shrink-0" />
+            {!isCollapsed && <span className="font-medium">Sair</span>}
           </Button>
         </div>
-      </aside>
+      </SidebarContent>
+    </Sidebar>
+  );
+}
 
-      {/* Main Content */}
-      <main className="flex-1 ml-80 p-8">{children}</main>
-    </div>
+export const Layout = ({ children }: { children: React.ReactNode }) => {
+  return (
+    <SidebarProvider defaultOpen={true}>
+      <div className="min-h-screen flex w-full bg-background">
+        <AppSidebar />
+        
+        <div className="flex-1 flex flex-col">
+          {/* Header with trigger */}
+          <header className="h-14 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-40 flex items-center px-4">
+            <SidebarTrigger />
+          </header>
+
+          {/* Main Content */}
+          <main className="flex-1 p-8 overflow-auto">{children}</main>
+        </div>
+      </div>
+    </SidebarProvider>
   );
 };
