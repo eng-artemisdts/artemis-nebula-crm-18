@@ -92,12 +92,14 @@ const LeadSearch = () => {
 
       if (error) throw error;
       
-      setSearchResults(data.businesses || []);
+      // Filtra apenas negócios que possuem telefone (WhatsApp)
+      const businessesWithPhone = (data.businesses || []).filter((business: BusinessResult) => business.phone);
+      setSearchResults(businessesWithPhone);
       
-      if (data.businesses?.length === 0) {
-        toast.info("Nenhum negócio encontrado com os critérios informados");
+      if (businessesWithPhone.length === 0) {
+        toast.info("Nenhum negócio com WhatsApp encontrado");
       } else {
-        toast.success(`${data.businesses.length} negócio(s) encontrado(s)`);
+        toast.success(`${businessesWithPhone.length} negócio(s) com WhatsApp encontrado(s)`);
       }
     } catch (error: any) {
       toast.error("Erro ao buscar negócios: " + (error.message || "Erro desconhecido"));
