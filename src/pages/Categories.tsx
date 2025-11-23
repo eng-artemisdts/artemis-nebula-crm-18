@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { Layout } from "@/components/Layout";
 import { LeadCard } from "@/components/LeadCard";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Filter } from "lucide-react";
+import { Filter, Mail, MessageCircle, Sparkles } from "lucide-react";
 
 const Categories = () => {
   const [categories, setCategories] = useState<any[]>([]);
@@ -49,14 +50,39 @@ const Categories = () => {
     }
   }, [selectedCategory, leads]);
 
+  const handleStartAICapture = (channel: 'whatsapp' | 'email') => {
+    toast.info(`Captura de leads via ${channel === 'whatsapp' ? 'WhatsApp' : 'Email'} com AI em desenvolvimento`);
+  };
+
   return (
     <Layout>
       <div className="space-y-6 animate-fade-in">
-        <div>
-          <h1 className="text-3xl font-bold">Leads por Categoria</h1>
-          <p className="text-muted-foreground mt-1">
-            Filtre e visualize leads por categoria
-          </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Leads por Categoria</h1>
+            <p className="text-muted-foreground mt-1">
+              Filtre e visualize leads por categoria
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Button
+              onClick={() => handleStartAICapture('email')}
+              variant="outline"
+              className="gap-2"
+            >
+              <Mail className="w-4 h-4" />
+              Capturar via Email
+              <Sparkles className="w-4 h-4 text-primary" />
+            </Button>
+            <Button
+              onClick={() => handleStartAICapture('whatsapp')}
+              className="gap-2"
+            >
+              <MessageCircle className="w-4 h-4" />
+              Capturar via WhatsApp
+              <Sparkles className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
 
         <div className="max-w-md">
