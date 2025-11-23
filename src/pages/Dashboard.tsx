@@ -89,6 +89,7 @@ const Dashboard = () => {
       const { data, error } = await supabase
         .from("leads")
         .select("*")
+        .not("contact_whatsapp", "is", null)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
