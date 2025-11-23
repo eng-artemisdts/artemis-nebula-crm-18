@@ -90,6 +90,7 @@ const Dashboard = () => {
         .from("leads")
         .select("*")
         .not("contact_whatsapp", "is", null)
+        .eq("whatsapp_verified", true)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
