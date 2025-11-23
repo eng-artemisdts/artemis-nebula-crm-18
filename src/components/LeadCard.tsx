@@ -98,6 +98,13 @@ export const LeadCard = ({
       }
 
       toast.success("Conversa iniciada! Atualize a página para ver as mudanças.");
+      
+      // Abre o WhatsApp se houver número
+      if (lead.contact_whatsapp) {
+        const message = encodeURIComponent(`Olá ${lead.name}! Tudo bem?`);
+        const phoneNumber = lead.contact_whatsapp.replace(/\D/g, "");
+        window.open(`https://wa.me/${phoneNumber}?text=${message}`, '_blank');
+      }
     } catch (error: any) {
       toast.error("Erro ao iniciar conversa");
       console.error(error);
@@ -159,7 +166,7 @@ export const LeadCard = ({
           )}
           {lead.contact_whatsapp && (
             <a
-              href={`https://wa.me/${lead.contact_whatsapp.replace(/\D/g, "")}`}
+              href={`https://wa.me/${lead.contact_whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(`Olá ${lead.name}! Tudo bem?`)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1 hover:text-primary transition-colors"
