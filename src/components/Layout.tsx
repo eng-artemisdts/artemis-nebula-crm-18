@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, Users, Settings, List, LogOut } from "lucide-react";
+import { Home, Users, Settings, List, LogOut, FolderKanban, SearchCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -63,6 +63,17 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                   <span className="hidden sm:inline">Leads</span>
                 </Link>
                 <Link
+                  to="/lead-search"
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                    isActive("/lead-search")
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  }`}
+                >
+                  <SearchCheck className="w-4 h-4" />
+                  <span className="hidden sm:inline">Buscar</span>
+                </Link>
+                <Link
                   to="/categories"
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
                     isActive("/categories")
@@ -71,7 +82,18 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                   }`}
                 >
                   <Users className="w-4 h-4" />
-                  <span className="hidden sm:inline">Categorias</span>
+                  <span className="hidden sm:inline">Ver Categorias</span>
+                </Link>
+                <Link
+                  to="/category-manager"
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                    isActive("/category-manager")
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  }`}
+                >
+                  <FolderKanban className="w-4 h-4" />
+                  <span className="hidden sm:inline">Gerenciar</span>
                 </Link>
                 <Link
                   to="/settings"
@@ -82,7 +104,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                   }`}
                 >
                   <Settings className="w-4 h-4" />
-                  <span className="hidden sm:inline">Configurações</span>
+                  <span className="hidden sm:inline">Config</span>
                 </Link>
               </nav>
               <Button
