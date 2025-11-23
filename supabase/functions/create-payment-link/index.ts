@@ -60,9 +60,9 @@ serve(async (req) => {
     const amountInCents = Math.round(amount * 100);
     console.log(`[CREATE-PAYMENT-LINK] Amount in cents: ${amountInCents}`);
 
-    // Create a Checkout Session with PIX, card, and boleto support
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card', 'boleto', 'pix'],
+    // Create a Checkout Session - try with PIX first, fallback to card and boleto only
+    let session;
+    const sessionConfig = {
       line_items: [
         {
           price_data: {
@@ -76,7 +76,7 @@ serve(async (req) => {
           quantity: 1,
         },
       ],
-      mode: 'payment',
+      mode: 'payment' as const,
       success_url: `${req.headers.get("origin")}/lead/${leadId}?payment=success`,
       cancel_url: `${req.headers.get("origin")}/lead/${leadId}?payment=cancelled`,
       metadata: {
@@ -84,7 +84,29 @@ serve(async (req) => {
         lead_name: lead.name,
         lead_amount: amount.toString(),
       },
-    });
+    };
+
+    try {
+      // Try with PIX, card, and boleto
+      console.log(`[CREATE-PAYMENT-LINK] Attempting to create session with PIX support`);
+      session = await stripe.checkout.sessions.create({
+        ...sessionConfig,
+        payment_method_types: ['card', 'boleto', 'pix'],
+      });
+      console.log(`[CREATE-PAYMENT-LINK] Session created with PIX support`);
+    } catch (pixError: any) {
+      // If PIX is not available, fallback to card and boleto only
+      if (pixError.code === 'parameter_invalid_value' || pixError.rawType === 'invalid_request_error') {
+        console.log(`[CREATE-PAYMENT-LINK] PIX not available, creating session without PIX`);
+        session = await stripe.checkout.sessions.create({
+          ...sessionConfig,
+          payment_method_types: ['card', 'boleto'],
+        });
+        console.log(`[CREATE-PAYMENT-LINK] Session created without PIX (card and boleto only)`);
+      } else {
+        throw pixError;
+      }
+    }
 
     console.log(`[CREATE-PAYMENT-LINK] Checkout session created: ${session.url}`);
 
