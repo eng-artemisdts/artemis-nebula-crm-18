@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Eye, Copy } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, Copy, CheckSquare, Square } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface AIInteractionSetting {
   id: string;
@@ -32,6 +33,8 @@ const AIInteraction = () => {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewPrompt, setPreviewPrompt] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     conversation_focus: "",
@@ -180,6 +183,43 @@ DIRETRIZES:
     toast.success("Prompt copiado para a área de transferência!");
   };
 
+  const toggleSelection = (id: string) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === settings.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(settings.map(s => s.id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    
+    if (!confirm(`Deseja realmente excluir ${selectedIds.length} configuração(ões)?`)) return;
+
+    setLoading(true);
+    const { error } = await supabase
+      .from("ai_interaction_settings")
+      .delete()
+      .in("id", selectedIds);
+
+    if (error) {
+      toast.error("Erro ao excluir configurações");
+      console.error(error);
+    } else {
+      toast.success(`${selectedIds.length} configuração(ões) excluída(s) com sucesso!`);
+      setSelectedIds([]);
+      setIsSelectionMode(false);
+      fetchSettings();
+    }
+    setLoading(false);
+  };
+
   const resetForm = () => {
     setEditingId(null);
     setFormData({
@@ -296,6 +336,54 @@ DIRETRIZES:
               >
                 Criar Configurações Padrão
               </Button>
+            )}
+            {settings.length > 0 && (
+              <>
+                {isSelectionMode ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={toggleSelectAll}
+                    >
+                      {selectedIds.length === settings.length ? (
+                        <>
+                          <Square className="w-4 h-4 mr-2" />
+                          Desmarcar Todos
+                        </>
+                      ) : (
+                        <>
+                          <CheckSquare className="w-4 h-4 mr-2" />
+                          Selecionar Todos
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={handleBulkDelete}
+                      disabled={selectedIds.length === 0 || loading}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Excluir {selectedIds.length > 0 && `(${selectedIds.length})`}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsSelectionMode(false);
+                        setSelectedIds([]);
+                      }}
+                    >
+                      Cancelar
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsSelectionMode(true)}
+                  >
+                    Selecionar Múltiplos
+                  </Button>
+                )}
+              </>
             )}
             <Dialog open={dialogOpen} onOpenChange={(open) => {
               setDialogOpen(open);
@@ -478,7 +566,15 @@ DIRETRIZES:
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {settings.map((setting) => (
-              <Card key={setting.id} className="p-6 space-y-4">
+              <Card key={setting.id} className="p-6 space-y-4 relative">
+                {isSelectionMode && (
+                  <div className="absolute top-4 right-4">
+                    <Checkbox
+                      checked={selectedIds.includes(setting.id)}
+                      onCheckedChange={() => toggleSelection(setting.id)}
+                    />
+                  </div>
+                )}
                 <div>
                   <h3 className="font-semibold text-lg">{setting.name}</h3>
                   <p className="text-sm text-muted-foreground mt-1">
@@ -519,31 +615,33 @@ DIRETRIZES:
                   </div>
                 </div>
 
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => handlePreview(setting)}
-                  >
-                    <Eye className="w-4 h-4 mr-1" />
-                    Preview
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleEdit(setting)}
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDelete(setting.id)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
+                {!isSelectionMode && (
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => handlePreview(setting)}
+                    >
+                      <Eye className="w-4 h-4 mr-1" />
+                      Preview
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEdit(setting)}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDelete(setting.id)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
               </Card>
             ))}
           </div>
