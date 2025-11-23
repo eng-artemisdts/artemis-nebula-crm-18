@@ -235,6 +235,15 @@ DIRETRIZES:
         tone: "friendly",
         main_objective: "Apresentar os benefícios de um chatbot para atendimento e coletar informações sobre o volume de atendimentos do lead",
         additional_instructions: "Explique que o chatbot atende 24/7, responde dúvidas frequentes rapidamente e organiza o fluxo de atendimento. Mencione que funciona no WhatsApp e site. Enfatize que não substitui humanos, mas complementa o atendimento, dando agilidade sem perder qualidade."
+      },
+      {
+        name: "Black Friday - Chatbot WhatsApp",
+        conversation_focus: "implementação urgente de chatbot para Black Friday",
+        priority: "high",
+        rejection_action: "ask_reason",
+        tone: "enthusiastic",
+        main_objective: "Criar urgência e convencer o lead a contratar um chatbot WhatsApp para não perder vendas durante a Black Friday",
+        additional_instructions: "URGÊNCIA É FUNDAMENTAL! Enfatize que a Black Friday está chegando e o lead pode perder muitas vendas por não conseguir atender todos os clientes. Destaque: volume alto de mensagens simultâneas, chatbot responde instantaneamente, não perde nenhum cliente, atende 24/7 durante o evento, qualifica leads automaticamente direcionando para vendedores apenas clientes prontos para comprar. Mencione que a implementação é rápida (pode estar pronto antes da Black Friday) e o ROI é imediato no evento. Use dados: 'loja que não responde em até 5 minutos perde 80% das vendas'. Ofereça condição especial com desconto para quem fechar hoje."
       }
     ];
 
