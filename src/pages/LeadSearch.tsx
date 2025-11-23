@@ -5,9 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Search, MapPin, Plus, Loader2 } from "lucide-react";
+import { Search, MapPin, Plus, Loader2, X } from "lucide-react";
 
 interface BusinessResult {
   name: string;
@@ -22,6 +23,7 @@ interface BusinessResult {
 const LeadSearch = () => {
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState("");
   const [searchParams, setSearchParams] = useState({
     location: "",
     radius: "5000",
@@ -42,12 +44,24 @@ const LeadSearch = () => {
     setCategories(data || []);
   };
 
+  const filteredCategories = categories.filter((cat) =>
+    cat.name.toLowerCase().includes(categoryFilter.toLowerCase())
+  );
+
   const handleCategoryToggle = (categoryName: string) => {
     setSelectedCategories((prev) =>
       prev.includes(categoryName)
         ? prev.filter((c) => c !== categoryName)
         : [...prev, categoryName]
     );
+  };
+
+  const handleSelectAll = () => {
+    setSelectedCategories(filteredCategories.map((cat) => cat.name));
+  };
+
+  const handleClearSelection = () => {
+    setSelectedCategories([]);
   };
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -142,25 +156,83 @@ const LeadSearch = () => {
         </div>
 
         <Card className="p-6 space-y-6">
-          <div>
-            <h3 className="text-lg font-semibold mb-3">Selecione as Categorias</h3>
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {categories.map((category) => (
-                <div key={category.id} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={category.id}
-                    checked={selectedCategories.includes(category.name)}
-                    onCheckedChange={() => handleCategoryToggle(category.name)}
-                  />
-                  <label
-                    htmlFor={category.id}
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                  >
-                    {category.name}
-                  </label>
-                </div>
-              ))}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Selecione as Categorias</h3>
+              {selectedCategories.length > 0 && (
+                <span className="text-sm text-muted-foreground">
+                  {selectedCategories.length} selecionada(s)
+                </span>
+              )}
             </div>
+
+            {categories.length > 0 && (
+              <>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      value={categoryFilter}
+                      onChange={(e) => setCategoryFilter(e.target.value)}
+                      placeholder="Filtrar categorias..."
+                      className="pl-10"
+                    />
+                    {categoryFilter && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                        onClick={() => setCategoryFilter("")}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSelectAll}
+                    disabled={filteredCategories.length === 0}
+                  >
+                    Selecionar Todas
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleClearSelection}
+                    disabled={selectedCategories.length === 0}
+                  >
+                    Limpar
+                  </Button>
+                </div>
+
+                <ScrollArea className="h-[300px] border rounded-md p-4">
+                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                    {filteredCategories.map((category) => (
+                      <div key={category.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={category.id}
+                          checked={selectedCategories.includes(category.name)}
+                          onCheckedChange={() => handleCategoryToggle(category.name)}
+                        />
+                        <label
+                          htmlFor={category.id}
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                        >
+                          {category.name}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                  {filteredCategories.length === 0 && categoryFilter && (
+                    <p className="text-sm text-muted-foreground text-center py-8">
+                      Nenhuma categoria encontrada com "{categoryFilter}"
+                    </p>
+                  )}
+                </ScrollArea>
+              </>
+            )}
+
             {categories.length === 0 && (
               <p className="text-sm text-muted-foreground">
                 Nenhuma categoria disponível. Crie categorias primeiro.
