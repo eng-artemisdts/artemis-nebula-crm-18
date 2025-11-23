@@ -127,7 +127,7 @@ export const LeadCard = ({
       if (lead.contact_whatsapp) {
         const message = encodeURIComponent(`Olá ${lead.name}! Tudo bem?`);
         const phoneNumber = formatWhatsAppNumber(lead.contact_whatsapp);
-        window.open(`https://wa.me/${phoneNumber}?text=${message}`, '_blank');
+        window.open(`https://api.whatsapp.com/send?phone=${phoneNumber}&text=${message}`, '_blank');
       }
     } catch (error: any) {
       toast.error("Erro ao iniciar conversa");
@@ -190,7 +190,7 @@ export const LeadCard = ({
           )}
           {lead.contact_whatsapp && (
             <a
-              href={`https://wa.me/${formatWhatsAppNumber(lead.contact_whatsapp)}?text=${encodeURIComponent(`Olá ${lead.name}! Tudo bem?`)}`}
+              href={`https://api.whatsapp.com/send?phone=${formatWhatsAppNumber(lead.contact_whatsapp)}&text=${encodeURIComponent(`Olá ${lead.name}! Tudo bem?`)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1 hover:text-primary transition-colors"
