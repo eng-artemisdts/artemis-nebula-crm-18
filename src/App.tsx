@@ -11,6 +11,7 @@ import Leads from "./pages/Leads";
 import Categories from "./pages/Categories";
 import CategoryManager from "./pages/CategoryManager";
 import LeadSearch from "./pages/LeadSearch";
+import AIInteraction from "./pages/AIInteraction";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -71,6 +72,14 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <LeadSearch />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/ai-interaction"
+            element={
+              <ProtectedRoute>
+                <AIInteraction />
               </ProtectedRoute>
             }
           />

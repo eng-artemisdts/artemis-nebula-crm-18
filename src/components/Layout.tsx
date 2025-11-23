@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { Home, Users, Settings, List, LogOut, FolderKanban, SearchCheck } from "lucide-react";
+import { Home, Users, Settings, List, LogOut, FolderKanban, SearchCheck, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -22,6 +22,7 @@ const menuItems = [
   { title: "Painel", url: "/dashboard", icon: Home },
   { title: "Todos os Leads", url: "/leads", icon: List },
   { title: "Buscar Leads", url: "/lead-search", icon: SearchCheck },
+  { title: "Interações com IA", url: "/ai-interaction", icon: Bot },
   { title: "Categorias", url: "/categories", icon: Users },
   { title: "Gerenciar Categorias", url: "/category-manager", icon: FolderKanban },
   { title: "Configurações", url: "/settings", icon: Settings },
