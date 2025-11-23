@@ -4,6 +4,8 @@ import { Mail, Phone, Clock, DollarSign, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 type Lead = {
   id: string;
@@ -22,13 +24,44 @@ type Lead = {
   created_at: string;
 };
 
-export const LeadCard = ({ lead }: { lead: Lead }) => {
+export const LeadCard = ({ 
+  lead, 
+  isDraggable = false 
+}: { 
+  lead: Lead;
+  isDraggable?: boolean;
+}) => {
   const navigate = useNavigate();
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ 
+    id: lead.id,
+    disabled: !isDraggable,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
 
   return (
     <Card
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
       className="p-4 cursor-pointer hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/10 group"
-      onClick={() => navigate(`/lead/${lead.id}`)}
+      onClick={(e) => {
+        if (!isDragging) {
+          navigate(`/lead/${lead.id}`);
+        }
+      }}
     >
       <div className="space-y-3">
         <div className="flex items-start justify-between gap-2">

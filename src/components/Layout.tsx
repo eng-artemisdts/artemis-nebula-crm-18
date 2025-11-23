@@ -36,7 +36,14 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <Link to="/dashboard" className="flex items-center gap-3 group">
-              <img src={logo} alt="Artemis Nebula" className="h-10 transition-transform group-hover:scale-105" />
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-accent/20 blur-xl rounded-full"></div>
+                <img 
+                  src={logo} 
+                  alt="Artemis Nebula" 
+                  className="h-12 relative z-10 transition-all duration-300 group-hover:scale-110 drop-shadow-lg" 
+                />
+              </div>
             </Link>
             <div className="flex items-center gap-2">
               <nav className="flex items-center gap-1">
@@ -49,7 +56,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                   }`}
                 >
                   <Home className="w-4 h-4" />
-                  <span className="hidden sm:inline">Dashboard</span>
+                  <span className="hidden sm:inline">Painel</span>
                 </Link>
                 <Link
                   to="/leads"
@@ -60,7 +67,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                   }`}
                 >
                   <List className="w-4 h-4" />
-                  <span className="hidden sm:inline">Leads</span>
+                  <span className="hidden sm:inline">Todos os Leads</span>
                 </Link>
                 <Link
                   to="/lead-search"
@@ -71,7 +78,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                   }`}
                 >
                   <SearchCheck className="w-4 h-4" />
-                  <span className="hidden sm:inline">Buscar</span>
+                  <span className="hidden sm:inline">Buscar Leads</span>
                 </Link>
                 <Link
                   to="/categories"
@@ -82,7 +89,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                   }`}
                 >
                   <Users className="w-4 h-4" />
-                  <span className="hidden sm:inline">Ver Categorias</span>
+                  <span className="hidden sm:inline">Categorias</span>
                 </Link>
                 <Link
                   to="/category-manager"
@@ -93,7 +100,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                   }`}
                 >
                   <FolderKanban className="w-4 h-4" />
-                  <span className="hidden sm:inline">Gerenciar</span>
+                  <span className="hidden sm:inline">Gerenciar Categorias</span>
                 </Link>
                 <Link
                   to="/settings"
@@ -104,7 +111,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                   }`}
                 >
                   <Settings className="w-4 h-4" />
-                  <span className="hidden sm:inline">Config</span>
+                  <span className="hidden sm:inline">Configurações</span>
                 </Link>
               </nav>
               <Button
