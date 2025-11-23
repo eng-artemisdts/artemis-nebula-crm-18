@@ -11,6 +11,30 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useState } from "react";
 
+// Função para formatar número do WhatsApp com código do país
+const formatWhatsAppNumber = (phone: string): string => {
+  // Remove todos os caracteres não numéricos
+  const cleanNumber = phone.replace(/\D/g, "");
+  
+  // Se o número já começa com 55 (Brasil), retorna como está
+  if (cleanNumber.startsWith("55")) {
+    return cleanNumber;
+  }
+  
+  // Se o número tem 11 dígitos (celular BR) ou 10 dígitos (fixo BR), adiciona 55
+  if (cleanNumber.length === 11 || cleanNumber.length === 10) {
+    return `55${cleanNumber}`;
+  }
+  
+  // Se o número já tem código de país (mais de 11 dígitos), retorna como está
+  if (cleanNumber.length > 11) {
+    return cleanNumber;
+  }
+  
+  // Caso padrão: adiciona 55
+  return `55${cleanNumber}`;
+};
+
 type Lead = {
   id: string;
   name: string;
@@ -102,7 +126,7 @@ export const LeadCard = ({
       // Abre o WhatsApp se houver número
       if (lead.contact_whatsapp) {
         const message = encodeURIComponent(`Olá ${lead.name}! Tudo bem?`);
-        const phoneNumber = lead.contact_whatsapp.replace(/\D/g, "");
+        const phoneNumber = formatWhatsAppNumber(lead.contact_whatsapp);
         window.open(`https://wa.me/${phoneNumber}?text=${message}`, '_blank');
       }
     } catch (error: any) {
@@ -166,7 +190,7 @@ export const LeadCard = ({
           )}
           {lead.contact_whatsapp && (
             <a
-              href={`https://wa.me/${lead.contact_whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(`Olá ${lead.name}! Tudo bem?`)}`}
+              href={`https://wa.me/${formatWhatsAppNumber(lead.contact_whatsapp)}?text=${encodeURIComponent(`Olá ${lead.name}! Tudo bem?`)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1 hover:text-primary transition-colors"
