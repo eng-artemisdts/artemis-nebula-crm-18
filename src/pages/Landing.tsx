@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Rocket, Zap, Shield, TrendingUp } from "lucide-react";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import logo from "@/assets/logo.png";
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -36,7 +37,7 @@ const Landing = () => {
         
         <nav className="relative z-10 container mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
-            <img src="/src/assets/logo.png" alt="Artemis Nebula" className="h-16 hover-scale" />
+            <img src={logo} alt="Artemis Nebula" className="h-16 hover-scale" />
             <Link to="/login">
               <Button variant="outline" className="border-primary/50 hover:bg-primary/10">
                 Entrar
@@ -49,7 +50,7 @@ const Landing = () => {
           <div className="max-w-4xl mx-auto text-center space-y-8">
             <div className="mb-4 animate-scale-in">
               <img 
-                src="/src/assets/logo.png" 
+                src={logo} 
                 alt="Artemis Nebula" 
                 className="h-40 md:h-52 mx-auto hover-scale" 
               />
