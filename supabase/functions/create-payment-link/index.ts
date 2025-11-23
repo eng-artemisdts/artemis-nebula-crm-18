@@ -60,8 +60,9 @@ serve(async (req) => {
     const amountInCents = Math.round(amount * 100);
     console.log(`[CREATE-PAYMENT-LINK] Amount in cents: ${amountInCents}`);
 
-    // Create a payment link with dynamic price
-    const paymentLink = await stripe.paymentLinks.create({
+    // Create a Checkout Session with PIX, card, and boleto support
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card', 'boleto', 'pix'],
       line_items: [
         {
           price_data: {
@@ -75,7 +76,9 @@ serve(async (req) => {
           quantity: 1,
         },
       ],
-      payment_method_types: ['card', 'boleto'],
+      mode: 'payment',
+      success_url: `${req.headers.get("origin")}/lead/${leadId}?payment=success`,
+      cancel_url: `${req.headers.get("origin")}/lead/${leadId}?payment=cancelled`,
       metadata: {
         lead_id: leadId,
         lead_name: lead.name,
@@ -83,14 +86,14 @@ serve(async (req) => {
       },
     });
 
-    console.log(`[CREATE-PAYMENT-LINK] Payment link created: ${paymentLink.url}`);
+    console.log(`[CREATE-PAYMENT-LINK] Checkout session created: ${session.url}`);
 
     // Update lead with payment information
     const { error: updateError } = await supabaseClient
       .from("leads")
       .update({
-        payment_link_url: paymentLink.url,
-        payment_stripe_id: paymentLink.id,
+        payment_link_url: session.url,
+        payment_stripe_id: session.id,
         payment_status: "link_gerado",
         payment_amount: amount,
       })
@@ -105,8 +108,8 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ 
-        url: paymentLink.url,
-        stripe_id: paymentLink.id,
+        url: session.url,
+        stripe_id: session.id,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -155,7 +155,10 @@ const LeadForm = () => {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("create-payment-link", {
-        body: { leadId: id },
+        body: { 
+          leadId: id,
+          paymentAmount: amount 
+        },
       });
 
       if (error) throw error;
@@ -167,9 +170,12 @@ const LeadForm = () => {
       });
       
       await fetchLead();
-      toast.success("Link de pagamento gerado com sucesso!");
+      
+      // Open checkout in new tab
+      window.open(data.url, '_blank');
+      toast.success("Checkout aberto! Complete o pagamento na nova aba.");
     } catch (error: any) {
-      toast.error("Erro ao gerar link de pagamento");
+      toast.error("Erro ao gerar checkout de pagamento");
       console.error(error);
     } finally {
       setLoading(false);
