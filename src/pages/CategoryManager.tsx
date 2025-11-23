@@ -358,9 +358,17 @@ const CategoryManager = () => {
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {categories.map((category) => (
-            <Card key={category.id} className="p-4 space-y-3 relative">
+            <Card 
+              key={category.id} 
+              className={`p-4 space-y-3 relative transition-colors ${
+                isSelectionMode ? 'cursor-pointer hover:bg-accent/50' : ''
+              } ${
+                selectedIds.includes(category.id) ? 'ring-2 ring-primary bg-accent/30' : ''
+              }`}
+              onClick={() => isSelectionMode && toggleSelection(category.id)}
+            >
               {isSelectionMode && (
-                <div className="absolute top-4 right-4">
+                <div className="absolute top-4 right-4 pointer-events-none">
                   <Checkbox
                     checked={selectedIds.includes(category.id)}
                     onCheckedChange={() => toggleSelection(category.id)}

@@ -230,20 +230,24 @@ const Leads = () => {
         ) : filteredLeads.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredLeads.map((lead) => (
-              <div key={lead.id} className="relative">
+              <div 
+                key={lead.id} 
+                className={`relative transition-all ${
+                  isSelectionMode ? 'cursor-pointer' : ''
+                } ${
+                  selectedIds.includes(lead.id) ? 'ring-2 ring-primary rounded-lg' : ''
+                }`}
+                onClick={isSelectionMode ? () => toggleSelection(lead.id) : undefined}
+              >
                 {isSelectionMode && (
-                  <div className="absolute top-4 right-4 z-10">
+                  <div className="absolute top-4 right-4 z-10 pointer-events-none bg-background/80 backdrop-blur-sm rounded p-1">
                     <Checkbox
                       checked={selectedIds.includes(lead.id)}
                       onCheckedChange={() => toggleSelection(lead.id)}
-                      onClick={(e) => e.stopPropagation()}
                     />
                   </div>
                 )}
-                <div onClick={isSelectionMode ? (e) => {
-                  e.preventDefault();
-                  toggleSelection(lead.id);
-                } : undefined}>
+                <div className={isSelectionMode ? 'pointer-events-none' : ''}>
                   <LeadCard lead={lead} />
                 </div>
               </div>

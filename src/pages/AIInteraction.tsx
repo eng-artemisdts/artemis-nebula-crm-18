@@ -566,9 +566,17 @@ DIRETRIZES:
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {settings.map((setting) => (
-              <Card key={setting.id} className="p-6 space-y-4 relative">
+              <Card 
+                key={setting.id} 
+                className={`p-6 space-y-4 relative transition-colors ${
+                  isSelectionMode ? 'cursor-pointer hover:bg-accent/50' : ''
+                } ${
+                  selectedIds.includes(setting.id) ? 'ring-2 ring-primary bg-accent/30' : ''
+                }`}
+                onClick={() => isSelectionMode && toggleSelection(setting.id)}
+              >
                 {isSelectionMode && (
-                  <div className="absolute top-4 right-4">
+                  <div className="absolute top-4 right-4 pointer-events-none">
                     <Checkbox
                       checked={selectedIds.includes(setting.id)}
                       onCheckedChange={() => toggleSelection(setting.id)}
