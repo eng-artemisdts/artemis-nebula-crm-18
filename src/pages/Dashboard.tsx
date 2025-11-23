@@ -7,6 +7,16 @@ import { Users, DollarSign, TrendingUp, Target, Plus, Clock } from "lucide-react
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 
 const statusColumns = [
   { id: "novo", label: "Novo" },
@@ -21,6 +31,15 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [leads, setLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
 
   const fetchLeads = async () => {
     try {
@@ -46,6 +65,50 @@ const Dashboard = () => {
   const getLeadsByStatus = (status: string) => {
     return leads.filter((lead) => lead.status === status);
   };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (!over) return;
+
+    const leadId = active.id as string;
+    const newStatus = over.id as string;
+
+    // Encontra o lead que está sendo movido
+    const lead = leads.find((l) => l.id === leadId);
+    if (!lead || lead.status === newStatus) return;
+
+    // Atualiza otimisticamente
+    setLeads((prevLeads) =>
+      prevLeads.map((l) => (l.id === leadId ? { ...l, status: newStatus } : l))
+    );
+
+    // Atualiza no banco
+    try {
+      const { error } = await supabase
+        .from("leads")
+        .update({ status: newStatus })
+        .eq("id", leadId);
+
+      if (error) throw error;
+
+      toast.success("Lead atualizado com sucesso!");
+    } catch (error: any) {
+      // Reverte em caso de erro
+      setLeads((prevLeads) =>
+        prevLeads.map((l) => (l.id === leadId ? { ...l, status: lead.status } : l))
+      );
+      toast.error("Erro ao atualizar lead");
+      console.error(error);
+    }
+  };
+
+  const activeLead = activeId ? leads.find((l) => l.id === activeId) : null;
 
   const stats = {
     total: leads.length,
@@ -143,32 +206,51 @@ const Dashboard = () => {
         {/* Kanban Board */}
         <div>
           <h2 className="text-2xl font-bold mb-6">Funil de Vendas</h2>
-          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-            {statusColumns.map((column) => {
-              const columnLeads = getLeadsByStatus(column.id);
-              return (
-                <div key={column.id} className="space-y-3">
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-card border border-border">
-                    <h3 className="font-semibold text-sm">{column.label}</h3>
-                    <span className="text-xs font-medium px-2 py-1 rounded-full bg-primary/10 text-primary">
-                      {columnLeads.length}
-                    </span>
-                  </div>
-                  <div className="space-y-3">
-                    {columnLeads.length > 0 ? (
-                      columnLeads.map((lead) => (
-                        <LeadCard key={lead.id} lead={lead} />
-                      ))
-                    ) : (
-                      <div className="p-4 text-center text-sm text-muted-foreground border-2 border-dashed border-border rounded-lg">
-                        Nenhum lead
+          <DndContext
+            sensors={sensors}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+              {statusColumns.map((column) => {
+                const columnLeads = getLeadsByStatus(column.id);
+                return (
+                  <SortableContext
+                    key={column.id}
+                    id={column.id}
+                    items={columnLeads.map((l) => l.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-card border border-border">
+                        <h3 className="font-semibold text-sm">{column.label}</h3>
+                        <span className="text-xs font-medium px-2 py-1 rounded-full bg-primary/10 text-primary">
+                          {columnLeads.length}
+                        </span>
                       </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                      <div
+                        className="space-y-3 min-h-[100px] p-2 rounded-lg transition-colors"
+                        data-status={column.id}
+                      >
+                        {columnLeads.length > 0 ? (
+                          columnLeads.map((lead) => (
+                            <LeadCard key={lead.id} lead={lead} isDraggable />
+                          ))
+                        ) : (
+                          <div className="p-4 text-center text-sm text-muted-foreground border-2 border-dashed border-border rounded-lg">
+                            Nenhum lead
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </SortableContext>
+                );
+              })}
+            </div>
+            <DragOverlay>
+              {activeLead ? <LeadCard lead={activeLead} isDraggable={false} /> : null}
+            </DragOverlay>
+          </DndContext>
         </div>
       </div>
     </Layout>
