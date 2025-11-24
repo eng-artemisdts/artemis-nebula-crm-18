@@ -109,19 +109,19 @@ function AppSidebar() {
 
         {/* Plan Section */}
         <div className="mt-auto p-4 border-t border-border space-y-3">
-          {!isCollapsed && (
+          {!isCollapsed && organization?.plan === "free" && (
             <div className="bg-gradient-to-br from-primary/10 to-accent/10 p-3 rounded-lg border border-primary/20">
               <div className="flex items-center gap-2 mb-2">
                 <CreditCard className="h-4 w-4 text-primary" />
                 <span className="text-xs font-semibold text-muted-foreground">Plano Atual</span>
               </div>
-              <p className="text-sm font-bold text-foreground capitalize mb-3">{organization?.plan || "free"}</p>
+              <p className="text-sm font-bold text-foreground capitalize mb-3">{organization?.plan}</p>
               <Button
                 size="sm"
                 className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
                 onClick={() => setIsPlanModalOpen(true)}
               >
-                Mudar de Plano
+                Upgrade para Premium
               </Button>
             </div>
           )}

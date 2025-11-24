@@ -177,30 +177,32 @@ const Settings = () => {
 
         <div className="space-y-6">
           {/* Plan Management Section */}
-          <Card className="p-6 space-y-4 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/20 text-primary">
-                  <CreditCard className="w-5 h-5" />
+          {organization?.plan === "free" && (
+            <Card className="p-6 space-y-4 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-primary/20 text-primary">
+                    <CreditCard className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold">Plano Atual</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Você está no plano{" "}
+                      <span className="font-semibold text-primary capitalize">
+                        {organization?.plan}
+                      </span>
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-lg font-semibold">Plano Atual</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Você está no plano{" "}
-                    <span className="font-semibold text-primary capitalize">
-                      {organization?.plan || "free"}
-                    </span>
-                  </p>
-                </div>
+                <Button
+                  onClick={() => setIsPlanModalOpen(true)}
+                  className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+                >
+                  Upgrade para Premium
+                </Button>
               </div>
-              <Button
-                onClick={() => setIsPlanModalOpen(true)}
-                className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
-              >
-                Mudar de Plano
-              </Button>
-            </div>
-          </Card>
+            </Card>
+          )}
 
           {/* Company Information Section */}
           <Card className="p-6 space-y-4">
