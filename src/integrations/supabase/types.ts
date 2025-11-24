@@ -282,6 +282,59 @@ export type Database = {
           },
         ]
       }
+      whatsapp_instances: {
+        Row: {
+          api_key: string | null
+          connected_at: string | null
+          created_at: string
+          id: string
+          instance_id: string | null
+          instance_name: string
+          organization_id: string | null
+          phone_number: string | null
+          qr_code: string | null
+          status: string
+          updated_at: string
+          webhook_url: string | null
+        }
+        Insert: {
+          api_key?: string | null
+          connected_at?: string | null
+          created_at?: string
+          id?: string
+          instance_id?: string | null
+          instance_name: string
+          organization_id?: string | null
+          phone_number?: string | null
+          qr_code?: string | null
+          status?: string
+          updated_at?: string
+          webhook_url?: string | null
+        }
+        Update: {
+          api_key?: string | null
+          connected_at?: string | null
+          created_at?: string
+          id?: string
+          instance_id?: string | null
+          instance_name?: string
+          organization_id?: string | null
+          phone_number?: string | null
+          qr_code?: string | null
+          status?: string
+          updated_at?: string
+          webhook_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_instances_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
