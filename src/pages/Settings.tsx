@@ -6,8 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Save, Settings as SettingsIcon, Building2, Upload } from "lucide-react";
+import { Save, Settings as SettingsIcon, Building2, Upload, CreditCard } from "lucide-react";
 import { useOrganization } from "@/hooks/useOrganization";
+import { PlanModal } from "@/components/PlanModal";
 
 const Settings = () => {
   const [loading, setLoading] = useState(false);
@@ -27,6 +28,7 @@ const Settings = () => {
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
 
   useEffect(() => {
     fetchSettings();
@@ -174,6 +176,32 @@ const Settings = () => {
         </div>
 
         <div className="space-y-6">
+          {/* Plan Management Section */}
+          <Card className="p-6 space-y-4 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/20 text-primary">
+                  <CreditCard className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">Plano Atual</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Você está no plano{" "}
+                    <span className="font-semibold text-primary capitalize">
+                      {organization?.plan || "free"}
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={() => setIsPlanModalOpen(true)}
+                className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+              >
+                Mudar de Plano
+              </Button>
+            </div>
+          </Card>
+
           {/* Company Information Section */}
           <Card className="p-6 space-y-4">
             <div className="flex items-center gap-3 mb-4">
@@ -362,6 +390,8 @@ const Settings = () => {
           </form>
         </div>
       </div>
+
+      <PlanModal open={isPlanModalOpen} onOpenChange={setIsPlanModalOpen} />
     </Layout>
   );
 };
