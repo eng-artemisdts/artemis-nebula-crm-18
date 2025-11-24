@@ -16,8 +16,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { useOrganization } from "@/hooks/useOrganization";
 
 const CategoryManager = () => {
+  const { organization } = useOrganization();
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
@@ -60,7 +62,7 @@ const CategoryManager = () => {
       } else {
         const { error } = await supabase
           .from("lead_categories")
-          .insert([formData]);
+          .insert([{ ...formData, organization_id: organization?.id }]);
         if (error) throw error;
         toast.success("Categoria criada com sucesso!");
       }
@@ -105,7 +107,7 @@ const CategoryManager = () => {
     try {
       const { error } = await supabase
         .from("lead_categories")
-        .insert([category]);
+        .insert([{ ...category, organization_id: organization?.id }]);
       if (error) throw error;
       toast.success("Categoria adicionada com sucesso!");
       fetchCategories();
