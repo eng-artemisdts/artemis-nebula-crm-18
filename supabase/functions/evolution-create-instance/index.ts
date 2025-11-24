@@ -85,6 +85,38 @@ serve(async (req) => {
     const evolutionData = await response.json();
     logStep("Instance created in Evolution API", { evolutionData });
 
+    // Set webhook to receive messages
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const webhookUrl = `${supabaseUrl}/functions/v1/evolution-webhook`;
+    
+    logStep("Configuring webhook", { webhookUrl });
+    
+    const webhookResponse = await fetch(`${EVOLUTION_API_URL}/webhook/set/${instanceName}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": EVOLUTION_API_KEY,
+      },
+      body: JSON.stringify({
+        url: webhookUrl,
+        webhook_by_events: false,
+        webhook_base64: false,
+        events: [
+          "QRCODE_UPDATED",
+          "CONNECTION_UPDATE",
+          "MESSAGES_UPSERT",
+        ],
+      }),
+    });
+
+    if (!webhookResponse.ok) {
+      const webhookError = await webhookResponse.text();
+      logStep("Webhook configuration warning", { error: webhookError });
+      // Continue even if webhook fails - we can set it up later
+    } else {
+      logStep("Webhook configured successfully");
+    }
+
     // Save instance to database
     const { data: instance, error: dbError } = await supabaseClient
       .from("whatsapp_instances")
