@@ -43,7 +43,6 @@ const LeadForm = () => {
   useEffect(() => {
     fetchCategories();
     fetchAIInteractions();
-    fetchDefaultAIInteraction();
     if (isEdit) {
       fetchLead();
     }
@@ -62,21 +61,6 @@ const LeadForm = () => {
     setAiInteractions(data || []);
   };
 
-  const fetchDefaultAIInteraction = async () => {
-    if (!isEdit) {
-      const { data } = await supabase
-        .from("settings")
-        .select("default_ai_interaction_id")
-        .single();
-      
-      if (data?.default_ai_interaction_id) {
-        setFormData(prev => ({
-          ...prev,
-          ai_interaction_id: data.default_ai_interaction_id
-        }));
-      }
-    }
-  };
 
   const fetchLead = async () => {
     try {
