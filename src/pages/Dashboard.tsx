@@ -3,10 +3,11 @@ import { Layout } from "@/components/Layout";
 import { StatsCard } from "@/components/StatsCard";
 import { LeadCard } from "@/components/LeadCard";
 import { Button } from "@/components/ui/button";
-import { Users, DollarSign, TrendingUp, Target, Plus, Clock, Mail, MessageSquare } from "lucide-react";
+import { Users, DollarSign, TrendingUp, Target, Plus, Clock, Mail, MessageSquare, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   DndContext,
   DragEndEvent,
@@ -75,6 +76,7 @@ const Dashboard = () => {
   const [leads, setLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [hasDefaultAI, setHasDefaultAI] = useState<boolean>(true);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -103,8 +105,23 @@ const Dashboard = () => {
     }
   };
 
+  const checkDefaultAI = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("settings")
+        .select("default_ai_interaction_id")
+        .single();
+
+      if (error) throw error;
+      setHasDefaultAI(!!data?.default_ai_interaction_id);
+    } catch (error: any) {
+      console.error(error);
+    }
+  };
+
   useEffect(() => {
     fetchLeads();
+    checkDefaultAI();
   }, []);
 
   const getLeadsByStatus = (status: string) => {
@@ -186,6 +203,27 @@ const Dashboard = () => {
   return (
     <Layout>
       <div className="space-y-8 animate-fade-in">
+        {/* AI Configuration Alert */}
+        {!hasDefaultAI && (
+          <Alert className="border-amber-500/50 bg-amber-500/5">
+            <AlertCircle className="h-5 w-5 text-amber-500" />
+            <AlertTitle className="text-lg font-semibold">Configure sua IA Padrão</AlertTitle>
+            <AlertDescription className="text-base mt-2">
+              Você ainda não configurou uma IA padrão para seus leads. Configure agora para 
+              automatizar o atendimento dos novos leads.
+              <br />
+              <Button
+                onClick={() => navigate("/ai-configuration")}
+                variant="outline"
+                className="mt-3 gap-2 border-amber-500/50 hover:bg-amber-500/10"
+              >
+                <AlertCircle className="w-4 h-4" />
+                Configurar IA Padrão
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>

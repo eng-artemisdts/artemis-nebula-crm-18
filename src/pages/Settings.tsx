@@ -31,11 +31,9 @@ const Settings = () => {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
-  const [aiInteractions, setAiInteractions] = useState<any[]>([]);
 
   useEffect(() => {
     fetchSettings();
-    fetchAIInteractions();
     if (organization) {
       setCompanyInfo({
         company_name: organization.company_name || "",
@@ -69,14 +67,6 @@ const Settings = () => {
     }
   };
 
-  const fetchAIInteractions = async () => {
-    const { data } = await supabase
-      .from("ai_interaction_settings")
-      .select("*")
-      .order("name");
-    setAiInteractions(data || []);
-  };
-
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -87,7 +77,6 @@ const Settings = () => {
         .update({
           default_integration_start_time: `${settings.default_integration_start_time}:00+00`,
           n8n_webhook_url: settings.n8n_webhook_url,
-          default_ai_interaction_id: settings.default_ai_interaction_id === "none" ? null : settings.default_ai_interaction_id,
         })
         .eq("id", settings.id);
 
@@ -379,39 +368,6 @@ const Settings = () => {
                   />
                   <p className="text-xs text-muted-foreground">
                     URL do webhook do n8n para automações de leads
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="default_ai_interaction">
-                    <div className="flex items-center gap-2">
-                      <Bot className="w-4 h-4" />
-                      Configuração de IA Padrão
-                    </div>
-                  </Label>
-                  <Select
-                    value={settings.default_ai_interaction_id}
-                    onValueChange={(value) =>
-                      setSettings({
-                        ...settings,
-                        default_ai_interaction_id: value,
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione uma configuração padrão" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Nenhuma (escolher manualmente por lead)</SelectItem>
-                      {aiInteractions.map((ai) => (
-                        <SelectItem key={ai.id} value={ai.id}>
-                          {ai.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Esta configuração será usada automaticamente para novos leads, mas você pode escolher uma diferente para cada lead
                   </p>
                 </div>
               </div>
