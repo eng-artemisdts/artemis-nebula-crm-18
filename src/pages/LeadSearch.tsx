@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Search, MapPin, Plus, Loader2, X } from "lucide-react";
 import { useOrganization } from "@/hooks/useOrganization";
+import { cleanPhoneNumber } from "@/lib/utils";
 
 interface BusinessResult {
   name: string;
@@ -133,7 +134,7 @@ const LeadSearch = () => {
         description: `Negócio encontrado via busca - ${business.address}`,
         category: business.category,
         status: "novo",
-        contact_whatsapp: business.phone || null,
+        contact_whatsapp: business.phone ? cleanPhoneNumber(business.phone) : null,
         source: "Busca Automática",
         whatsapp_verified: true,
         organization_id: organization?.id,
