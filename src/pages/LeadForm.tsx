@@ -11,7 +11,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowLeft, Save, Trash2, DollarSign, ExternalLink } from "lucide-react";
 import { useOrganization } from "@/hooks/useOrganization";
-import { cleanPhoneNumber, formatPhoneDisplay } from "@/lib/utils";
+import { cleanPhoneNumber, formatPhoneDisplay, generateRemoteJid } from "@/lib/utils";
 
 const LeadForm = () => {
   const { id } = useParams();
@@ -127,9 +127,12 @@ const LeadForm = () => {
         ? parseFloat(formData.payment_amount.replace(/\./g, "").replace(",", "."))
         : null;
 
+      const cleanedPhone = formData.contact_whatsapp ? cleanPhoneNumber(formData.contact_whatsapp) : "";
+      
       const leadData = {
         ...formData,
-        contact_whatsapp: formData.contact_whatsapp ? cleanPhoneNumber(formData.contact_whatsapp) : "",
+        contact_whatsapp: cleanedPhone,
+        remote_jid: cleanedPhone ? generateRemoteJid(cleanedPhone) : null,
         integration_start_time: `${formData.integration_start_time}:00+00`,
         payment_amount: paymentAmount,
         ai_interaction_id: formData.ai_interaction_id || null,

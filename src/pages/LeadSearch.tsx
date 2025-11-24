@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Search, MapPin, Plus, Loader2, X } from "lucide-react";
 import { useOrganization } from "@/hooks/useOrganization";
-import { cleanPhoneNumber } from "@/lib/utils";
+import { cleanPhoneNumber, generateRemoteJid } from "@/lib/utils";
 
 interface BusinessResult {
   name: string;
@@ -129,16 +129,20 @@ const LeadSearch = () => {
     const businessesToAdd = selectedBusinesses.map((index) => searchResults[index]);
     
     try {
-      const leadsToInsert = businessesToAdd.map((business) => ({
-        name: business.name,
-        description: `Negócio encontrado via busca - ${business.address}`,
-        category: business.category,
-        status: "novo",
-        contact_whatsapp: business.phone ? cleanPhoneNumber(business.phone) : null,
-        source: "Busca Automática",
-        whatsapp_verified: true,
-        organization_id: organization?.id,
-      }));
+      const leadsToInsert = businessesToAdd.map((business) => {
+        const cleanedPhone = business.phone ? cleanPhoneNumber(business.phone) : null;
+        return {
+          name: business.name,
+          description: `Negócio encontrado via busca - ${business.address}`,
+          category: business.category,
+          status: "novo",
+          contact_whatsapp: cleanedPhone,
+          remote_jid: cleanedPhone ? generateRemoteJid(cleanedPhone) : null,
+          source: "Busca Automática",
+          whatsapp_verified: true,
+          organization_id: organization?.id,
+        };
+      });
 
       const { error } = await supabase.from("leads").insert(leadsToInsert);
       
