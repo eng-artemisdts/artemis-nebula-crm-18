@@ -6,8 +6,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Smartphone, QrCode, CheckCircle2 } from "lucide-react";
+import { Loader2, Smartphone, QrCode, CheckCircle2, Trash2 } from "lucide-react";
 import { Layout } from "@/components/Layout";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const WhatsAppConnect = () => {
   const [instanceName, setInstanceName] = useState("");
@@ -16,6 +26,8 @@ const WhatsAppConnect = () => {
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [instances, setInstances] = useState<any[]>([]);
   const [selectedInstance, setSelectedInstance] = useState<any>(null);
+  const [instanceToDelete, setInstanceToDelete] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -139,6 +151,36 @@ const WhatsAppConnect = () => {
       clearInterval(pollInterval);
       setIsConnecting(false);
     }, 120000);
+  };
+
+  const deleteInstance = async () => {
+    if (!instanceToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase.functions.invoke("evolution-delete-instance", {
+        body: { instanceName: instanceToDelete.instance_name },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Sucesso!",
+        description: "Instância deletada com sucesso",
+      });
+
+      await loadInstances();
+      setInstanceToDelete(null);
+    } catch (error: any) {
+      console.error("Error deleting instance:", error);
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao deletar instância",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -271,6 +313,13 @@ const WhatsAppConnect = () => {
                             )}
                           </Button>
                         )}
+                        <Button
+                          onClick={() => setInstanceToDelete(instance)}
+                          variant="destructive"
+                          size="sm"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -280,6 +329,35 @@ const WhatsAppConnect = () => {
           </Card>
         </div>
       </div>
+
+      <AlertDialog open={!!instanceToDelete} onOpenChange={() => setInstanceToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deletar Instância</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja deletar a instância "{instanceToDelete?.instance_name}"? 
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={deleteInstance}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deletando...
+                </>
+              ) : (
+                "Deletar"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 };
