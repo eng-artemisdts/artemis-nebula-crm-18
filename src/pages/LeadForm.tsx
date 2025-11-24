@@ -246,13 +246,14 @@ const LeadForm = () => {
               <div className="space-y-2">
                 <Label htmlFor="category">Categoria</Label>
                 <Select
-                  value={formData.category}
-                  onValueChange={(value) => setFormData({ ...formData, category: value })}
+                  value={formData.category || "none"}
+                  onValueChange={(value) => setFormData({ ...formData, category: value === "none" ? "" : value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione uma categoria" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="none">Nenhuma categoria</SelectItem>
                     {categories.map((cat) => (
                       <SelectItem key={cat.id} value={cat.name}>
                         {cat.name}
@@ -334,14 +335,14 @@ const LeadForm = () => {
                 </div>
               </Label>
               <Select
-                value={formData.ai_interaction_id}
-                onValueChange={(value) => setFormData({ ...formData, ai_interaction_id: value })}
+                value={formData.ai_interaction_id || "default"}
+                onValueChange={(value) => setFormData({ ...formData, ai_interaction_id: value === "default" ? "" : value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Usar configuração padrão ou escolher específica" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Usar configuração padrão</SelectItem>
+                  <SelectItem value="default">Usar configuração padrão</SelectItem>
                   {aiInteractions.map((ai) => (
                     <SelectItem key={ai.id} value={ai.id}>
                       {ai.name}
