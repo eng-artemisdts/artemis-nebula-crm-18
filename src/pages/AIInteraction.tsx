@@ -237,90 +237,116 @@ DIRETRIZES:
   const createDefaultSettings = async () => {
     setLoading(true);
     
-    const defaultConfigs = [
-      {
-        name: "Black Friday - Chatbot WhatsApp",
-        conversation_focus: "implementação urgente de chatbot para Black Friday",
-        priority: "high",
-        rejection_action: "ask_reason",
-        tone: "enthusiastic",
-        main_objective: "Criar urgência e convencer o lead a contratar um chatbot WhatsApp para não perder vendas durante a Black Friday",
-        additional_instructions: "URGÊNCIA É FUNDAMENTAL! Enfatize que a Black Friday está chegando e o lead pode perder muitas vendas por não conseguir atender todos os clientes. Destaque: volume alto de mensagens simultâneas, chatbot responde instantaneamente, não perde nenhum cliente, atende 24/7 durante o evento, qualifica leads automaticamente direcionando para vendedores apenas clientes prontos para comprar. Mencione que a implementação é rápida (pode estar pronto antes da Black Friday) e o ROI é imediato no evento. Use dados: 'loja que não responde em até 5 minutos perde 80% das vendas'. Ofereça condição especial com desconto para quem fechar hoje.",
-        closing_instructions: "Reforce a URGÊNCIA: 'Cada dia sem chatbot é dinheiro deixado na mesa'. Se não fechar agora, mencione que para o próximo ano precisa planejar com antecedência. Ofereça último desconto válido só nas próximas 24h. Envie estudo de caso de loja que faturou 3x mais na Black Friday com chatbot. Se realmente não der, capture compromisso de conversar em janeiro para preparar próximas datas sazonais."
-      },
-      {
-        name: "Prospecção e Vendas Ativas",
-        conversation_focus: "prospecção e qualificação de leads para vendas",
-        priority: "high",
-        rejection_action: "follow_up",
-        tone: "professional",
-        main_objective: "Identificar a dor do cliente, qualificar o lead e agendar reunião comercial com o time de vendas",
-        additional_instructions: "Faça perguntas abertas para entender: tamanho da empresa, desafios atuais, orçamento disponível e decisores. Use método BANT (Budget, Authority, Need, Timeline). Seja consultivo, não empurre produto. Foque em resolver problemas reais. Registre todas as informações coletadas para passar ao vendedor.",
-        closing_instructions: "Se não qualificar agora, identifique quando seria o melhor momento. Ofereça enviar material educativo sobre o problema identificado. Peça permissão para adicionar em lista VIP de conteúdos exclusivos. Agende follow-up em 30-60 dias."
-      },
-      {
-        name: "Atendimento ao Cliente",
-        conversation_focus: "suporte e resolução de dúvidas de clientes",
-        priority: "medium",
-        rejection_action: "offer_alternative",
-        tone: "friendly",
-        main_objective: "Resolver dúvidas e problemas dos clientes de forma rápida e eficiente, garantindo satisfação",
-        additional_instructions: "Seja empático e paciente. Entenda completamente o problema antes de oferecer solução. Use linguagem clara e evite jargões técnicos. Se não souber responder, seja honesto e encaminhe para especialista. Sempre confirme se a solução resolveu o problema. Aproveite para identificar oportunidades de upsell sutilmente.",
-        closing_instructions: "Agradeça pela confiança. Pergunte se há algo mais em que possa ajudar. Envie pesquisa de satisfação. Ofereça canais alternativos de contato. Convide para seguir nas redes sociais para dicas e novidades."
-      },
-      {
-        name: "Retenção e Fidelização",
-        conversation_focus: "retenção de clientes e redução de churn",
-        priority: "high",
-        rejection_action: "ask_reason",
-        tone: "empathetic",
-        main_objective: "Identificar motivos de insatisfação e oferecer soluções para manter o cliente",
-        additional_instructions: "Demonstre que a empresa valoriza o cliente. Ouça ativamente as reclamações sem interromper. Reconheça os problemas e assuma responsabilidade. Ofereça compensações proporcionais (desconto, upgrade temporário, extensão de trial). Apresente melhorias recentes do produto/serviço. Mostre casos de clientes que tiveram problemas similares e ficaram satisfeitos.",
-        closing_instructions: "Se cliente decidir cancelar, faça oferta final irrecusável (desconto significativo por 3 meses). Pergunte o que faria ele voltar. Mantenha porta aberta para retorno. Envie pesquisa de saída. Adicione em lista de win-back para campanha futura."
-      },
-      {
-        name: "Agendamento de Serviços",
-        conversation_focus: "agendamento de consultas, avaliações e serviços",
-        priority: "medium",
-        rejection_action: "offer_alternative",
-        tone: "professional",
-        main_objective: "Agendar horário para serviço, coletando todas as informações necessárias",
-        additional_instructions: "Seja objetivo e eficiente. Apresente opções de horários disponíveis. Confirme: data, horário, local (presencial/online), dados de contato e necessidades especiais. Envie confirmação por WhatsApp e e-mail. Explique o que cliente deve levar/preparar. Mencione política de cancelamento.",
-        closing_instructions: "Confirme todos os dados. Envie lembretes 24h e 2h antes. Pergunte se tem dúvidas sobre como chegar (se presencial) ou como acessar (se online). Agradeça pela preferência e reforce que estão ansiosos para atender."
-      },
-      {
-        name: "Recuperação de Carrinho Abandonado",
-        conversation_focus: "recuperação de vendas de carrinhos abandonados",
-        priority: "high",
-        rejection_action: "offer_alternative",
-        tone: "friendly",
-        main_objective: "Entender motivo do abandono e incentivar finalização da compra",
-        additional_instructions: "Aborde de forma não invasiva. Pergunte se teve dúvidas sobre produto, frete, pagamento ou prazo de entrega. Ofereça ajuda personalizada. Se for preço, ofereça cupom de desconto especial (5-10%). Se for dúvida sobre produto, forneça informações detalhadas. Se for frete, mencione promoções ou frete grátis acima de X valor. Crie senso de urgência (estoque limitado, promoção acabando).",
-        closing_instructions: "Se não converter, pergunte o que faria ele finalizar a compra. Ofereça guardar carrinho por 48h com desconto exclusivo. Envie avaliações de outros clientes sobre os produtos do carrinho. Adicione em lista de remarketing."
-      },
-      {
-        name: "Pesquisa de Satisfação",
-        conversation_focus: "coleta de feedback e avaliação de satisfação",
-        priority: "low",
-        rejection_action: "thank_and_close",
-        tone: "friendly",
-        main_objective: "Coletar feedback honesto sobre experiência do cliente com produto/serviço",
-        additional_instructions: "Seja breve e direto. Agradeça o tempo do cliente. Faça perguntas claras e objetivas (NPS, escala de 1-10, múltipla escolha). Permita resposta aberta para comentários. Se cliente estiver insatisfeito, demonstre que vai repassar para time responsável. Se muito satisfeito, peça avaliação pública (Google, site).",
-        closing_instructions: "Agradeça pela participação. Mencione que feedback é essencial para melhorias. Se negativo, garanta que será analisado pela gestão. Se positivo, pergunte se pode usar como depoimento (com autorização). Ofereça pequeno desconto/brinde como agradecimento."
-      },
-      {
-        name: "Suporte Técnico",
-        conversation_focus: "resolução de problemas técnicos e troubleshooting",
-        priority: "high",
-        rejection_action: "offer_alternative",
-        tone: "professional",
-        main_objective: "Diagnosticar e resolver problemas técnicos de forma eficiente",
-        additional_instructions: "Seja paciente com clientes não técnicos. Faça perguntas para entender contexto: quando começou, mensagens de erro, tentativas anteriores. Use linguagem simples. Ofereça soluções passo a passo. Se necessário, solicite prints ou vídeos do problema. Sempre teste se a solução funcionou. Se não resolver, escale para nível 2.",
-        closing_instructions: "Confirme que problema foi resolvido. Explique como evitar no futuro. Ofereça documentação ou tutorial. Pergunte se tem outras dúvidas. Deixe canal aberto caso problema volte. Registre solução para base de conhecimento."
-      }
-    ];
-
     try {
+      // Buscar o organization_id do usuário atual
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Usuário não autenticado");
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("organization_id")
+        .eq("id", user.id)
+        .single();
+
+      if (!profile?.organization_id) {
+        toast.error("Organização não encontrada");
+        return;
+      }
+
+      const defaultConfigs = [
+        {
+          name: "Black Friday - Chatbot WhatsApp",
+          conversation_focus: "implementação urgente de chatbot para Black Friday",
+          priority: "high",
+          rejection_action: "ask_reason",
+          tone: "enthusiastic",
+          main_objective: "Criar urgência e convencer o lead a contratar um chatbot WhatsApp para não perder vendas durante a Black Friday",
+          additional_instructions: "URGÊNCIA É FUNDAMENTAL! Enfatize que a Black Friday está chegando e o lead pode perder muitas vendas por não conseguir atender todos os clientes. Destaque: volume alto de mensagens simultâneas, chatbot responde instantaneamente, não perde nenhum cliente, atende 24/7 durante o evento, qualifica leads automaticamente direcionando para vendedores apenas clientes prontos para comprar. Mencione que a implementação é rápida (pode estar pronto antes da Black Friday) e o ROI é imediato no evento. Use dados: 'loja que não responde em até 5 minutos perde 80% das vendas'. Ofereça condição especial com desconto para quem fechar hoje.",
+          closing_instructions: "Reforce a URGÊNCIA: 'Cada dia sem chatbot é dinheiro deixado na mesa'. Se não fechar agora, mencione que para o próximo ano precisa planejar com antecedência. Ofereça último desconto válido só nas próximas 24h. Envie estudo de caso de loja que faturou 3x mais na Black Friday com chatbot. Se realmente não der, capture compromisso de conversar em janeiro para preparar próximas datas sazonais.",
+          organization_id: profile.organization_id
+        },
+        {
+          name: "Prospecção e Vendas Ativas",
+          conversation_focus: "prospecção e qualificação de leads para vendas",
+          priority: "high",
+          rejection_action: "follow_up",
+          tone: "professional",
+          main_objective: "Identificar a dor do cliente, qualificar o lead e agendar reunião comercial com o time de vendas",
+          additional_instructions: "Faça perguntas abertas para entender: tamanho da empresa, desafios atuais, orçamento disponível e decisores. Use método BANT (Budget, Authority, Need, Timeline). Seja consultivo, não empurre produto. Foque em resolver problemas reais. Registre todas as informações coletadas para passar ao vendedor.",
+          closing_instructions: "Se não qualificar agora, identifique quando seria o melhor momento. Ofereça enviar material educativo sobre o problema identificado. Peça permissão para adicionar em lista VIP de conteúdos exclusivos. Agende follow-up em 30-60 dias.",
+          organization_id: profile.organization_id
+        },
+        {
+          name: "Atendimento ao Cliente",
+          conversation_focus: "suporte e resolução de dúvidas de clientes",
+          priority: "medium",
+          rejection_action: "offer_alternative",
+          tone: "friendly",
+          main_objective: "Resolver dúvidas e problemas dos clientes de forma rápida e eficiente, garantindo satisfação",
+          additional_instructions: "Seja empático e paciente. Entenda completamente o problema antes de oferecer solução. Use linguagem clara e evite jargões técnicos. Se não souber responder, seja honesto e encaminhe para especialista. Sempre confirme se a solução resolveu o problema. Aproveite para identificar oportunidades de upsell sutilmente.",
+          closing_instructions: "Agradeça pela confiança. Pergunte se há algo mais em que possa ajudar. Envie pesquisa de satisfação. Ofereça canais alternativos de contato. Convide para seguir nas redes sociais para dicas e novidades.",
+          organization_id: profile.organization_id
+        },
+        {
+          name: "Retenção e Fidelização",
+          conversation_focus: "retenção de clientes e redução de churn",
+          priority: "high",
+          rejection_action: "ask_reason",
+          tone: "empathetic",
+          main_objective: "Identificar motivos de insatisfação e oferecer soluções para manter o cliente",
+          additional_instructions: "Demonstre que a empresa valoriza o cliente. Ouça ativamente as reclamações sem interromper. Reconheça os problemas e assuma responsabilidade. Ofereça compensações proporcionais (desconto, upgrade temporário, extensão de trial). Apresente melhorias recentes do produto/serviço. Mostre casos de clientes que tiveram problemas similares e ficaram satisfeitos.",
+          closing_instructions: "Se cliente decidir cancelar, faça oferta final irrecusável (desconto significativo por 3 meses). Pergunte o que faria ele voltar. Mantenha porta aberta para retorno. Envie pesquisa de saída. Adicione em lista de win-back para campanha futura.",
+          organization_id: profile.organization_id
+        },
+        {
+          name: "Agendamento de Serviços",
+          conversation_focus: "agendamento de consultas, avaliações e serviços",
+          priority: "medium",
+          rejection_action: "offer_alternative",
+          tone: "professional",
+          main_objective: "Agendar horário para serviço, coletando todas as informações necessárias",
+          additional_instructions: "Seja objetivo e eficiente. Apresente opções de horários disponíveis. Confirme: data, horário, local (presencial/online), dados de contato e necessidades especiais. Envie confirmação por WhatsApp e e-mail. Explique o que cliente deve levar/preparar. Mencione política de cancelamento.",
+          closing_instructions: "Confirme todos os dados. Envie lembretes 24h e 2h antes. Pergunte se tem dúvidas sobre como chegar (se presencial) ou como acessar (se online). Agradeça pela preferência e reforce que estão ansiosos para atender.",
+          organization_id: profile.organization_id
+        },
+        {
+          name: "Recuperação de Carrinho Abandonado",
+          conversation_focus: "recuperação de vendas de carrinhos abandonados",
+          priority: "high",
+          rejection_action: "offer_alternative",
+          tone: "friendly",
+          main_objective: "Entender motivo do abandono e incentivar finalização da compra",
+          additional_instructions: "Aborde de forma não invasiva. Pergunte se teve dúvidas sobre produto, frete, pagamento ou prazo de entrega. Ofereça ajuda personalizada. Se for preço, ofereça cupom de desconto especial (5-10%). Se for dúvida sobre produto, forneça informações detalhadas. Se for frete, mencione promoções ou frete grátis acima de X valor. Crie senso de urgência (estoque limitado, promoção acabando).",
+          closing_instructions: "Se não converter, pergunte o que faria ele finalizar a compra. Ofereça guardar carrinho por 48h com desconto exclusivo. Envie avaliações de outros clientes sobre os produtos do carrinho. Adicione em lista de remarketing.",
+          organization_id: profile.organization_id
+        },
+        {
+          name: "Pesquisa de Satisfação",
+          conversation_focus: "coleta de feedback e avaliação de satisfação",
+          priority: "low",
+          rejection_action: "thank_and_close",
+          tone: "friendly",
+          main_objective: "Coletar feedback honesto sobre experiência do cliente com produto/serviço",
+          additional_instructions: "Seja breve e direto. Agradeça o tempo do cliente. Faça perguntas claras e objetivas (NPS, escala de 1-10, múltipla escolha). Permita resposta aberta para comentários. Se cliente estiver insatisfeito, demonstre que vai repassar para time responsável. Se muito satisfeito, peça avaliação pública (Google, site).",
+          closing_instructions: "Agradeça pela participação. Mencione que feedback é essencial para melhorias. Se negativo, garanta que será analisado pela gestão. Se positivo, pergunte se pode usar como depoimento (com autorização). Ofereça pequeno desconto/brinde como agradecimento.",
+          organization_id: profile.organization_id
+        },
+        {
+          name: "Suporte Técnico",
+          conversation_focus: "resolução de problemas técnicos e troubleshooting",
+          priority: "high",
+          rejection_action: "offer_alternative",
+          tone: "professional",
+          main_objective: "Diagnosticar e resolver problemas técnicos de forma eficiente",
+          additional_instructions: "Seja paciente com clientes não técnicos. Faça perguntas para entender contexto: quando começou, mensagens de erro, tentativas anteriores. Use linguagem simples. Ofereça soluções passo a passo. Se necessário, solicite prints ou vídeos do problema. Sempre teste se a solução funcionou. Se não resolver, escale para nível 2.",
+          closing_instructions: "Confirme que problema foi resolvido. Explique como evitar no futuro. Ofereça documentação ou tutorial. Pergunte se tem outras dúvidas. Deixe canal aberto caso problema volte. Registre solução para base de conhecimento.",
+          organization_id: profile.organization_id
+        }
+      ];
+
       const { error } = await supabase
         .from("ai_interaction_settings")
         .insert(defaultConfigs);
