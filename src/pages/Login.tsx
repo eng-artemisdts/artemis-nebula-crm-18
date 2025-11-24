@@ -5,13 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<"free" | "pro">("free");
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -68,6 +70,9 @@ const Login = () => {
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/dashboard`,
+            data: {
+              selected_plan: selectedPlan,
+            },
           },
         });
 
@@ -122,6 +127,55 @@ const Login = () => {
 
         <form onSubmit={handleSubmit} className="space-y-6 bg-card border border-border/50 rounded-lg p-8">
           <div className="space-y-4">
+            {isSignUp && (
+              <div className="space-y-3">
+                <Label>Escolha seu plano</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPlan("free")}
+                    disabled={isLoading}
+                    className={cn(
+                      "relative p-4 rounded-lg border-2 transition-all text-left",
+                      selectedPlan === "free"
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50"
+                    )}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <h3 className="font-semibold">Gratuito</h3>
+                      {selectedPlan === "free" && (
+                        <Check className="h-5 w-5 text-primary" />
+                      )}
+                    </div>
+                    <p className="text-2xl font-bold mb-1">R$ 0</p>
+                    <p className="text-xs text-muted-foreground">7 dias de teste grátis</p>
+                  </button>
+                  
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPlan("pro")}
+                    disabled={isLoading}
+                    className={cn(
+                      "relative p-4 rounded-lg border-2 transition-all text-left",
+                      selectedPlan === "pro"
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50"
+                    )}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <h3 className="font-semibold">Pro</h3>
+                      {selectedPlan === "pro" && (
+                        <Check className="h-5 w-5 text-primary" />
+                      )}
+                    </div>
+                    <p className="text-2xl font-bold mb-1">R$ 99</p>
+                    <p className="text-xs text-muted-foreground">por mês</p>
+                  </button>
+                </div>
+              </div>
+            )}
+            
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
