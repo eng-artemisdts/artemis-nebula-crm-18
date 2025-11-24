@@ -11,13 +11,18 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const AIConfiguration = () => {
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [settingsId, setSettingsId] = useState("");
   const [defaultAIInteractionId, setDefaultAIInteractionId] = useState("");
   const [aiInteractions, setAiInteractions] = useState<any[]>([]);
 
   useEffect(() => {
-    fetchSettings();
-    fetchAIInteractions();
+    const init = async () => {
+      setInitialLoading(true);
+      await Promise.all([fetchSettings(), fetchAIInteractions()]);
+      setInitialLoading(false);
+    };
+    init();
   }, []);
 
   const fetchSettings = async () => {
@@ -27,27 +32,40 @@ const AIConfiguration = () => {
         .select("*")
         .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching settings:", error);
+        throw error;
+      }
       
       if (data) {
         setSettingsId(data.id);
         setDefaultAIInteractionId(data.default_ai_interaction_id || "none");
       } else {
         // Create settings record if it doesn't exist
+        const { data: userData } = await supabase.auth.getUser();
+        
+        if (!userData.user) {
+          throw new Error("Usuário não autenticado");
+        }
+
         const { data: profile } = await supabase
           .from("profiles")
           .select("organization_id")
-          .eq("id", (await supabase.auth.getUser()).data.user?.id)
+          .eq("id", userData.user.id)
           .single();
         
-        if (profile) {
+        if (profile?.organization_id) {
           const { data: newSettings, error: createError } = await supabase
             .from("settings")
             .insert({ organization_id: profile.organization_id })
             .select()
             .single();
           
-          if (createError) throw createError;
+          if (createError) {
+            console.error("Error creating settings:", createError);
+            throw createError;
+          }
+          
           if (newSettings) {
             setSettingsId(newSettings.id);
             setDefaultAIInteractionId("none");
@@ -55,8 +73,8 @@ const AIConfiguration = () => {
         }
       }
     } catch (error: any) {
-      console.error(error);
-      toast.error("Erro ao carregar configurações");
+      console.error("fetchSettings error:", error);
+      toast.error("Erro ao carregar configurações: " + error.message);
     }
   };
 
@@ -98,7 +116,15 @@ const AIConfiguration = () => {
 
   return (
     <Layout>
-      <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
+      {initialLoading ? (
+        <div className="max-w-3xl mx-auto flex items-center justify-center min-h-[400px]">
+          <div className="text-center space-y-4">
+            <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <p className="text-muted-foreground">Carregando configurações...</p>
+          </div>
+        </div>
+      ) : (
+        <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
         <div className="flex items-center gap-3">
           <div className="p-3 rounded-xl bg-primary/10 text-primary">
             <Bot className="w-6 h-6" />
@@ -198,6 +224,7 @@ const AIConfiguration = () => {
           </Button>
         </form>
       </div>
+      )}
     </Layout>
   );
 };
