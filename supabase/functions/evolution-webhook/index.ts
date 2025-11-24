@@ -47,7 +47,24 @@ Deno.serve(async (req) => {
     }
 
     const remoteJid = payload.data.key.remoteJid;
-    const phoneNumber = remoteJid.split('@')[0]; // Extract phone number from JID
+    // Extract phone number from JID, removing any suffix after @
+    let phoneNumber = remoteJid.split('@')[0];
+    
+    // Clean the phone number: remove any non-digit characters
+    phoneNumber = phoneNumber.replace(/\D/g, '');
+    
+    // Ensure it's a valid phone number format (at least 10 digits)
+    if (phoneNumber.length < 10) {
+      console.log('Invalid phone number format:', phoneNumber);
+      return new Response(
+        JSON.stringify({ message: 'Invalid phone number format' }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+    
     const contactName = payload.data.pushName || '';
 
     console.log('Processing message from:', phoneNumber, 'name:', contactName);
