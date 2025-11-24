@@ -9,6 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Search, MapPin, Plus, Loader2, X } from "lucide-react";
+import { useOrganization } from "@/hooks/useOrganization";
 
 interface BusinessResult {
   name: string;
@@ -21,6 +22,7 @@ interface BusinessResult {
 }
 
 const LeadSearch = () => {
+  const { organization } = useOrganization();
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -133,7 +135,8 @@ const LeadSearch = () => {
         status: "novo",
         contact_whatsapp: business.phone || null,
         source: "Busca Automática",
-        whatsapp_verified: true, // Marca como verificado pois veio da busca
+        whatsapp_verified: true,
+        organization_id: organization?.id,
       }));
 
       const { error } = await supabase.from("leads").insert(leadsToInsert);

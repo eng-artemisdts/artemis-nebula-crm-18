@@ -10,11 +10,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowLeft, Save, Trash2, DollarSign, ExternalLink } from "lucide-react";
+import { useOrganization } from "@/hooks/useOrganization";
 
 const LeadForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const isEdit = id && id !== "new";
+  const { organization } = useOrganization();
 
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
@@ -130,6 +132,7 @@ const LeadForm = () => {
         payment_amount: paymentAmount,
         ai_interaction_id: formData.ai_interaction_id || null,
         ...paymentData,
+        ...(isEdit ? {} : { organization_id: organization?.id }),
       };
 
       if (isEdit) {
