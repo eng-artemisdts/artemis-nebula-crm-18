@@ -16,10 +16,16 @@ async function getAccessToken(): Promise<string> {
   const clientSecret = Deno.env.get('GOOGLE_DRIVE_CLIENT_SECRET');
   const refreshToken = Deno.env.get('GOOGLE_DRIVE_REFRESH_TOKEN');
 
+  if (!clientId || !clientSecret || !refreshToken) {
+    throw new Error('Google Drive credentials not configured');
+  }
+
+  console.log('Getting Google Drive access token');
+
   const response = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
       client_id: clientId,
       client_secret: clientSecret,
       refresh_token: refreshToken,
@@ -27,7 +33,19 @@ async function getAccessToken(): Promise<string> {
     }),
   });
 
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Failed to get access token:', response.status, errorText);
+    throw new Error(`Failed to authenticate with Google Drive: ${response.status}`);
+  }
+
   const data = await response.json();
+  
+  if (!data.access_token) {
+    console.error('No access token in response:', data);
+    throw new Error('No access token received from Google');
+  }
+
   return data.access_token;
 }
 
@@ -96,6 +114,8 @@ async function uploadFile(
   });
   form.append('file', blob, fileName);
 
+  console.log('Uploading file to Google Drive:', fileName);
+  
   const uploadResponse = await fetch(
     'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
     {
@@ -105,8 +125,16 @@ async function uploadFile(
     }
   );
 
+  if (!uploadResponse.ok) {
+    const errorText = await uploadResponse.text();
+    console.error('Google Drive upload error:', uploadResponse.status, errorText);
+    throw new Error(`Failed to upload file: ${uploadResponse.status} - ${errorText.substring(0, 200)}`);
+  }
+
   const uploadedFile = await uploadResponse.json();
 
+  console.log('File uploaded, converting to Google Docs format');
+  
   // Convert to Google Docs format
   const copyResponse = await fetch(
     `https://www.googleapis.com/drive/v3/files/${uploadedFile.id}/copy`,
@@ -122,6 +150,12 @@ async function uploadFile(
       }),
     }
   );
+
+  if (!copyResponse.ok) {
+    const errorText = await copyResponse.text();
+    console.error('Google Drive conversion error:', copyResponse.status, errorText);
+    throw new Error(`Failed to convert file: ${copyResponse.status}`);
+  }
 
   const convertedFile = await copyResponse.json();
 
