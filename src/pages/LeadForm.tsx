@@ -11,6 +11,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowLeft, Save, Trash2, DollarSign, ExternalLink } from "lucide-react";
 import { useOrganization } from "@/hooks/useOrganization";
+import { cleanPhoneNumber, formatPhoneDisplay } from "@/lib/utils";
 
 const LeadForm = () => {
   const { id } = useParams();
@@ -128,6 +129,7 @@ const LeadForm = () => {
 
       const leadData = {
         ...formData,
+        contact_whatsapp: formData.contact_whatsapp ? cleanPhoneNumber(formData.contact_whatsapp) : "",
         integration_start_time: `${formData.integration_start_time}:00+00`,
         payment_amount: paymentAmount,
         ai_interaction_id: formData.ai_interaction_id || null,
@@ -324,8 +326,11 @@ const LeadForm = () => {
                 <Label htmlFor="contact_whatsapp">WhatsApp</Label>
                 <Input
                   id="contact_whatsapp"
-                  value={formData.contact_whatsapp}
-                  onChange={(e) => setFormData({ ...formData, contact_whatsapp: e.target.value })}
+                  value={formatPhoneDisplay(formData.contact_whatsapp)}
+                  onChange={(e) => {
+                    const cleaned = cleanPhoneNumber(e.target.value);
+                    setFormData({ ...formData, contact_whatsapp: cleaned });
+                  }}
                   placeholder="(11) 99999-9999"
                 />
               </div>

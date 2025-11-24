@@ -10,30 +10,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useState } from "react";
-
-// Função para formatar número do WhatsApp com código do país
-const formatWhatsAppNumber = (phone: string): string => {
-  // Remove todos os caracteres não numéricos
-  const cleanNumber = phone.replace(/\D/g, "");
-  
-  // Se o número já começa com 55 (Brasil), retorna como está
-  if (cleanNumber.startsWith("55")) {
-    return cleanNumber;
-  }
-  
-  // Se o número tem 11 dígitos (celular BR) ou 10 dígitos (fixo BR), adiciona 55
-  if (cleanNumber.length === 11 || cleanNumber.length === 10) {
-    return `55${cleanNumber}`;
-  }
-  
-  // Se o número já tem código de país (mais de 11 dígitos), retorna como está
-  if (cleanNumber.length > 11) {
-    return cleanNumber;
-  }
-  
-  // Caso padrão: adiciona 55
-  return `55${cleanNumber}`;
-};
+import { formatWhatsAppNumber, formatPhoneDisplay } from "@/lib/utils";
 
 type Lead = {
   id: string;
@@ -200,7 +177,7 @@ export const LeadCard = ({
               onClick={(e) => e.stopPropagation()}
             >
               <Phone className="w-4 h-4" />
-              <span className="hidden sm:inline">{lead.contact_whatsapp}</span>
+              <span className="hidden sm:inline">{formatPhoneDisplay(lead.contact_whatsapp)}</span>
             </a>
           )}
         </div>
