@@ -120,6 +120,7 @@ export type Database = {
           payment_link_url: string | null
           payment_status: string | null
           payment_stripe_id: string | null
+          remote_jid: string | null
           source: string | null
           status: string
           updated_at: string | null
@@ -142,6 +143,7 @@ export type Database = {
           payment_link_url?: string | null
           payment_status?: string | null
           payment_stripe_id?: string | null
+          remote_jid?: string | null
           source?: string | null
           status?: string
           updated_at?: string | null
@@ -164,6 +166,7 @@ export type Database = {
           payment_link_url?: string | null
           payment_status?: string | null
           payment_stripe_id?: string | null
+          remote_jid?: string | null
           source?: string | null
           status?: string
           updated_at?: string | null
