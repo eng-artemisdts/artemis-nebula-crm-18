@@ -12,6 +12,7 @@ interface WebhookMessage {
     key: {
       remoteJid: string;
       fromMe: boolean;
+      senderPn?: string;
     };
     message?: any;
     pushName?: string;
@@ -46,9 +47,18 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Extract phone number - prefer senderPn when available (contains real number)
     const remoteJid = payload.data.key.remoteJid;
-    // Extract phone number from JID, removing any suffix after @
-    let phoneNumber = remoteJid.split('@')[0];
+    const senderPn = payload.data.key.senderPn;
+    
+    let phoneNumber: string;
+    
+    // Use senderPn if available (it contains the real phone number)
+    if (senderPn && typeof senderPn === 'string') {
+      phoneNumber = senderPn.split('@')[0];
+    } else {
+      phoneNumber = remoteJid.split('@')[0];
+    }
     
     // Clean the phone number: remove any non-digit characters
     phoneNumber = phoneNumber.replace(/\D/g, '');
@@ -67,7 +77,7 @@ Deno.serve(async (req) => {
     
     const contactName = payload.data.pushName || '';
 
-    console.log('Processing message from:', phoneNumber, 'name:', contactName);
+    console.log('Processing message from:', phoneNumber, 'name:', contactName, 'remoteJid:', remoteJid, 'senderPn:', senderPn);
 
     // Find the instance to get the organization
     const { data: instance, error: instanceError } = await supabase
