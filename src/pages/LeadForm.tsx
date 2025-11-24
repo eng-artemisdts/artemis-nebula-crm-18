@@ -18,6 +18,7 @@ const LeadForm = () => {
 
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
+  const [aiInteractions, setAiInteractions] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -28,6 +29,7 @@ const LeadForm = () => {
     source: "",
     integration_start_time: "09:00",
     payment_amount: "",
+    ai_interaction_id: "",
   });
   const [paymentData, setPaymentData] = useState({
     payment_link_url: "",
@@ -37,6 +39,8 @@ const LeadForm = () => {
 
   useEffect(() => {
     fetchCategories();
+    fetchAIInteractions();
+    fetchDefaultAIInteraction();
     if (isEdit) {
       fetchLead();
     }
@@ -45,6 +49,30 @@ const LeadForm = () => {
   const fetchCategories = async () => {
     const { data } = await supabase.from("lead_categories").select("*");
     setCategories(data || []);
+  };
+
+  const fetchAIInteractions = async () => {
+    const { data } = await supabase
+      .from("ai_interaction_settings")
+      .select("*")
+      .order("name");
+    setAiInteractions(data || []);
+  };
+
+  const fetchDefaultAIInteraction = async () => {
+    if (!isEdit) {
+      const { data } = await supabase
+        .from("settings")
+        .select("default_ai_interaction_id")
+        .single();
+      
+      if (data?.default_ai_interaction_id) {
+        setFormData(prev => ({
+          ...prev,
+          ai_interaction_id: data.default_ai_interaction_id
+        }));
+      }
+    }
   };
 
   const fetchLead = async () => {
@@ -72,6 +100,7 @@ const LeadForm = () => {
                 maximumFractionDigits: 2,
               })
             : "",
+          ai_interaction_id: data.ai_interaction_id || "",
         });
         setPaymentData({
           payment_link_url: data.payment_link_url || "",
@@ -99,6 +128,8 @@ const LeadForm = () => {
         ...formData,
         integration_start_time: `${formData.integration_start_time}:00+00`,
         payment_amount: paymentAmount,
+        ai_interaction_id: formData.ai_interaction_id || null,
+        ...paymentData,
       };
 
       if (isEdit) {
@@ -294,6 +325,33 @@ const LeadForm = () => {
                   placeholder="(11) 99999-9999"
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="ai_interaction">
+                <div className="flex items-center gap-2">
+                  Configuração de IA para este Lead
+                </div>
+              </Label>
+              <Select
+                value={formData.ai_interaction_id}
+                onValueChange={(value) => setFormData({ ...formData, ai_interaction_id: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Usar configuração padrão ou escolher específica" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Usar configuração padrão</SelectItem>
+                  {aiInteractions.map((ai) => (
+                    <SelectItem key={ai.id} value={ai.id}>
+                      {ai.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Se não selecionar, será usada a configuração padrão definida em Settings
+              </p>
             </div>
 
             <div className="space-y-2">
