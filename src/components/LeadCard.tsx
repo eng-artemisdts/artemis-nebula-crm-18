@@ -145,7 +145,8 @@ E, se preferir, pode saber mais no nosso site: www.artemisdigital.tech 🚀`;
 
       if (sendError) {
         console.error("Erro ao enviar mensagem:", sendError);
-        toast.error("Erro ao enviar mensagem");
+        const errorMessage = sendError.message || "Erro ao enviar mensagem";
+        toast.error(errorMessage);
         return;
       }
 

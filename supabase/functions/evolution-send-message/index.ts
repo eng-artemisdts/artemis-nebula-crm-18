@@ -40,6 +40,12 @@ serve(async (req) => {
     if (!textResponse.ok) {
       const errorData = await textResponse.text();
       console.error("Error sending text message:", errorData);
+      
+      // If instance doesn't exist (404), provide a clear error message
+      if (textResponse.status === 404) {
+        throw new Error("A instância WhatsApp não está mais ativa. Por favor, reconecte no menu WhatsApp.");
+      }
+      
       throw new Error(`Failed to send text message: ${textResponse.status}`);
     }
 
