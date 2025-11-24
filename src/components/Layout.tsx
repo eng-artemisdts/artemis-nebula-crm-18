@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { Home, Users, Settings, List, LogOut, FolderKanban, SearchCheck, Bot, Smartphone, CreditCard } from "lucide-react";
+import { Home, Users, Settings, List, LogOut, FolderKanban, SearchCheck, Bot, Smartphone, CreditCard, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -25,6 +25,7 @@ const menuItems = [
   { title: "Painel", url: "/dashboard", icon: Home },
   { title: "Todos os Leads", url: "/leads", icon: List },
   { title: "Buscar Leads", url: "/lead-search", icon: SearchCheck },
+  { title: "Configurar IA Padrão", url: "/ai-configuration", icon: Sparkles },
   { title: "Interações com IA", url: "/ai-interaction", icon: Bot },
   { title: "Conectar WhatsApp", url: "/whatsapp", icon: Smartphone },
   { title: "Categorias", url: "/categories", icon: Users },
