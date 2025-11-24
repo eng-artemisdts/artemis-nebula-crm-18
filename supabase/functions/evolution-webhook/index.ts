@@ -116,6 +116,7 @@ Deno.serve(async (req) => {
       
       const updateData: any = {
         status: 'conversa_iniciada',
+        remote_jid: remoteJid,
       };
 
       // Update name if we have it and lead doesn't
@@ -147,6 +148,7 @@ Deno.serve(async (req) => {
           organization_id: instance.organization_id,
           whatsapp_verified: true,
           source: 'whatsapp',
+          remote_jid: remoteJid,
         });
 
       if (insertError) {
