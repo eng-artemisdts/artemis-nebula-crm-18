@@ -87,7 +87,7 @@ const Settings = () => {
         .update({
           default_integration_start_time: `${settings.default_integration_start_time}:00+00`,
           n8n_webhook_url: settings.n8n_webhook_url,
-          default_ai_interaction_id: settings.default_ai_interaction_id || null,
+          default_ai_interaction_id: settings.default_ai_interaction_id === "none" ? null : settings.default_ai_interaction_id,
         })
         .eq("id", settings.id);
 
@@ -402,7 +402,7 @@ const Settings = () => {
                       <SelectValue placeholder="Selecione uma configuração padrão" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Nenhuma (escolher manualmente por lead)</SelectItem>
+                      <SelectItem value="none">Nenhuma (escolher manualmente por lead)</SelectItem>
                       {aiInteractions.map((ai) => (
                         <SelectItem key={ai.id} value={ai.id}>
                           {ai.name}
