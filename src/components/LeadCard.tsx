@@ -10,7 +10,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useState } from "react";
-import { formatWhatsAppNumber, formatPhoneDisplay } from "@/lib/utils";
+import { formatWhatsAppNumber, formatPhoneDisplay, generateRemoteJid } from "@/lib/utils";
 
 type Lead = {
   id: string;
@@ -27,6 +27,7 @@ type Lead = {
   payment_amount: number | null;
   paid_at: string | null;
   created_at: string;
+  remote_jid: string | null;
 };
 
 export const LeadCard = ({ 
@@ -62,11 +63,28 @@ export const LeadCard = ({
     setIsStartingConversation(true);
 
     try {
+      if (!lead.contact_whatsapp) {
+        toast.error("Lead não possui WhatsApp");
+        return;
+      }
+
       // Busca as configurações do webhook
       const { data: settings } = await supabase
         .from("settings")
         .select("n8n_webhook_url")
         .maybeSingle();
+
+      // Busca a instância do WhatsApp da organização
+      const { data: whatsappInstance } = await supabase
+        .from("whatsapp_instances")
+        .select("instance_id, api_key")
+        .eq("status", "connected")
+        .maybeSingle();
+
+      if (!whatsappInstance?.instance_id) {
+        toast.error("Nenhuma instância WhatsApp conectada");
+        return;
+      }
 
       // Atualiza o status do lead e marca WhatsApp como verificado
       const { error: updateError } = await supabase
@@ -79,33 +97,8 @@ export const LeadCard = ({
 
       if (updateError) throw updateError;
 
-      // Se há webhook configurado, envia os dados
-      if (settings?.n8n_webhook_url) {
-        try {
-          await fetch(settings.n8n_webhook_url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              leadId: lead.id,
-              name: lead.name,
-              email: lead.contact_email,
-              whatsapp: lead.contact_whatsapp,
-              category: lead.category,
-              description: lead.description,
-              action: "start_conversation"
-            })
-          });
-        } catch (webhookError) {
-          console.error("Erro ao enviar webhook:", webhookError);
-          // Não falha a operação se o webhook falhar
-        }
-      }
-
-      toast.success("Conversa iniciada! Atualize a página para ver as mudanças.");
-      
-      // Abre o WhatsApp se houver número
-      if (lead.contact_whatsapp) {
-        const message = encodeURIComponent(`Oi! 👋
+      // Prepara a mensagem
+      const message = `Oi! 👋
 Aqui é a equipe da Artemis Digital Solutions.
 
 Estamos com uma oferta especial de Black Friday para ajudar pequenos negócios a vender mais, atender melhor e organizar o fluxo de mensagens durante esse período de alta demanda.
@@ -136,10 +129,48 @@ Período de alto volume de mensagens exige rapidez. O chatbot absorve parte do a
 
 ✔ Geração de oportunidades
 Ele coleta nome, WhatsApp, interesse e já te entrega os leads quentes organizados. 
-E, se preferir, pode saber mais no nosso site: www.artemisdigital.tech 🚀`);
-        const phoneNumber = formatWhatsAppNumber(lead.contact_whatsapp);
-        window.open(`https://wa.me/${phoneNumber}?text=${message}`, '_blank');
+E, se preferir, pode saber mais no nosso site: www.artemisdigital.tech 🚀`;
+
+      const remoteJid = lead.remote_jid || `${formatWhatsAppNumber(lead.contact_whatsapp)}@s.whatsapp.net`;
+
+      // Envia mensagem de texto via Evolution API
+      const { error: sendError } = await supabase.functions.invoke("evolution-send-message", {
+        body: {
+          instanceId: whatsappInstance.instance_id,
+          remoteJid,
+          message,
+          imageUrl: "https://www.artemisdigital.tech/assets/logo-full-white.svg"
+        }
+      });
+
+      if (sendError) {
+        console.error("Erro ao enviar mensagem:", sendError);
+        toast.error("Erro ao enviar mensagem");
+        return;
       }
+
+      // Se há webhook configurado, envia os dados
+      if (settings?.n8n_webhook_url) {
+        try {
+          await fetch(settings.n8n_webhook_url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              leadId: lead.id,
+              name: lead.name,
+              email: lead.contact_email,
+              whatsapp: lead.contact_whatsapp,
+              category: lead.category,
+              description: lead.description,
+              action: "start_conversation"
+            })
+          });
+        } catch (webhookError) {
+          console.error("Erro ao enviar webhook:", webhookError);
+        }
+      }
+
+      toast.success("Conversa iniciada com sucesso!");
     } catch (error: any) {
       toast.error("Erro ao iniciar conversa");
       console.error(error);
