@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Save, Settings as SettingsIcon, Building2, Upload, CreditCard } from "lucide-react";
+import { Save, Settings as SettingsIcon, Building2, Upload, CreditCard, Bot } from "lucide-react";
 import { useOrganization } from "@/hooks/useOrganization";
 import { PlanModal } from "@/components/PlanModal";
 
@@ -18,6 +19,7 @@ const Settings = () => {
     id: "",
     default_integration_start_time: "09:00",
     n8n_webhook_url: "",
+    default_ai_interaction_id: "",
   });
   const [companyInfo, setCompanyInfo] = useState({
     company_name: "",
@@ -29,9 +31,11 @@ const Settings = () => {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
+  const [aiInteractions, setAiInteractions] = useState<any[]>([]);
 
   useEffect(() => {
     fetchSettings();
+    fetchAIInteractions();
     if (organization) {
       setCompanyInfo({
         company_name: organization.company_name || "",
@@ -57,11 +61,20 @@ const Settings = () => {
           id: data.id,
           default_integration_start_time: data.default_integration_start_time?.slice(0, 5) || "09:00",
           n8n_webhook_url: data.n8n_webhook_url || "",
+          default_ai_interaction_id: data.default_ai_interaction_id || "",
         });
       }
     } catch (error: any) {
       console.error(error);
     }
+  };
+
+  const fetchAIInteractions = async () => {
+    const { data } = await supabase
+      .from("ai_interaction_settings")
+      .select("*")
+      .order("name");
+    setAiInteractions(data || []);
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -74,6 +87,7 @@ const Settings = () => {
         .update({
           default_integration_start_time: `${settings.default_integration_start_time}:00+00`,
           n8n_webhook_url: settings.n8n_webhook_url,
+          default_ai_interaction_id: settings.default_ai_interaction_id || null,
         })
         .eq("id", settings.id);
 
@@ -365,6 +379,39 @@ const Settings = () => {
                   />
                   <p className="text-xs text-muted-foreground">
                     URL do webhook do n8n para automações de leads
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="default_ai_interaction">
+                    <div className="flex items-center gap-2">
+                      <Bot className="w-4 h-4" />
+                      Configuração de IA Padrão
+                    </div>
+                  </Label>
+                  <Select
+                    value={settings.default_ai_interaction_id}
+                    onValueChange={(value) =>
+                      setSettings({
+                        ...settings,
+                        default_ai_interaction_id: value,
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione uma configuração padrão" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Nenhuma (escolher manualmente por lead)</SelectItem>
+                      {aiInteractions.map((ai) => (
+                        <SelectItem key={ai.id} value={ai.id}>
+                          {ai.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Esta configuração será usada automaticamente para novos leads, mas você pode escolher uma diferente para cada lead
                   </p>
                 </div>
               </div>

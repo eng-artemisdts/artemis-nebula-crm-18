@@ -104,6 +104,7 @@ export type Database = {
       }
       leads: {
         Row: {
+          ai_interaction_id: string | null
           category: string | null
           contact_email: string | null
           contact_whatsapp: string | null
@@ -125,6 +126,7 @@ export type Database = {
           whatsapp_verified: boolean | null
         }
         Insert: {
+          ai_interaction_id?: string | null
           category?: string | null
           contact_email?: string | null
           contact_whatsapp?: string | null
@@ -146,6 +148,7 @@ export type Database = {
           whatsapp_verified?: boolean | null
         }
         Update: {
+          ai_interaction_id?: string | null
           category?: string | null
           contact_email?: string | null
           contact_whatsapp?: string | null
@@ -167,6 +170,13 @@ export type Database = {
           whatsapp_verified?: boolean | null
         }
         Relationships: [
+          {
+            foreignKeyName: "leads_ai_interaction_id_fkey"
+            columns: ["ai_interaction_id"]
+            isOneToOne: false
+            referencedRelation: "ai_interaction_settings"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "leads_organization_id_fkey"
             columns: ["organization_id"]
@@ -265,6 +275,7 @@ export type Database = {
       settings: {
         Row: {
           created_at: string | null
+          default_ai_interaction_id: string | null
           default_integration_start_time: string | null
           id: string
           n8n_webhook_url: string | null
@@ -273,6 +284,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          default_ai_interaction_id?: string | null
           default_integration_start_time?: string | null
           id?: string
           n8n_webhook_url?: string | null
@@ -281,6 +293,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          default_ai_interaction_id?: string | null
           default_integration_start_time?: string | null
           id?: string
           n8n_webhook_url?: string | null
@@ -288,6 +301,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "settings_default_ai_interaction_id_fkey"
+            columns: ["default_ai_interaction_id"]
+            isOneToOne: false
+            referencedRelation: "ai_interaction_settings"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "settings_organization_id_fkey"
             columns: ["organization_id"]
