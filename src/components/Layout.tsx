@@ -1,10 +1,12 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { Home, Users, Settings, List, LogOut, FolderKanban, SearchCheck, Bot, Smartphone } from "lucide-react";
+import { Home, Users, Settings, List, LogOut, FolderKanban, SearchCheck, Bot, Smartphone, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { NavLink } from "@/components/NavLink";
 import { useOrganization } from "@/hooks/useOrganization";
+import { PlanModal } from "@/components/PlanModal";
+import { useState } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -36,6 +38,7 @@ function AppSidebar() {
   const { toast } = useToast();
   const location = useLocation();
   const { organization } = useOrganization();
+  const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -104,8 +107,26 @@ function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Logout Button */}
-        <div className="mt-auto p-4 border-t border-border">
+        {/* Plan Section */}
+        <div className="mt-auto p-4 border-t border-border space-y-3">
+          {!isCollapsed && (
+            <div className="bg-gradient-to-br from-primary/10 to-accent/10 p-3 rounded-lg border border-primary/20">
+              <div className="flex items-center gap-2 mb-2">
+                <CreditCard className="h-4 w-4 text-primary" />
+                <span className="text-xs font-semibold text-muted-foreground">Plano Atual</span>
+              </div>
+              <p className="text-sm font-bold text-foreground capitalize mb-3">{organization?.plan || "free"}</p>
+              <Button
+                size="sm"
+                className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+                onClick={() => setIsPlanModalOpen(true)}
+              >
+                Mudar de Plano
+              </Button>
+            </div>
+          )}
+          
+          {/* Logout Button */}
           <Button
             variant="ghost"
             className={`w-full gap-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 ${
@@ -118,6 +139,8 @@ function AppSidebar() {
           </Button>
         </div>
       </SidebarContent>
+      
+      <PlanModal open={isPlanModalOpen} onOpenChange={setIsPlanModalOpen} />
     </Sidebar>
   );
 }
