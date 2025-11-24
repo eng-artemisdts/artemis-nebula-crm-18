@@ -62,7 +62,7 @@ serve(async (req) => {
     logStep("QR code received", { hasQR: !!qrData.base64 });
 
     // Set webhook to receive messages
-    const webhookUrl = "https://n8n-n8n.kltkek.easypanel.host/webhook-test/sdr";
+    const webhookUrl = "https://n8n-n8n.kltkek.easypanel.host/webhook/sdr";
     
     logStep("Configuring webhook", { webhookUrl });
     
