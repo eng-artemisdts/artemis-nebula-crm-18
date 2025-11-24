@@ -23,6 +23,7 @@ export type Database = {
           id: string
           main_objective: string
           name: string
+          organization_id: string | null
           priority: string
           rejection_action: string
           tone: string
@@ -36,6 +37,7 @@ export type Database = {
           id?: string
           main_objective: string
           name: string
+          organization_id?: string | null
           priority?: string
           rejection_action?: string
           tone?: string
@@ -49,12 +51,21 @@ export type Database = {
           id?: string
           main_objective?: string
           name?: string
+          organization_id?: string | null
           priority?: string
           rejection_action?: string
           tone?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ai_interaction_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       lead_categories: {
         Row: {
@@ -62,6 +73,7 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          organization_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -69,6 +81,7 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
+          organization_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -76,9 +89,18 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          organization_id?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "lead_categories_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       leads: {
         Row: {
@@ -91,6 +113,7 @@ export type Database = {
           integration_start_time: string | null
           is_test: boolean | null
           name: string
+          organization_id: string | null
           paid_at: string | null
           payment_amount: number | null
           payment_link_url: string | null
@@ -111,6 +134,7 @@ export type Database = {
           integration_start_time?: string | null
           is_test?: boolean | null
           name: string
+          organization_id?: string | null
           paid_at?: string | null
           payment_amount?: number | null
           payment_link_url?: string | null
@@ -131,6 +155,7 @@ export type Database = {
           integration_start_time?: string | null
           is_test?: boolean | null
           name?: string
+          organization_id?: string | null
           paid_at?: string | null
           payment_amount?: number | null
           payment_link_url?: string | null
@@ -141,7 +166,86 @@ export type Database = {
           updated_at?: string | null
           whatsapp_verified?: boolean | null
         }
+        Relationships: [
+          {
+            foreignKeyName: "leads_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          created_at: string | null
+          id: string
+          logo_url: string | null
+          name: string
+          plan: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_ends_at: string | null
+          trial_ends_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          logo_url?: string | null
+          name: string
+          plan?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_ends_at?: string | null
+          trial_ends_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          plan?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_ends_at?: string | null
+          trial_ends_at?: string | null
+          updated_at?: string | null
+        }
         Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          display_name: string | null
+          id: string
+          organization_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          display_name?: string | null
+          id: string
+          organization_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          display_name?: string | null
+          id?: string
+          organization_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       settings: {
         Row: {
@@ -149,6 +253,7 @@ export type Database = {
           default_integration_start_time: string | null
           id: string
           n8n_webhook_url: string | null
+          organization_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -156,6 +261,7 @@ export type Database = {
           default_integration_start_time?: string | null
           id?: string
           n8n_webhook_url?: string | null
+          organization_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -163,16 +269,25 @@ export type Database = {
           default_integration_start_time?: string | null
           id?: string
           n8n_webhook_url?: string | null
+          organization_id?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_organization_id: { Args: never; Returns: string }
     }
     Enums: {
       [_ in never]: never
