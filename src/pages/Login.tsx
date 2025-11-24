@@ -68,30 +68,8 @@ const Login = () => {
 
     try {
       if (isSignUp) {
-        // Upload logo if provided
-        let logoUrl = null;
-        if (logo) {
-          const fileExt = logo.name.split('.').pop();
-          const fileName = `${Date.now()}.${fileExt}`;
-          const filePath = `${fileName}`;
-
-          const { error: uploadError } = await supabase.storage
-            .from('organization-logos')
-            .upload(filePath, logo, {
-              cacheControl: '3600',
-              upsert: false
-            });
-
-          if (uploadError) throw uploadError;
-
-          const { data: { publicUrl } } = supabase.storage
-            .from('organization-logos')
-            .getPublicUrl(filePath);
-
-          logoUrl = publicUrl;
-        }
-
-        const { error } = await supabase.auth.signUp({
+        // First, sign up the user
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -100,12 +78,53 @@ const Login = () => {
               selected_plan: selectedPlan,
               company_name: companyName,
               phone: phone,
-              logo_url: logoUrl,
             },
           },
         });
 
-        if (error) throw error;
+        if (signUpError) throw signUpError;
+
+        // If logo is provided and user is created, upload it
+        if (logo && signUpData.user) {
+          try {
+            const fileExt = logo.name.split('.').pop();
+            const fileName = `${signUpData.user.id}-${Date.now()}.${fileExt}`;
+            const filePath = fileName;
+
+            const { error: uploadError } = await supabase.storage
+              .from('organization-logos')
+              .upload(filePath, logo, {
+                cacheControl: '3600',
+                upsert: false
+              });
+
+            if (uploadError) {
+              console.error('Logo upload error:', uploadError);
+              // Don't throw error, just log it - signup was successful
+            } else {
+              const { data: { publicUrl } } = supabase.storage
+                .from('organization-logos')
+                .getPublicUrl(filePath);
+
+              // Update organization with logo URL
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('organization_id')
+                .eq('id', signUpData.user.id)
+                .single();
+
+              if (profile?.organization_id) {
+                await supabase
+                  .from('organizations')
+                  .update({ logo_url: publicUrl })
+                  .eq('id', profile.organization_id);
+              }
+            }
+          } catch (logoError) {
+            console.error('Error processing logo:', logoError);
+            // Continue with signup even if logo upload fails
+          }
+        }
 
         toast({
           title: "Conta criada com sucesso!",
