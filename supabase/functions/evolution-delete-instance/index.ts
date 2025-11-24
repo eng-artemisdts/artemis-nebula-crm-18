@@ -32,10 +32,26 @@ serve(async (req) => {
     const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
     if (userError) throw userError;
 
+    // Get user's organization_id from profiles table
+    const { data: profile, error: profileError } = await supabaseClient
+      .from("profiles")
+      .select("organization_id")
+      .eq("id", userData.user.id)
+      .single();
+
+    if (profileError) {
+      logStep("Profile fetch error", { error: profileError });
+      throw profileError;
+    }
+
+    if (!profile?.organization_id) {
+      throw new Error("User organization not found");
+    }
+
     const { instanceName } = await req.json();
     if (!instanceName) throw new Error("Instance name is required");
 
-    logStep("Deleting instance", { instanceName });
+    logStep("Deleting instance", { instanceName, organizationId: profile.organization_id });
 
     const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL");
     const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_KEY");
@@ -65,7 +81,7 @@ serve(async (req) => {
       .from("whatsapp_instances")
       .delete()
       .eq("instance_name", instanceName)
-      .eq("organization_id", userData.user.user_metadata.organization_id);
+      .eq("organization_id", profile.organization_id);
 
     if (deleteError) {
       logStep("Database deletion error", { error: deleteError });
