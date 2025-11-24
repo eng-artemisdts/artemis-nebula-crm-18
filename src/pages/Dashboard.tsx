@@ -110,7 +110,7 @@ const Dashboard = () => {
       const { data, error } = await supabase
         .from("settings")
         .select("default_ai_interaction_id")
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       setHasDefaultAI(!!data?.default_ai_interaction_id);

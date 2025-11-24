@@ -25,15 +25,38 @@ const AIConfiguration = () => {
       const { data, error } = await supabase
         .from("settings")
         .select("*")
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
+      
       if (data) {
         setSettingsId(data.id);
         setDefaultAIInteractionId(data.default_ai_interaction_id || "none");
+      } else {
+        // Create settings record if it doesn't exist
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("organization_id")
+          .eq("id", (await supabase.auth.getUser()).data.user?.id)
+          .single();
+        
+        if (profile) {
+          const { data: newSettings, error: createError } = await supabase
+            .from("settings")
+            .insert({ organization_id: profile.organization_id })
+            .select()
+            .single();
+          
+          if (createError) throw createError;
+          if (newSettings) {
+            setSettingsId(newSettings.id);
+            setDefaultAIInteractionId("none");
+          }
+        }
       }
     } catch (error: any) {
       console.error(error);
+      toast.error("Erro ao carregar configurações");
     }
   };
 
@@ -47,6 +70,12 @@ const AIConfiguration = () => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!settingsId) {
+      toast.error("Aguarde o carregamento das configurações");
+      return;
+    }
+    
     setLoading(true);
 
     try {
