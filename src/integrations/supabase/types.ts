@@ -67,6 +67,44 @@ export type Database = {
           },
         ]
       }
+      company_documents: {
+        Row: {
+          created_at: string
+          file_name: string
+          google_drive_file_id: string
+          google_drive_folder_id: string
+          id: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          google_drive_file_id: string
+          google_drive_folder_id: string
+          id?: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          google_drive_file_id?: string
+          google_drive_folder_id?: string
+          id?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_documents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_categories: {
         Row: {
           created_at: string | null

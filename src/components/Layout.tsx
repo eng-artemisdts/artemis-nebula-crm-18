@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { Home, Users, Settings, List, LogOut, FolderKanban, SearchCheck, Bot, Smartphone, CreditCard, Sparkles } from "lucide-react";
+import { Home, Users, Settings, List, LogOut, FolderKanban, SearchCheck, Bot, Smartphone, CreditCard, Sparkles, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +30,7 @@ const menuItems = [
   { title: "Conectar WhatsApp", url: "/whatsapp", icon: Smartphone },
   { title: "Categorias", url: "/categories", icon: Users },
   { title: "Gerenciar Categorias", url: "/category-manager", icon: FolderKanban },
+  { title: "Documentos", url: "/documents", icon: FileText },
   { title: "Configurações", url: "/settings", icon: Settings },
 ];
 
