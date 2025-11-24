@@ -105,7 +105,38 @@ export const LeadCard = ({
       
       // Abre o WhatsApp se houver número
       if (lead.contact_whatsapp) {
-        const message = encodeURIComponent(`Olá ${lead.name}! Tudo bem?`);
+        const message = encodeURIComponent(`Oi! 👋
+Aqui é a equipe da Artemis Digital Solutions.
+
+Estamos com uma oferta especial de Black Friday para ajudar pequenos negócios a vender mais, atender melhor e organizar o fluxo de mensagens durante esse período de alta demanda.
+
+Quero te apresentar uma solução que está transformando o atendimento de muitos empreendedores: chatbots inteligentes para WhatsApp, Instagram e sites.
+
+🤖 O que é um chatbot?
+
+É um assistente virtual que responde automaticamente seus clientes, 24 horas por dia, mesmo quando você está ocupado, offline ou atendendo outras pessoas.
+Ele entende perguntas frequentes, coleta informações, organiza pedidos e até direciona atendimentos — tudo sem você precisar tocar no celular.
+
+🚀 Principais vantagens para o seu negócio
+
+✔ Atendimento 24h
+Nunca mais perca vendas porque não conseguiu responder a tempo.
+
+✔ Respostas instantâneas
+O cliente recebe informações rápidas sobre preços, horários, serviços, catálogo, agendamentos e muito mais.
+
+✔ Fim do acúmulo de mensagens
+O chatbot filtra, organiza e prioriza atendimentos, deixando somente o que realmente exige ação humana.
+
+✔ Mais profissionalismo
+Seu negócio transmite agilidade, organização e confiança — mesmo sendo pequeno.
+
+✔ Apoio na Black Friday
+Período de alto volume de mensagens exige rapidez. O chatbot absorve parte do atendimento e evita gargalos.
+
+✔ Geração de oportunidades
+Ele coleta nome, WhatsApp, interesse e já te entrega os leads quentes organizados. 
+E, se preferir, pode saber mais no nosso site: www.artemisdigital.tech 🚀`);
         const phoneNumber = formatWhatsAppNumber(lead.contact_whatsapp);
         window.open(`https://wa.me/${phoneNumber}?text=${message}`, '_blank');
       }
