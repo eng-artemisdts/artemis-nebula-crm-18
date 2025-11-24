@@ -64,3 +64,10 @@ export function formatWhatsAppNumber(phone: string): string {
   // Caso padrão: adiciona 55
   return `55${cleaned}`;
 }
+
+// Gera o remote_jid no formato do WhatsApp
+export function generateRemoteJid(phone: string): string {
+  if (!phone) return "";
+  const whatsappNumber = formatWhatsAppNumber(phone);
+  return `${whatsappNumber}@s.whatsapp.net`;
+}
