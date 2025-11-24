@@ -15,7 +15,6 @@ const Login = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<"free" | "pro">("free");
   const [companyName, setCompanyName] = useState("");
-  const [cnpj, setCnpj] = useState("");
   const [phone, setPhone] = useState("");
   const [logo, setLogo] = useState<File | null>(null);
   const navigate = useNavigate();
@@ -100,7 +99,6 @@ const Login = () => {
             data: {
               selected_plan: selectedPlan,
               company_name: companyName,
-              cnpj: cnpj,
               phone: phone,
               logo_url: logoUrl,
             },
@@ -239,33 +237,18 @@ const Login = () => {
                   />
                 </div>
 
-                {/* CNPJ and Phone Grid */}
-                <div className="grid grid-cols-2 gap-4 animate-fade-in" style={{ animationDelay: '0.4s' }}>
-                  <div className="space-y-2">
-                    <Label htmlFor="cnpj" className="text-sm font-medium">CNPJ</Label>
-                    <Input
-                      id="cnpj"
-                      type="text"
-                      placeholder="00.000.000/0000-00"
-                      value={cnpj}
-                      onChange={(e) => setCnpj(e.target.value)}
-                      disabled={isLoading}
-                      className="h-12 transition-all duration-300 focus:scale-[1.02]"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="phone" className="text-sm font-medium">Telefone</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="(00) 00000-0000"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      disabled={isLoading}
-                      className="h-12 transition-all duration-300 focus:scale-[1.02]"
-                    />
-                  </div>
+                {/* Phone Input */}
+                <div className="space-y-2 animate-fade-in" style={{ animationDelay: '0.4s' }}>
+                  <Label htmlFor="phone" className="text-sm font-medium">Telefone</Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="(00) 00000-0000"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    disabled={isLoading}
+                    className="h-12 transition-all duration-300 focus:scale-[1.02]"
+                  />
                 </div>
 
                 {/* Logo Upload (Optional) */}
