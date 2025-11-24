@@ -86,7 +86,7 @@ serve(async (req) => {
     logStep("Instance created in Evolution API", { evolutionData });
 
     // Set webhook to receive messages
-    const webhookUrl = "https://n8n-n8n.kltkek.easypanel.host/webhook-test/sdr";
+    const webhookUrl = "https://n8n-n8n.kltkek.easypanel.host/webhook/sdr";
     
     logStep("Configuring webhook", { webhookUrl });
     
