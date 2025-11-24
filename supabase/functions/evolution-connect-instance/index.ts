@@ -62,8 +62,8 @@ serve(async (req) => {
     logStep("QR code received", { hasQR: !!qrData.base64 });
 
     // Set webhook to receive messages
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const webhookUrl = `${supabaseUrl}/functions/v1/evolution-webhook`;
+    const projectId = Deno.env.get("SUPABASE_PROJECT_ID") || "trwgnmtmynxifwctlfvb";
+    const webhookUrl = `https://${projectId}.supabase.co/functions/v1/evolution-webhook`;
     
     logStep("Configuring webhook", { webhookUrl });
     
