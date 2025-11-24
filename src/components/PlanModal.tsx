@@ -30,29 +30,17 @@ const plans = [
     ],
   },
   {
-    id: "starter",
-    name: "Starter",
+    id: "pro",
+    name: "Pro",
     price: "R$ 97",
     popular: true,
-    features: [
-      "Até 3 usuários",
-      "Até 100 leads",
-      "Recursos avançados",
-      "Suporte prioritário",
-      "Integrações",
-    ],
-  },
-  {
-    id: "business",
-    name: "Business",
-    price: "R$ 297",
     features: [
       "Usuários ilimitados",
       "Leads ilimitados",
       "Todos os recursos",
-      "Suporte 24/7",
+      "Suporte prioritário",
+      "Integrações completas",
       "API personalizada",
-      "Gerente de conta dedicado",
     ],
   },
 ];
@@ -106,7 +94,7 @@ export const PlanModal = ({ open, onOpenChange }: PlanModalProps) => {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 max-w-3xl mx-auto">
           {plans.map((plan) => (
             <div
               key={plan.id}
