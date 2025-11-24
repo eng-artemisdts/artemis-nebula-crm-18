@@ -14,6 +14,10 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<"free" | "pro">("free");
+  const [companyName, setCompanyName] = useState("");
+  const [cnpj, setCnpj] = useState("");
+  const [phone, setPhone] = useState("");
+  const [logo, setLogo] = useState<File | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -65,6 +69,29 @@ const Login = () => {
 
     try {
       if (isSignUp) {
+        // Upload logo if provided
+        let logoUrl = null;
+        if (logo) {
+          const fileExt = logo.name.split('.').pop();
+          const fileName = `${Date.now()}.${fileExt}`;
+          const filePath = `${fileName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('organization-logos')
+            .upload(filePath, logo, {
+              cacheControl: '3600',
+              upsert: false
+            });
+
+          if (uploadError) throw uploadError;
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('organization-logos')
+            .getPublicUrl(filePath);
+
+          logoUrl = publicUrl;
+        }
+
         const { error } = await supabase.auth.signUp({
           email,
           password,
@@ -72,6 +99,10 @@ const Login = () => {
             emailRedirectTo: `${window.location.origin}/dashboard`,
             data: {
               selected_plan: selectedPlan,
+              company_name: companyName,
+              cnpj: cnpj,
+              phone: phone,
+              logo_url: logoUrl,
             },
           },
         });
@@ -128,52 +159,107 @@ const Login = () => {
         <form onSubmit={handleSubmit} className="space-y-6 bg-card border border-border/50 rounded-lg p-8">
           <div className="space-y-4">
             {isSignUp && (
-              <div className="space-y-3">
-                <Label>Escolha seu plano</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPlan("free")}
-                    disabled={isLoading}
-                    className={cn(
-                      "relative p-4 rounded-lg border-2 transition-all text-left",
-                      selectedPlan === "free"
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:border-primary/50"
-                    )}
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-semibold">Gratuito</h3>
-                      {selectedPlan === "free" && (
-                        <Check className="h-5 w-5 text-primary" />
+              <>
+                <div className="space-y-3">
+                  <Label>Escolha seu plano</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPlan("free")}
+                      disabled={isLoading}
+                      className={cn(
+                        "relative p-4 rounded-lg border-2 transition-all text-left",
+                        selectedPlan === "free"
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/50"
                       )}
-                    </div>
-                    <p className="text-2xl font-bold mb-1">R$ 0</p>
-                    <p className="text-xs text-muted-foreground">7 dias de teste grátis</p>
-                  </button>
-                  
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPlan("pro")}
-                    disabled={isLoading}
-                    className={cn(
-                      "relative p-4 rounded-lg border-2 transition-all text-left",
-                      selectedPlan === "pro"
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:border-primary/50"
-                    )}
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-semibold">Pro</h3>
-                      {selectedPlan === "pro" && (
-                        <Check className="h-5 w-5 text-primary" />
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <h3 className="font-semibold">Gratuito</h3>
+                        {selectedPlan === "free" && (
+                          <Check className="h-5 w-5 text-primary" />
+                        )}
+                      </div>
+                      <p className="text-2xl font-bold mb-1">R$ 0</p>
+                      <p className="text-xs text-muted-foreground">7 dias de teste grátis</p>
+                    </button>
+                    
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPlan("pro")}
+                      disabled={isLoading}
+                      className={cn(
+                        "relative p-4 rounded-lg border-2 transition-all text-left",
+                        selectedPlan === "pro"
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/50"
                       )}
-                    </div>
-                    <p className="text-2xl font-bold mb-1">R$ 99</p>
-                    <p className="text-xs text-muted-foreground">por mês</p>
-                  </button>
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <h3 className="font-semibold">Pro</h3>
+                        {selectedPlan === "pro" && (
+                          <Check className="h-5 w-5 text-primary" />
+                        )}
+                      </div>
+                      <p className="text-2xl font-bold mb-1">R$ 99</p>
+                      <p className="text-xs text-muted-foreground">por mês</p>
+                    </button>
+                  </div>
                 </div>
-              </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="companyName">Nome da Empresa</Label>
+                  <Input
+                    id="companyName"
+                    type="text"
+                    placeholder="Minha Empresa Ltda"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="cnpj">CNPJ</Label>
+                    <Input
+                      id="cnpj"
+                      type="text"
+                      placeholder="00.000.000/0000-00"
+                      value={cnpj}
+                      onChange={(e) => setCnpj(e.target.value)}
+                      disabled={isLoading}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Telefone</Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      placeholder="(00) 00000-0000"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      disabled={isLoading}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="logo">Logo da Empresa (PNG)</Label>
+                  <Input
+                    id="logo"
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg"
+                    onChange={(e) => setLogo(e.target.files?.[0] || null)}
+                    disabled={isLoading}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Formatos aceitos: PNG, JPG, JPEG (máx. 2MB)
+                  </p>
+                </div>
+              </>
             )}
             
             <div className="space-y-2">

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { NavLink } from "@/components/NavLink";
+import { useOrganization } from "@/hooks/useOrganization";
 import {
   Sidebar,
   SidebarContent,
@@ -34,6 +35,7 @@ function AppSidebar() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const location = useLocation();
+  const { organization } = useOrganization();
 
   const handleLogout = async () => {
     try {
@@ -53,7 +55,7 @@ function AppSidebar() {
   };
 
   const isCollapsed = state === "collapsed";
-  const isClosed = !open;
+  const displayLogo = organization?.logo_url || logo;
 
   return (
     <Sidebar collapsible="icon">
@@ -64,14 +66,20 @@ function AppSidebar() {
             <div className="relative flex items-center justify-center">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-accent/30 blur-2xl opacity-50 group-hover:opacity-100 transition-opacity duration-500"></div>
               <img 
-                src={logo} 
-                alt="Artemis Nebula" 
+                src={displayLogo} 
+                alt={organization?.company_name || "Logo"} 
                 className={`relative z-10 transition-all duration-500 group-hover:scale-105 drop-shadow-2xl object-contain ${
                   isCollapsed ? 'w-10 h-10' : 'w-[200px] h-[200px]'
                 }`}
               />
             </div>
           </NavLink>
+          {!isCollapsed && organization?.company_name && (
+            <div className="mt-4 text-center">
+              <p className="text-sm font-semibold text-foreground">{organization.company_name}</p>
+              <p className="text-xs text-muted-foreground capitalize">{organization.plan}</p>
+            </div>
+          )}
         </div>
 
         {/* Navigation */}
