@@ -104,6 +104,36 @@ export default function Documents() {
     if (!confirm("Tem certeza que deseja excluir este documento?")) return;
 
     try {
+      // First, get the document to retrieve the google_drive_file_id
+      const doc = documents.find(d => d.id === id);
+      if (!doc) {
+        throw new Error("Documento não encontrado");
+      }
+
+      // Delete from Google Drive
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("Usuário não autenticado");
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-to-google-drive`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ fileId: doc.google_drive_file_id }),
+        }
+      );
+
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error || 'Erro ao deletar do Google Drive');
+      }
+
+      // Delete from database
       const { error } = await supabase
         .from("company_documents")
         .delete()
@@ -115,7 +145,7 @@ export default function Documents() {
       fetchDocuments();
     } catch (error) {
       console.error("Error deleting document:", error);
-      toast.error("Erro ao excluir documento");
+      toast.error(error instanceof Error ? error.message : "Erro ao excluir documento");
     }
   };
 

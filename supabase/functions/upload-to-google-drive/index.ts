@@ -195,6 +195,43 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
+    // Handle DELETE request
+    if (req.method === 'DELETE') {
+      const { fileId } = await req.json();
+      
+      if (!fileId) {
+        throw new Error('Missing fileId');
+      }
+
+      const accessToken = await getAccessToken();
+      
+      console.log('Deleting file from Google Drive:', fileId);
+      
+      // Delete file from Google Drive
+      const deleteResponse = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${fileId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      if (!deleteResponse.ok) {
+        const errorText = await deleteResponse.text();
+        console.error('Failed to delete from Google Drive:', deleteResponse.status, errorText);
+        throw new Error(`Failed to delete file from Google Drive: ${deleteResponse.status}`);
+      }
+
+      console.log('File deleted successfully from Google Drive');
+
+      return new Response(
+        JSON.stringify({ success: true, message: 'Arquivo deletado com sucesso' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Get organization
     const { data: profile } = await supabase
       .from('profiles')
