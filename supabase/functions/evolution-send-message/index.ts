@@ -44,10 +44,6 @@ serve(async (req) => {
           )
         );
         
-        // Determina o tipo MIME da imagem
-        const contentType = imageDownload.headers.get('content-type') || 'image/png';
-        const base64WithPrefix = `data:${contentType};base64,${base64Image}`;
-        
         console.log("Sending image as base64, size:", base64Image.length, "bytes");
         
         const imageResponse = await fetch(`${EVOLUTION_API_URL}/message/sendMedia/${instanceName}`, {
@@ -59,8 +55,8 @@ serve(async (req) => {
           body: JSON.stringify({
             number: remoteJid,
             mediatype: "image",
-            media: base64WithPrefix,
-            caption: ""
+            media: base64Image,
+            fileName: "imagem.png"
           }),
         });
 
