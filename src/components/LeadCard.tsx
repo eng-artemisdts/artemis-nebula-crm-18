@@ -68,10 +68,10 @@ export const LeadCard = ({
         return;
       }
 
-      // Busca as configurações do webhook
+      // Busca as configurações do webhook e mensagem padrão
       const { data: settings } = await supabase
         .from("settings")
-        .select("n8n_webhook_url")
+        .select("n8n_webhook_url, default_message, default_image_url")
         .maybeSingle();
 
       // Busca a instância do WhatsApp da organização
@@ -97,8 +97,8 @@ export const LeadCard = ({
 
       if (updateError) throw updateError;
 
-      // Prepara a mensagem
-      const message = `👋 Oi! Tudo bem?
+      // Usa mensagem e imagem configuradas ou fallback para as padrões
+      const message = settings?.default_message || `👋 Oi! Tudo bem?
 Aqui é a equipe da Artemis Digital Solutions e temos uma oferta especial de Black Friday para impulsionar suas vendas e organizar seu atendimento nesse período de alta demanda.
 
 🤖 O que é um chatbot?
@@ -131,8 +131,12 @@ Se quiser saber mais, é só acessar:
 
       const remoteJid = lead.remote_jid || `${formatWhatsAppNumber(lead.contact_whatsapp)}@s.whatsapp.net`;
 
-      // Envia mensagem de texto via Evolution API
-      const imageUrl = `${window.location.origin}/images/black-friday.png`;
+      // Usa imagem configurada ou fallback para a padrão
+      const imageUrl = settings?.default_image_url 
+        ? (settings.default_image_url.startsWith('http') 
+            ? settings.default_image_url 
+            : `${window.location.origin}${settings.default_image_url}`)
+        : `${window.location.origin}/images/black-friday.png`;
       
       const { error: sendError } = await supabase.functions.invoke("evolution-send-message", {
         body: {

@@ -317,7 +317,9 @@ export type Database = {
         Row: {
           created_at: string | null
           default_ai_interaction_id: string | null
+          default_image_url: string | null
           default_integration_start_time: string | null
+          default_message: string | null
           id: string
           n8n_webhook_url: string | null
           organization_id: string | null
@@ -326,7 +328,9 @@ export type Database = {
         Insert: {
           created_at?: string | null
           default_ai_interaction_id?: string | null
+          default_image_url?: string | null
           default_integration_start_time?: string | null
+          default_message?: string | null
           id?: string
           n8n_webhook_url?: string | null
           organization_id?: string | null
@@ -335,7 +339,9 @@ export type Database = {
         Update: {
           created_at?: string | null
           default_ai_interaction_id?: string | null
+          default_image_url?: string | null
           default_integration_start_time?: string | null
+          default_message?: string | null
           id?: string
           n8n_webhook_url?: string | null
           organization_id?: string | null
