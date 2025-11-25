@@ -35,6 +35,10 @@ serve(async (req) => {
           throw new Error(`Failed to download image: ${imageDownloadResponse.status}`);
         }
         
+        // Pega o mimetype da resposta
+        const contentType = imageDownloadResponse.headers.get('content-type') || 'image/png';
+        console.log("Image content-type:", contentType);
+        
         // Converte para base64 PURO (sem prefixo data:)
         const imageBuffer = await imageDownloadResponse.arrayBuffer();
         const base64Image = btoa(
@@ -44,7 +48,7 @@ serve(async (req) => {
           )
         );
         
-        console.log("Sending image as base64, size:", base64Image.length, "bytes");
+        console.log("Sending image as base64, size:", base64Image.length, "bytes, mimetype:", contentType);
         
         const imageResponse = await fetch(`${EVOLUTION_API_URL}/message/sendMedia/${instanceName}`, {
           method: "POST",
@@ -55,6 +59,7 @@ serve(async (req) => {
           body: JSON.stringify({
             number: remoteJid,
             mediatype: "image",
+            mimetype: contentType,
             media: base64Image,
             fileName: "promocao.png"
           }),
