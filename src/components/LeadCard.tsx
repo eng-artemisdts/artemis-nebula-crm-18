@@ -134,12 +134,14 @@ E, se preferir, pode saber mais no nosso site: www.artemisdigital.tech 🚀`;
       const remoteJid = lead.remote_jid || `${formatWhatsAppNumber(lead.contact_whatsapp)}@s.whatsapp.net`;
 
       // Envia mensagem de texto via Evolution API
+      const imageUrl = `${window.location.origin}/images/black-friday.png`;
+      
       const { error: sendError } = await supabase.functions.invoke("evolution-send-message", {
         body: {
           instanceName: whatsappInstance.instance_name,
           remoteJid,
           message,
-          imageUrl: "https://www.artemisdigital.tech/assets/logo-full-white.svg"
+          imageUrl
         }
       });
 
