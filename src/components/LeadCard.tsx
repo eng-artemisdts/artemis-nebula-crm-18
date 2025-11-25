@@ -141,6 +141,7 @@ Se quiser saber mais, é só acessar:
 
   const handleConfirmSend = async () => {
     setIsStartingConversation(true);
+    setShowPreview(false);
 
     try {
       if (!lead.contact_whatsapp || !previewInstanceName) {
@@ -204,7 +205,6 @@ Se quiser saber mais, é só acessar:
       }
 
       toast.success("Conversa iniciada com sucesso!");
-      setShowPreview(false);
     } catch (error: any) {
       toast.error("Erro ao iniciar conversa");
       console.error(error);
