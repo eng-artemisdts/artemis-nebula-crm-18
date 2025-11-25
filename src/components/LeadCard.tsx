@@ -131,12 +131,11 @@ Se quiser saber mais, é só acessar:
 
       const remoteJid = lead.remote_jid || `${formatWhatsAppNumber(lead.contact_whatsapp)}@s.whatsapp.net`;
 
-      // Usa imagem configurada ou fallback para a padrão
-      const imageUrl = settings?.default_image_url 
-        ? (settings.default_image_url.startsWith('http') 
-            ? settings.default_image_url 
-            : `${window.location.origin}${settings.default_image_url}`)
-        : `${window.location.origin}/images/black-friday.png`;
+      // Usa imagem configurada (deve ser URL completa do Supabase Storage)
+      // Se não houver imagem configurada, não envia imagem
+      const imageUrl = settings?.default_image_url && settings.default_image_url.startsWith('http')
+        ? settings.default_image_url
+        : undefined;
       
       const { error: sendError } = await supabase.functions.invoke("evolution-send-message", {
         body: {
