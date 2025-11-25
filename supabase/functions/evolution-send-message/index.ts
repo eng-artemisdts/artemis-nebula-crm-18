@@ -29,26 +29,33 @@ serve(async (req) => {
       console.log("Preparing to send image:", imageUrl);
       
       try {
-        // Download da imagem
-        const imageDownloadResponse = await fetch(imageUrl);
-        if (!imageDownloadResponse.ok) {
-          throw new Error(`Failed to download image: ${imageDownloadResponse.status}`);
+        // Garante que a URL tenha extensão (necessário para Evolution API)
+        let finalImageUrl = imageUrl;
+        
+        // Se a URL não terminar com uma extensão de imagem, adiciona .png
+        if (!imageUrl.match(/\.(png|jpg|jpeg|gif|webp)(\?.*)?$/i)) {
+          // Se já tem query params, adiciona antes deles
+          if (imageUrl.includes('?')) {
+            const [base, query] = imageUrl.split('?');
+            finalImageUrl = `${base}.png?${query}`;
+          } else {
+            finalImageUrl = `${imageUrl}.png`;
+          }
+          console.log("URL without extension detected, modified to:", finalImageUrl);
         }
         
-        // Pega o mimetype da resposta
-        const contentType = imageDownloadResponse.headers.get('content-type') || 'image/png';
-        console.log("Image content-type:", contentType);
+        // Detecta mimetype baseado na extensão da URL
+        const extension = finalImageUrl.match(/\.(png|jpg|jpeg|gif|webp)/i)?.[1]?.toLowerCase();
+        const mimetypeMap: Record<string, string> = {
+          'png': 'image/png',
+          'jpg': 'image/jpeg',
+          'jpeg': 'image/jpeg',
+          'gif': 'image/gif',
+          'webp': 'image/webp'
+        };
+        const mimetype = mimetypeMap[extension || 'png'] || 'image/png';
         
-        // Converte para base64 PURO (sem prefixo data:)
-        const imageBuffer = await imageDownloadResponse.arrayBuffer();
-        const base64Image = btoa(
-          new Uint8Array(imageBuffer).reduce(
-            (data, byte) => data + String.fromCharCode(byte),
-            ''
-          )
-        );
-        
-        console.log("Sending image as base64, size:", base64Image.length, "bytes, mimetype:", contentType);
+        console.log("Sending image as URL with mimetype:", mimetype);
         
         const imageResponse = await fetch(`${EVOLUTION_API_URL}/message/sendMedia/${instanceName}`, {
           method: "POST",
@@ -59,8 +66,8 @@ serve(async (req) => {
           body: JSON.stringify({
             number: remoteJid,
             mediatype: "image",
-            mimetype: contentType,
-            media: base64Image,
+            mimetype: mimetype,
+            media: finalImageUrl,
             fileName: "promocao.png"
           }),
         });
