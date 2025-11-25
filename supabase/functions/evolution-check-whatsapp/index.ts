@@ -53,7 +53,7 @@ serve(async (req) => {
       try {
         console.log("Checking number:", number);
         
-        const checkResponse = await fetch(`${EVOLUTION_API_URL}/chat/checkIsWhatsapp/${instanceName}`, {
+        const checkResponse = await fetch(`${EVOLUTION_API_URL}/chat/whatsappNumbers/${instanceName}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
