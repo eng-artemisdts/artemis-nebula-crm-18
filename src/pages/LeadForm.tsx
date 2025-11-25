@@ -22,6 +22,7 @@ const LeadForm = () => {
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
   const [aiInteractions, setAiInteractions] = useState<any[]>([]);
+  const [invalidWhatsAppConfirmed, setInvalidWhatsAppConfirmed] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -129,7 +130,9 @@ const LeadForm = () => {
       
       // Get correct remote_jid from Evolution API if phone exists
       let remoteJid = null;
-      if (cleanedPhone) {
+      let whatsappVerified = false;
+      
+      if (cleanedPhone && !invalidWhatsAppConfirmed) {
         try {
           const { data: checkData, error: checkError } = await supabase.functions.invoke('evolution-check-whatsapp', {
             body: { numbers: [cleanedPhone] }
@@ -137,25 +140,64 @@ const LeadForm = () => {
 
           if (checkError) {
             console.error("Error checking WhatsApp:", checkError);
-            toast.error("Erro ao validar número no WhatsApp");
-            setLoading(false);
-            return;
-          }
-
-          if (checkData?.results?.[0]?.exists && checkData.results[0].jid) {
+            
+            // Perguntar se quer continuar mesmo com erro na validação
+            const shouldContinue = window.confirm(
+              "Não foi possível validar o número no WhatsApp. Deseja cadastrar mesmo assim?\n\n" +
+              "⚠️ Atenção: Não será possível enviar mensagens automaticamente para este lead."
+            );
+            
+            if (!shouldContinue) {
+              setLoading(false);
+              return;
+            }
+            
+            // Continua sem validação
+            remoteJid = null;
+            whatsappVerified = false;
+          } else if (checkData?.results?.[0]?.exists && checkData.results[0].jid) {
             remoteJid = checkData.results[0].jid;
+            whatsappVerified = true;
             console.log("WhatsApp verified, jid:", remoteJid);
           } else {
-            toast.error("Este número não está registrado no WhatsApp");
-            setLoading(false);
-            return;
+            // Número não existe no WhatsApp - pedir confirmação
+            const shouldContinue = window.confirm(
+              "⚠️ Este número não está registrado no WhatsApp!\n\n" +
+              "Deseja cadastrar o lead mesmo assim?\n\n" +
+              "Nota: Não será possível enviar mensagens automaticamente para este lead."
+            );
+            
+            if (!shouldContinue) {
+              setLoading(false);
+              return;
+            }
+            
+            // Usuário confirmou, salvar sem remote_jid
+            setInvalidWhatsAppConfirmed(true);
+            remoteJid = null;
+            whatsappVerified = false;
           }
         } catch (error) {
           console.error("Error validating WhatsApp:", error);
-          toast.error("Erro ao validar WhatsApp. Verifique se há uma instância conectada.");
-          setLoading(false);
-          return;
+          
+          const shouldContinue = window.confirm(
+            "Erro ao validar WhatsApp. Deseja cadastrar mesmo assim?\n\n" +
+            "⚠️ Verifique se há uma instância WhatsApp conectada.\n" +
+            "Não será possível enviar mensagens automaticamente para este lead."
+          );
+          
+          if (!shouldContinue) {
+            setLoading(false);
+            return;
+          }
+          
+          remoteJid = null;
+          whatsappVerified = false;
         }
+      } else if (cleanedPhone && invalidWhatsAppConfirmed) {
+        // Já foi confirmado anteriormente nesta sessão
+        remoteJid = null;
+        whatsappVerified = false;
       }
       
       const leadData = {
@@ -166,7 +208,7 @@ const LeadForm = () => {
         contact_email: formData.contact_email || null,
         contact_whatsapp: cleanedPhone,
         remote_jid: remoteJid,
-        whatsapp_verified: remoteJid ? true : false,
+        whatsapp_verified: whatsappVerified,
         source: formData.source || null,
         integration_start_time: formData.integration_start_time ? `${formData.integration_start_time}:00+00` : null,
         payment_amount: paymentAmount,
@@ -186,15 +228,32 @@ const LeadForm = () => {
           console.error("Update error:", error);
           throw error;
         }
-        toast.success("Lead atualizado com sucesso!");
+        
+        if (whatsappVerified) {
+          toast.success("Lead atualizado com sucesso!");
+        } else if (cleanedPhone) {
+          toast.success("Lead atualizado! ⚠️ WhatsApp não verificado - mensagens automáticas desabilitadas.");
+        } else {
+          toast.success("Lead atualizado com sucesso!");
+        }
       } else {
         const { error } = await supabase.from("leads").insert([leadData]);
         if (error) {
           console.error("Insert error:", error);
           throw error;
         }
-        toast.success("Lead criado com sucesso!");
+        
+        if (whatsappVerified) {
+          toast.success("Lead criado com sucesso!");
+        } else if (cleanedPhone) {
+          toast.success("Lead criado! ⚠️ WhatsApp não verificado - mensagens automáticas desabilitadas.");
+        } else {
+          toast.success("Lead criado com sucesso!");
+        }
       }
+      
+      // Reset confirmation state
+      setInvalidWhatsAppConfirmed(false);
       navigate("/");
     } catch (error: any) {
       const errorMessage = error?.message || "Erro ao salvar lead";
