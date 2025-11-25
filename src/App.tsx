@@ -16,6 +16,7 @@ import AIInteraction from "./pages/AIInteraction";
 import Documents from "./pages/Documents";
 import WhatsAppConnect from "./pages/WhatsAppConnect";
 import Settings from "./pages/Settings";
+import MessageConfiguration from "./pages/MessageConfiguration";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -115,6 +116,14 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <Documents />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/message-configuration"
+            element={
+              <ProtectedRoute>
+                <MessageConfiguration />
               </ProtectedRoute>
             }
           />
