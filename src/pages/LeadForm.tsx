@@ -68,9 +68,13 @@ const LeadForm = () => {
         .from("leads")
         .select("*")
         .eq("id", id)
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Fetch lead error:", error);
+        throw error;
+      }
+      
       if (data) {
         setFormData({
           name: data.name,
@@ -97,7 +101,7 @@ const LeadForm = () => {
       }
     } catch (error: any) {
       toast.error("Erro ao carregar lead");
-      console.error(error);
+      console.error("Fetch error:", error);
     }
   };
 
@@ -106,21 +110,38 @@ const LeadForm = () => {
     setLoading(true);
 
     try {
+      // Validate phone number if provided
+      if (formData.contact_whatsapp) {
+        const cleanedPhone = cleanPhoneNumber(formData.contact_whatsapp);
+        if (cleanedPhone.length < 10 || cleanedPhone.length > 13) {
+          toast.error("Número de WhatsApp inválido. Use formato: (11) 99999-9999");
+          setLoading(false);
+          return;
+        }
+      }
+
       // Parse payment amount from formatted string
       const paymentAmount = formData.payment_amount
         ? parseFloat(formData.payment_amount.replace(/\./g, "").replace(",", "."))
         : null;
 
-      const cleanedPhone = formData.contact_whatsapp ? cleanPhoneNumber(formData.contact_whatsapp) : "";
+      const cleanedPhone = formData.contact_whatsapp ? cleanPhoneNumber(formData.contact_whatsapp) : null;
       
       const leadData = {
-        ...formData,
+        name: formData.name,
+        description: formData.description || null,
+        category: formData.category || null,
+        status: formData.status,
+        contact_email: formData.contact_email || null,
         contact_whatsapp: cleanedPhone,
         remote_jid: cleanedPhone ? generateRemoteJid(cleanedPhone) : null,
-        integration_start_time: `${formData.integration_start_time}:00+00`,
+        source: formData.source || null,
+        integration_start_time: formData.integration_start_time ? `${formData.integration_start_time}:00+00` : null,
         payment_amount: paymentAmount,
         ai_interaction_id: formData.ai_interaction_id || null,
-        ...paymentData,
+        payment_link_url: paymentData.payment_link_url || null,
+        payment_stripe_id: paymentData.payment_stripe_id || null,
+        payment_status: paymentData.payment_status,
         ...(isEdit ? {} : { organization_id: organization?.id }),
       };
 
@@ -129,17 +150,24 @@ const LeadForm = () => {
           .from("leads")
           .update(leadData)
           .eq("id", id);
-        if (error) throw error;
+        if (error) {
+          console.error("Update error:", error);
+          throw error;
+        }
         toast.success("Lead atualizado com sucesso!");
       } else {
         const { error } = await supabase.from("leads").insert([leadData]);
-        if (error) throw error;
+        if (error) {
+          console.error("Insert error:", error);
+          throw error;
+        }
         toast.success("Lead criado com sucesso!");
       }
       navigate("/");
     } catch (error: any) {
-      toast.error("Erro ao salvar lead");
-      console.error(error);
+      const errorMessage = error?.message || "Erro ao salvar lead";
+      toast.error(errorMessage);
+      console.error("Save lead error:", error);
     } finally {
       setLoading(false);
     }
@@ -313,13 +341,17 @@ const LeadForm = () => {
                 <Label htmlFor="contact_whatsapp">WhatsApp</Label>
                 <Input
                   id="contact_whatsapp"
-                  value={formatPhoneDisplay(formData.contact_whatsapp)}
+                  value={formData.contact_whatsapp ? formatPhoneDisplay(formData.contact_whatsapp) : ""}
                   onChange={(e) => {
                     const cleaned = cleanPhoneNumber(e.target.value);
                     setFormData({ ...formData, contact_whatsapp: cleaned });
                   }}
                   placeholder="(11) 99999-9999"
+                  maxLength={20}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Digite apenas números. Exemplo: 11999998888 ou 5511999998888
+                </p>
               </div>
             </div>
 
