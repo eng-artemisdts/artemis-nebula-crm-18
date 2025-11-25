@@ -29,12 +29,22 @@ serve(async (req) => {
       console.log("Preparing to send image:", imageUrl);
       
       try {
-        // Converte URL relativa para absoluta se necessário
-        const absoluteImageUrl = imageUrl.startsWith('http') 
-          ? imageUrl 
-          : `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/public/${imageUrl}`;
+        // Download da imagem
+        const imageDownloadResponse = await fetch(imageUrl);
+        if (!imageDownloadResponse.ok) {
+          throw new Error(`Failed to download image: ${imageDownloadResponse.status}`);
+        }
         
-        console.log("Sending image URL:", absoluteImageUrl);
+        // Converte para base64 PURO (sem prefixo data:)
+        const imageBuffer = await imageDownloadResponse.arrayBuffer();
+        const base64Image = btoa(
+          new Uint8Array(imageBuffer).reduce(
+            (data, byte) => data + String.fromCharCode(byte),
+            ''
+          )
+        );
+        
+        console.log("Sending image as base64, size:", base64Image.length, "bytes");
         
         const imageResponse = await fetch(`${EVOLUTION_API_URL}/message/sendMedia/${instanceName}`, {
           method: "POST",
@@ -45,7 +55,8 @@ serve(async (req) => {
           body: JSON.stringify({
             number: remoteJid,
             mediatype: "image",
-            media: absoluteImageUrl,
+            media: base64Image,
+            fileName: "promocao.png"
           }),
         });
 
