@@ -5,6 +5,29 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Formata número para WhatsApp (com código do país)
+function formatWhatsAppNumber(phone: string): string {
+  const cleaned = phone.replace(/\D/g, "");
+  
+  // Se já começa com 55, retorna como está
+  if (cleaned.startsWith("55")) {
+    return cleaned;
+  }
+  
+  // Se tem 11 ou 10 dígitos, adiciona 55
+  if (cleaned.length === 11 || cleaned.length === 10) {
+    return `55${cleaned}`;
+  }
+  
+  // Se já tem código de país (mais de 11 dígitos), retorna como está
+  if (cleaned.length > 11) {
+    return cleaned;
+  }
+  
+  // Caso padrão: adiciona 55
+  return `55${cleaned}`;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -51,7 +74,8 @@ serve(async (req) => {
     const results = [];
     for (const number of numbers) {
       try {
-        console.log("Checking number:", number);
+        const formattedNumber = formatWhatsAppNumber(number);
+        console.log("Checking number:", number, "formatted to:", formattedNumber);
         
         const checkResponse = await fetch(`${EVOLUTION_API_URL}/chat/whatsappNumbers/${instanceName}`, {
           method: "POST",
@@ -60,7 +84,7 @@ serve(async (req) => {
             "apikey": EVOLUTION_API_KEY,
           },
           body: JSON.stringify({
-            numbers: [number]
+            numbers: [formattedNumber]
           }),
         });
 
