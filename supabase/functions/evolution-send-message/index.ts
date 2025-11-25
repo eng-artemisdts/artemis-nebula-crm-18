@@ -26,34 +26,59 @@ serve(async (req) => {
 
     // Se há URL de imagem, envia a imagem PRIMEIRO
     if (imageUrl) {
-      console.log("Sending image:", imageUrl);
+      console.log("Preparing to send image:", imageUrl);
       
-      const imageResponse = await fetch(`${EVOLUTION_API_URL}/message/sendMedia/${instanceName}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": EVOLUTION_API_KEY,
-        },
-        body: JSON.stringify({
-          number: remoteJid,
-          mediatype: "image",
-          media: imageUrl,
-          caption: "" // Sem legenda na imagem
-        }),
-      });
+      try {
+        // Faz download da imagem
+        const imageDownload = await fetch(imageUrl);
+        if (!imageDownload.ok) {
+          throw new Error(`Failed to download image: ${imageDownload.status}`);
+        }
+        
+        // Converte para base64
+        const imageBuffer = await imageDownload.arrayBuffer();
+        const base64Image = btoa(
+          new Uint8Array(imageBuffer).reduce(
+            (data, byte) => data + String.fromCharCode(byte),
+            ''
+          )
+        );
+        
+        // Determina o tipo MIME da imagem
+        const contentType = imageDownload.headers.get('content-type') || 'image/png';
+        const base64WithPrefix = `data:${contentType};base64,${base64Image}`;
+        
+        console.log("Sending image as base64, size:", base64Image.length, "bytes");
+        
+        const imageResponse = await fetch(`${EVOLUTION_API_URL}/message/sendMedia/${instanceName}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": EVOLUTION_API_KEY,
+          },
+          body: JSON.stringify({
+            number: remoteJid,
+            mediatype: "image",
+            media: base64WithPrefix,
+            caption: ""
+          }),
+        });
 
-      if (!imageResponse.ok) {
-        const errorData = await imageResponse.text();
-        console.error("Error sending image:", errorData);
-        console.error("Image URL attempted:", imageUrl);
-        // Não falha a operação se a imagem não for enviada, mas loga o erro
-      } else {
+        if (!imageResponse.ok) {
+          const errorData = await imageResponse.text();
+          console.error("Error sending image:", errorData);
+          throw new Error(`Failed to send image: ${imageResponse.status}`);
+        }
+        
         const imageResult = await imageResponse.json();
         console.log("Image sent successfully:", imageResult);
+        
+        // Aguarda um pouco antes de enviar o texto
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      } catch (imageError) {
+        console.error("Error processing image:", imageError);
+        // Continua mesmo se a imagem falhar
       }
-      
-      // Aguarda um pouco antes de enviar o texto
-      await new Promise(resolve => setTimeout(resolve, 1500));
     }
 
     // Envia mensagem de texto DEPOIS da imagem
