@@ -103,6 +103,11 @@ All colors MUST be HSL.
   ::-webkit-scrollbar-thumb:hover {
     @apply bg-primary/50;
   }
+
+  /* Hide Lovable badge */
+  #lovable-badge {
+    display: none !important;
+  }
 }
 
 @layer utilities {
