@@ -24,7 +24,40 @@ serve(async (req) => {
       throw new Error("Evolution API credentials not configured");
     }
 
-    // Envia mensagem de texto
+    // Se há URL de imagem, envia a imagem PRIMEIRO
+    if (imageUrl) {
+      console.log("Sending image:", imageUrl);
+      
+      const imageResponse = await fetch(`${EVOLUTION_API_URL}/message/sendMedia/${instanceName}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": EVOLUTION_API_KEY,
+        },
+        body: JSON.stringify({
+          number: remoteJid,
+          mediatype: "image",
+          media: imageUrl,
+          caption: "" // Sem legenda na imagem
+        }),
+      });
+
+      if (!imageResponse.ok) {
+        const errorData = await imageResponse.text();
+        console.error("Error sending image:", errorData);
+        console.error("Image URL attempted:", imageUrl);
+        // Não falha a operação se a imagem não for enviada, mas loga o erro
+      } else {
+        const imageResult = await imageResponse.json();
+        console.log("Image sent successfully:", imageResult);
+      }
+      
+      // Aguarda um pouco antes de enviar o texto
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+
+    // Envia mensagem de texto DEPOIS da imagem
+    console.log("Sending text message to:", remoteJid);
     const textResponse = await fetch(`${EVOLUTION_API_URL}/message/sendText/${instanceName}`, {
       method: "POST",
       headers: {
@@ -48,31 +81,9 @@ serve(async (req) => {
       
       throw new Error(`Failed to send text message: ${textResponse.status}`);
     }
-
-    // Se há URL de imagem, envia a imagem
-    if (imageUrl) {
-      // Aguarda um pouco para não enviar as duas mensagens ao mesmo tempo
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      const imageResponse = await fetch(`${EVOLUTION_API_URL}/message/sendMedia/${instanceName}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": EVOLUTION_API_KEY,
-        },
-        body: JSON.stringify({
-          number: remoteJid,
-          mediatype: "image",
-          media: imageUrl,
-        }),
-      });
-
-      if (!imageResponse.ok) {
-        const errorData = await imageResponse.text();
-        console.error("Error sending image:", errorData);
-        // Não falha a operação se a imagem não for enviada
-      }
-    }
+    
+    const textResult = await textResponse.json();
+    console.log("Text message sent successfully:", textResult);
 
     return new Response(
       JSON.stringify({ success: true }),

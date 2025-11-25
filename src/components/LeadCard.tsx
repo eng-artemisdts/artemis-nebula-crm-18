@@ -98,38 +98,36 @@ export const LeadCard = ({
       if (updateError) throw updateError;
 
       // Prepara a mensagem
-      const message = `Oi! 👋
-Aqui é a equipe da Artemis Digital Solutions.
-
-Estamos com uma oferta especial de Black Friday para ajudar pequenos negócios a vender mais, atender melhor e organizar o fluxo de mensagens durante esse período de alta demanda.
-
-Quero te apresentar uma solução que está transformando o atendimento de muitos empreendedores: chatbots inteligentes para WhatsApp, Instagram e sites.
+      const message = `👋 Oi! Tudo bem?
+Aqui é a equipe da Artemis Digital Solutions e temos uma oferta especial de Black Friday para impulsionar suas vendas e organizar seu atendimento nesse período de alta demanda.
 
 🤖 O que é um chatbot?
 
-É um assistente virtual que responde automaticamente seus clientes, 24 horas por dia, mesmo quando você está ocupado, offline ou atendendo outras pessoas.
-Ele entende perguntas frequentes, coleta informações, organiza pedidos e até direciona atendimentos — tudo sem você precisar tocar no celular.
+É um assistente virtual que responde automaticamente seus clientes 24h por dia, mesmo quando você está ocupado, offline ou atendendo outras pessoas.
+Ele responde dúvidas, coleta informações, organiza pedidos e direciona atendimentos — tudo sem você precisar tocar no celular.
 
-🚀 Principais vantagens para o seu negócio
+🚀 Vantagens para o seu negócio
 
 ✔ Atendimento 24h
-Nunca mais perca vendas porque não conseguiu responder a tempo.
+Nunca mais perca vendas por falta de resposta.
 
-✔ Respostas instantâneas
-O cliente recebe informações rápidas sobre preços, horários, serviços, catálogo, agendamentos e muito mais.
+✔ Respostas instantâneas ⚡
+Informações rápidas sobre preços, horários, serviços, catálogo, agenda e muito mais.
 
-✔ Fim do acúmulo de mensagens
-O chatbot filtra, organiza e prioriza atendimentos, deixando somente o que realmente exige ação humana.
+✔ Adeus acúmulo de mensagens 📥
+O chatbot filtra, organiza e prioriza atendimentos.
 
-✔ Mais profissionalismo
-Seu negócio transmite agilidade, organização e confiança — mesmo sendo pequeno.
+✔ Mais profissionalismo 💼
+Seu negócio transmite agilidade, organização e confiança.
 
-✔ Apoio na Black Friday
-Período de alto volume de mensagens exige rapidez. O chatbot absorve parte do atendimento e evita gargalos.
+✔ Perfeito para a Black Friday 🖤
+Ele absorve o alto volume de mensagens e evita gargalos no atendimento.
 
-✔ Geração de oportunidades
-Ele coleta nome, WhatsApp, interesse e já te entrega os leads quentes organizados. 
-E, se preferir, pode saber mais no nosso site: www.artemisdigital.tech 🚀`;
+✔ Captura e organiza leads 🔥
+Coleta nome, WhatsApp, interesse e entrega tudo prontinho para você.
+
+Se quiser saber mais, é só acessar:
+🌐 www.artemisdigital.tech`;
 
       const remoteJid = lead.remote_jid || `${formatWhatsAppNumber(lead.contact_whatsapp)}@s.whatsapp.net`;
 
