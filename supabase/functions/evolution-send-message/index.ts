@@ -29,26 +29,8 @@ serve(async (req) => {
       console.log("Preparing to send image:", imageUrl);
       
       try {
-        // Download da imagem
-        const imageDownloadResponse = await fetch(imageUrl);
-        if (!imageDownloadResponse.ok) {
-          throw new Error(`Failed to download image: ${imageDownloadResponse.status}`);
-        }
-        
-        // Pega o mimetype da resposta
-        const contentType = imageDownloadResponse.headers.get('content-type') || 'image/png';
-        console.log("Image content-type:", contentType);
-        
-        // Converte para base64 PURO (sem prefixo data:)
-        const imageBuffer = await imageDownloadResponse.arrayBuffer();
-        const base64Image = btoa(
-          new Uint8Array(imageBuffer).reduce(
-            (data, byte) => data + String.fromCharCode(byte),
-            ''
-          )
-        );
-        
-        console.log("Sending image as base64, size:", base64Image.length, "bytes, mimetype:", contentType);
+        // Envia a URL diretamente (não base64) - melhor compatibilidade com Cloud API
+        console.log("Sending image URL directly:", imageUrl);
         
         const imageResponse = await fetch(`${EVOLUTION_API_URL}/message/sendMedia/${instanceName}`, {
           method: "POST",
@@ -59,8 +41,8 @@ serve(async (req) => {
           body: JSON.stringify({
             number: remoteJid,
             mediatype: "image",
-            mimetype: contentType,
-            media: base64Image,
+            mimetype: "image/png",
+            media: imageUrl,
             fileName: "promocao.png"
           }),
         });
