@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Search, MapPin, Plus, Loader2, X } from "lucide-react";
 import { useOrganization } from "@/hooks/useOrganization";
-import { cleanPhoneNumber, generateRemoteJid } from "@/lib/utils";
+import { cleanPhoneNumber } from "@/lib/utils";
 
 interface BusinessResult {
   name: string;
@@ -127,32 +127,85 @@ const LeadSearch = () => {
     }
 
     const businessesToAdd = selectedBusinesses.map((index) => searchResults[index]);
+    setLoading(true);
     
     try {
-      const leadsToInsert = businessesToAdd.map((business) => {
-        const cleanedPhone = business.phone ? cleanPhoneNumber(business.phone) : null;
-        return {
-          name: business.name,
-          description: `Negócio encontrado via busca - ${business.address}`,
-          category: business.category,
-          status: "novo",
-          contact_whatsapp: cleanedPhone,
-          remote_jid: cleanedPhone ? generateRemoteJid(cleanedPhone) : null,
-          source: "Busca Automática",
-          whatsapp_verified: true,
-          organization_id: organization?.id,
-        };
+      // Coletar todos os números para validação
+      const phonesToCheck = businessesToAdd
+        .map((business) => business.phone ? cleanPhoneNumber(business.phone) : null)
+        .filter((phone): phone is string => phone !== null);
+
+      if (phonesToCheck.length === 0) {
+        toast.error("Nenhum número de telefone válido encontrado");
+        setLoading(false);
+        return;
+      }
+
+      // Validar todos os números via Evolution API
+      const { data: checkData, error: checkError } = await supabase.functions.invoke('evolution-check-whatsapp', {
+        body: { numbers: phonesToCheck }
       });
+
+      if (checkError) {
+        console.error("Error checking WhatsApp:", checkError);
+        toast.error("Erro ao validar números no WhatsApp");
+        setLoading(false);
+        return;
+      }
+
+      // Criar mapa de número para jid
+      const phoneToJidMap = new Map<string, string>();
+      checkData?.results?.forEach((result: any) => {
+        if (result.exists && result.jid) {
+          phoneToJidMap.set(result.number, result.jid);
+        }
+      });
+
+      // Criar leads apenas para números válidos
+      const leadsToInsert = businessesToAdd
+        .map((business) => {
+          const cleanedPhone = business.phone ? cleanPhoneNumber(business.phone) : null;
+          if (!cleanedPhone || !phoneToJidMap.has(cleanedPhone)) {
+            return null;
+          }
+
+          return {
+            name: business.name,
+            description: `Negócio encontrado via busca - ${business.address}`,
+            category: business.category,
+            status: "novo",
+            contact_whatsapp: cleanedPhone,
+            remote_jid: phoneToJidMap.get(cleanedPhone),
+            source: "Busca Automática",
+            whatsapp_verified: true,
+            organization_id: organization?.id,
+          };
+        })
+        .filter((lead): lead is NonNullable<typeof lead> => lead !== null);
+
+      if (leadsToInsert.length === 0) {
+        toast.error("Nenhum número válido no WhatsApp encontrado");
+        setLoading(false);
+        return;
+      }
 
       const { error } = await supabase.from("leads").insert(leadsToInsert);
       
       if (error) throw error;
+
+      const invalidCount = businessesToAdd.length - leadsToInsert.length;
+      if (invalidCount > 0) {
+        toast.success(`${leadsToInsert.length} lead(s) adicionado(s). ${invalidCount} número(s) não estavam no WhatsApp.`);
+      } else {
+        toast.success(`${leadsToInsert.length} lead(s) adicionado(s) com sucesso!`);
+      }
       
-      toast.success(`${businessesToAdd.length} lead(s) adicionado(s) com sucesso!`);
       setSelectedBusinesses([]);
     } catch (error: any) {
       toast.error("Erro ao adicionar leads");
       console.error(error);
+    } finally {
+      setLoading(false);
     }
   };
 

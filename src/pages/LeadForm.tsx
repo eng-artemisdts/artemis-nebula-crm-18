@@ -11,7 +11,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowLeft, Save, Trash2, DollarSign, ExternalLink } from "lucide-react";
 import { useOrganization } from "@/hooks/useOrganization";
-import { cleanPhoneNumber, formatPhoneDisplay, generateRemoteJid } from "@/lib/utils";
+import { cleanPhoneNumber, formatPhoneDisplay } from "@/lib/utils";
 
 const LeadForm = () => {
   const { id } = useParams();
@@ -127,6 +127,37 @@ const LeadForm = () => {
 
       const cleanedPhone = formData.contact_whatsapp ? cleanPhoneNumber(formData.contact_whatsapp) : null;
       
+      // Get correct remote_jid from Evolution API if phone exists
+      let remoteJid = null;
+      if (cleanedPhone) {
+        try {
+          const { data: checkData, error: checkError } = await supabase.functions.invoke('evolution-check-whatsapp', {
+            body: { numbers: [cleanedPhone] }
+          });
+
+          if (checkError) {
+            console.error("Error checking WhatsApp:", checkError);
+            toast.error("Erro ao validar número no WhatsApp");
+            setLoading(false);
+            return;
+          }
+
+          if (checkData?.results?.[0]?.exists && checkData.results[0].jid) {
+            remoteJid = checkData.results[0].jid;
+            console.log("WhatsApp verified, jid:", remoteJid);
+          } else {
+            toast.error("Este número não está registrado no WhatsApp");
+            setLoading(false);
+            return;
+          }
+        } catch (error) {
+          console.error("Error validating WhatsApp:", error);
+          toast.error("Erro ao validar WhatsApp. Verifique se há uma instância conectada.");
+          setLoading(false);
+          return;
+        }
+      }
+      
       const leadData = {
         name: formData.name,
         description: formData.description || null,
@@ -134,7 +165,8 @@ const LeadForm = () => {
         status: formData.status,
         contact_email: formData.contact_email || null,
         contact_whatsapp: cleanedPhone,
-        remote_jid: cleanedPhone ? generateRemoteJid(cleanedPhone) : null,
+        remote_jid: remoteJid,
+        whatsapp_verified: remoteJid ? true : false,
         source: formData.source || null,
         integration_start_time: formData.integration_start_time ? `${formData.integration_start_time}:00+00` : null,
         payment_amount: paymentAmount,

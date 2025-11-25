@@ -10,7 +10,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useState } from "react";
-import { formatWhatsAppNumber, formatPhoneDisplay, generateRemoteJid } from "@/lib/utils";
+import { formatWhatsAppNumber, formatPhoneDisplay } from "@/lib/utils";
 
 type Lead = {
   id: string;
@@ -130,6 +130,11 @@ Se quiser saber mais, é só acessar:
 🌐 www.artemisdigital.tech`;
 
       const remoteJid = lead.remote_jid || `${formatWhatsAppNumber(lead.contact_whatsapp)}@s.whatsapp.net`;
+
+      if (!lead.remote_jid) {
+        toast.error("Lead não possui remoteJid válido. Por favor, recrie o lead.");
+        return;
+      }
 
       // Usa imagem configurada (deve ser URL completa do Supabase Storage)
       // Se não houver imagem configurada, não envia imagem
