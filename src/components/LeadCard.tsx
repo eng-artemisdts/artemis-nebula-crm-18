@@ -77,11 +77,11 @@ export const LeadCard = ({
       // Busca a instância do WhatsApp da organização
       const { data: whatsappInstance } = await supabase
         .from("whatsapp_instances")
-        .select("instance_id, api_key")
+        .select("instance_name")
         .eq("status", "connected")
         .maybeSingle();
 
-      if (!whatsappInstance?.instance_id) {
+      if (!whatsappInstance?.instance_name) {
         toast.error("Nenhuma instância WhatsApp conectada");
         return;
       }
@@ -136,7 +136,7 @@ E, se preferir, pode saber mais no nosso site: www.artemisdigital.tech 🚀`;
       // Envia mensagem de texto via Evolution API
       const { error: sendError } = await supabase.functions.invoke("evolution-send-message", {
         body: {
-          instanceId: whatsappInstance.instance_id,
+          instanceName: whatsappInstance.instance_name,
           remoteJid,
           message,
           imageUrl: "https://www.artemisdigital.tech/assets/logo-full-white.svg"
