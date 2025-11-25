@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import { Search, MapPin, Plus, Loader2, X } from "lucide-react";
 import { useOrganization } from "@/hooks/useOrganization";
 import { cleanPhoneNumber } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
 
 interface BusinessResult {
   name: string;
@@ -35,6 +37,8 @@ const LeadSearch = () => {
   const [searchResults, setSearchResults] = useState<BusinessResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedBusinesses, setSelectedBusinesses] = useState<number[]>([]);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("");
 
   useEffect(() => {
     fetchCategories();
@@ -121,14 +125,23 @@ const LeadSearch = () => {
     );
   };
 
-  const handleAddToLeads = async () => {
+  const handleConfirmAddLeads = () => {
+    setShowConfirmDialog(false);
+    processAddToLeads();
+  };
+
+  const handleAddToLeads = () => {
     if (selectedBusinesses.length === 0) {
       toast.error("Selecione pelo menos um negócio para adicionar");
       return;
     }
+    setShowConfirmDialog(true);
+  };
 
+  const processAddToLeads = async () => {
     const businessesToAdd = selectedBusinesses.map((index) => searchResults[index]);
     setLoading(true);
+    setLoadingMessage("Validando números no WhatsApp...");
     
     try {
       // Coletar todos os números para validação
@@ -143,6 +156,7 @@ const LeadSearch = () => {
       }
 
       // Validar todos os números via Evolution API
+      setLoadingMessage("Validando números no WhatsApp...");
       const { data: checkData, error: checkError } = await supabase.functions.invoke('evolution-check-whatsapp', {
         body: { numbers: phonesToCheck }
       });
@@ -151,6 +165,7 @@ const LeadSearch = () => {
         console.error("Error checking WhatsApp:", checkError);
         toast.error("Erro ao validar números no WhatsApp");
         setLoading(false);
+        setLoadingMessage("");
         return;
       }
 
@@ -188,9 +203,11 @@ const LeadSearch = () => {
       if (leadsToInsert.length === 0) {
         toast.error("Nenhum número válido no WhatsApp encontrado");
         setLoading(false);
+        setLoadingMessage("");
         return;
       }
 
+      setLoadingMessage("Adicionando leads ao sistema...");
       const { error } = await supabase.from("leads").insert(leadsToInsert);
       
       if (error) throw error;
@@ -208,11 +225,24 @@ const LeadSearch = () => {
       console.error(error);
     } finally {
       setLoading(false);
+      setLoadingMessage("");
     }
   };
 
   return (
     <Layout>
+      {loading && <LoadingOverlay message={loadingMessage} />}
+      
+      <ConfirmDialog
+        open={showConfirmDialog}
+        onOpenChange={setShowConfirmDialog}
+        onConfirm={handleConfirmAddLeads}
+        title="Confirmar Adição de Leads"
+        description={`Você está prestes a adicionar ${selectedBusinesses.length} negócio(s) como leads. Os números serão validados no WhatsApp antes da adição. Deseja continuar?`}
+        confirmText="Sim, Adicionar"
+        cancelText="Cancelar"
+      />
+
       <div className="space-y-6 animate-fade-in">
         <div>
           <h1 className="text-3xl font-bold">Buscar Novos Leads</h1>
