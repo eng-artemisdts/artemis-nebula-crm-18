@@ -29,26 +29,12 @@ serve(async (req) => {
       console.log("Preparing to send image:", imageUrl);
       
       try {
-        // Faz download da imagem
-        const imageDownload = await fetch(imageUrl);
-        if (!imageDownload.ok) {
-          throw new Error(`Failed to download image: ${imageDownload.status}`);
-        }
+        // Converte URL relativa para absoluta se necessário
+        const absoluteImageUrl = imageUrl.startsWith('http') 
+          ? imageUrl 
+          : `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/public/${imageUrl}`;
         
-        // Converte para base64
-        const imageBuffer = await imageDownload.arrayBuffer();
-        const base64Image = btoa(
-          new Uint8Array(imageBuffer).reduce(
-            (data, byte) => data + String.fromCharCode(byte),
-            ''
-          )
-        );
-        
-        // Determina o tipo MIME da imagem
-        const contentType = imageDownload.headers.get('content-type') || 'image/png';
-        const base64WithPrefix = `data:${contentType};base64,${base64Image}`;
-        
-        console.log("Sending image as base64, size:", base64Image.length, "bytes, mimetype:", contentType);
+        console.log("Sending image URL:", absoluteImageUrl);
         
         const imageResponse = await fetch(`${EVOLUTION_API_URL}/message/sendMedia/${instanceName}`, {
           method: "POST",
@@ -59,9 +45,7 @@ serve(async (req) => {
           body: JSON.stringify({
             number: remoteJid,
             mediatype: "image",
-            mimetype: contentType,
-            media: base64WithPrefix,
-            fileName: "imagem.png"
+            media: absoluteImageUrl,
           }),
         });
 
