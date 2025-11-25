@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useState } from "react";
 import { formatWhatsAppNumber, formatPhoneDisplay } from "@/lib/utils";
+import { MessagePreviewDialog } from "@/components/MessagePreviewDialog";
 
 type Lead = {
   id: string;
@@ -39,6 +40,11 @@ export const LeadCard = ({
 }) => {
   const navigate = useNavigate();
   const [isStartingConversation, setIsStartingConversation] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewMessage, setPreviewMessage] = useState("");
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | undefined>();
+  const [previewSettings, setPreviewSettings] = useState<any>(null);
+  const [previewInstanceName, setPreviewInstanceName] = useState<string | null>(null);
   
   const {
     attributes,
@@ -58,9 +64,8 @@ export const LeadCard = ({
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const handleStartConversation = async (e: React.MouseEvent) => {
+  const handleShowPreview = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsStartingConversation(true);
 
     try {
       if (!lead.contact_whatsapp) {
@@ -85,17 +90,6 @@ export const LeadCard = ({
         toast.error("Nenhuma instância WhatsApp conectada");
         return;
       }
-
-      // Atualiza o status do lead e marca WhatsApp como verificado
-      const { error: updateError } = await supabase
-        .from("leads")
-        .update({ 
-          status: "conversa_iniciada",
-          whatsapp_verified: true
-        })
-        .eq("id", lead.id);
-
-      if (updateError) throw updateError;
 
       // Usa mensagem e imagem configuradas ou fallback para as padrões
       const message = settings?.default_message || `👋 Oi! Tudo bem?
@@ -129,25 +123,55 @@ Coleta nome, WhatsApp, interesse e entrega tudo prontinho para você.
 Se quiser saber mais, é só acessar:
 🌐 www.artemisdigital.tech`;
 
-      const remoteJid = lead.remote_jid || `${formatWhatsAppNumber(lead.contact_whatsapp)}@s.whatsapp.net`;
+      const imageUrl = settings?.default_image_url && settings.default_image_url.startsWith('http')
+        ? settings.default_image_url
+        : undefined;
+
+      // Armazena dados para uso posterior na confirmação
+      setPreviewMessage(message);
+      setPreviewImageUrl(imageUrl);
+      setPreviewSettings(settings);
+      setPreviewInstanceName(whatsappInstance.instance_name);
+      setShowPreview(true);
+    } catch (error: any) {
+      toast.error("Erro ao carregar preview da mensagem");
+      console.error(error);
+    }
+  };
+
+  const handleConfirmSend = async () => {
+    setIsStartingConversation(true);
+
+    try {
+      if (!lead.contact_whatsapp || !previewInstanceName) {
+        toast.error("Dados insuficientes para enviar mensagem");
+        return;
+      }
 
       if (!lead.remote_jid) {
         toast.error("Lead não possui remoteJid válido. Por favor, recrie o lead.");
         return;
       }
 
-      // Usa imagem configurada (deve ser URL completa do Supabase Storage)
-      // Se não houver imagem configurada, não envia imagem
-      const imageUrl = settings?.default_image_url && settings.default_image_url.startsWith('http')
-        ? settings.default_image_url
-        : undefined;
+      // Atualiza o status do lead e marca WhatsApp como verificado
+      const { error: updateError } = await supabase
+        .from("leads")
+        .update({ 
+          status: "conversa_iniciada",
+          whatsapp_verified: true
+        })
+        .eq("id", lead.id);
+
+      if (updateError) throw updateError;
+
+      const remoteJid = lead.remote_jid;
       
       const { error: sendError } = await supabase.functions.invoke("evolution-send-message", {
         body: {
-          instanceName: whatsappInstance.instance_name,
+          instanceName: previewInstanceName,
           remoteJid,
-          message,
-          imageUrl
+          message: previewMessage,
+          imageUrl: previewImageUrl
         }
       });
 
@@ -159,9 +183,9 @@ Se quiser saber mais, é só acessar:
       }
 
       // Se há webhook configurado, envia os dados
-      if (settings?.n8n_webhook_url) {
+      if (previewSettings?.n8n_webhook_url) {
         try {
-          await fetch(settings.n8n_webhook_url, {
+          await fetch(previewSettings.n8n_webhook_url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -180,6 +204,7 @@ Se quiser saber mais, é só acessar:
       }
 
       toast.success("Conversa iniciada com sucesso!");
+      setShowPreview(false);
     } catch (error: any) {
       toast.error("Erro ao iniciar conversa");
       console.error(error);
@@ -275,15 +300,26 @@ Se quiser saber mais, é só acessar:
         )}
 
         {canStartConversation && (
-          <Button
-            onClick={handleStartConversation}
-            disabled={isStartingConversation}
-            className="w-full gap-2"
-            size="sm"
-          >
-            <MessageCircle className="w-4 h-4" />
-            {isStartingConversation ? "Iniciando..." : "Iniciar Conversa"}
-          </Button>
+          <>
+            <Button
+              onClick={handleShowPreview}
+              disabled={isStartingConversation}
+              className="w-full gap-2"
+              size="sm"
+            >
+              <MessageCircle className="w-4 h-4" />
+              Iniciar Conversa
+            </Button>
+            <MessagePreviewDialog
+              open={showPreview}
+              onOpenChange={setShowPreview}
+              onConfirm={handleConfirmSend}
+              message={previewMessage}
+              imageUrl={previewImageUrl}
+              leadName={lead.name}
+              isLoading={isStartingConversation}
+            />
+          </>
         )}
 
         <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/50">
