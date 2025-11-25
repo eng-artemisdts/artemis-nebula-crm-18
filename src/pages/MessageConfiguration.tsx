@@ -59,16 +59,16 @@ export default function MessageConfiguration() {
     try {
       const fileExt = file.name.split(".").pop();
       const fileName = `${organization.id}-${Date.now()}.${fileExt}`;
-      const filePath = `message-images/${fileName}`;
+      const filePath = fileName;
 
       const { error: uploadError } = await supabase.storage
-        .from("organization-logos")
+        .from("message-images")
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
-        .from("organization-logos")
+        .from("message-images")
         .getPublicUrl(filePath);
 
       setImageUrl(publicUrl);
