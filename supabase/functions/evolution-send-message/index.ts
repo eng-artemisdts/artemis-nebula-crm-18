@@ -11,9 +11,9 @@ serve(async (req) => {
   }
 
   try {
-    const { instanceId, remoteJid, message, imageUrl } = await req.json();
+    const { instanceName, remoteJid, message, imageUrl } = await req.json();
 
-    if (!instanceId || !remoteJid || !message) {
+    if (!instanceName || !remoteJid || !message) {
       throw new Error("Missing required parameters");
     }
 
@@ -25,7 +25,7 @@ serve(async (req) => {
     }
 
     // Envia mensagem de texto
-    const textResponse = await fetch(`${EVOLUTION_API_URL}/message/sendText/${instanceId}`, {
+    const textResponse = await fetch(`${EVOLUTION_API_URL}/message/sendText/${instanceName}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -54,7 +54,7 @@ serve(async (req) => {
       // Aguarda um pouco para não enviar as duas mensagens ao mesmo tempo
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      const imageResponse = await fetch(`${EVOLUTION_API_URL}/message/sendMedia/${instanceId}`, {
+      const imageResponse = await fetch(`${EVOLUTION_API_URL}/message/sendMedia/${instanceName}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
