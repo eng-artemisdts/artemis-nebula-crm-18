@@ -16,6 +16,7 @@ interface BusinessResult {
   name: string;
   address: string;
   phone?: string;
+  email?: string;
   category: string;
   rating?: number;
   latitude?: number;
@@ -174,6 +175,7 @@ const LeadSearch = () => {
             description: `Negócio encontrado via busca - ${business.address}`,
             category: business.category,
             status: "novo",
+            contact_email: business.email || null,
             contact_whatsapp: cleanedPhone,
             remote_jid: phoneToJidMap.get(cleanedPhone),
             source: "Busca Automática",
@@ -397,7 +399,12 @@ const LeadSearch = () => {
                     </span>
                     {business.phone && (
                       <span className="px-2 py-1 bg-accent/10 rounded-md">
-                        {business.phone}
+                        📱 {business.phone}
+                      </span>
+                    )}
+                    {business.email && (
+                      <span className="px-2 py-1 bg-accent/10 rounded-md">
+                        ✉️ {business.email}
                       </span>
                     )}
                     {business.rating && (

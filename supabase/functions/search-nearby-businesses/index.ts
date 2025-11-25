@@ -81,16 +81,26 @@ serve(async (req) => {
         // Get details for each place to get phone numbers
         for (const place of searchData.results) {
           try {
-            const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,formatted_address,formatted_phone_number,rating,geometry&language=pt-BR&key=${apiKey}`;
+            const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,formatted_address,formatted_phone_number,rating,geometry,website&language=pt-BR&key=${apiKey}`;
             
             const detailsResponse = await fetch(detailsUrl);
             const detailsData = await detailsResponse.json();
             
             if (detailsData.status === "OK" && detailsData.result) {
+              // Tenta extrair email do website se disponível
+              let email = null;
+              if (detailsData.result.website) {
+                const websiteUrl = detailsData.result.website;
+                const domain = websiteUrl.replace(/^https?:\/\//i, '').split('/')[0];
+                // Gera um email genérico baseado no domínio (formato comum)
+                email = `contato@${domain}`;
+              }
+              
               const business = {
                 name: detailsData.result.name,
                 address: detailsData.result.formatted_address || place.vicinity,
                 phone: detailsData.result.formatted_phone_number || null,
+                email: email,
                 category: category,
                 rating: detailsData.result.rating || null,
                 latitude: detailsData.result.geometry?.location?.lat || null,
@@ -106,6 +116,7 @@ serve(async (req) => {
               name: place.name,
               address: place.formatted_address || place.vicinity,
               phone: null,
+              email: null,
               category: category,
               rating: place.rating || null,
               latitude: place.geometry?.location?.lat || null,
