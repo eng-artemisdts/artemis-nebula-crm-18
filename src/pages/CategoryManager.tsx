@@ -49,6 +49,12 @@ const CategoryManager = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!organization?.id) {
+      toast.error("Aguarde o carregamento da organização");
+      return;
+    }
+    
     setLoading(true);
 
     try {
@@ -62,7 +68,7 @@ const CategoryManager = () => {
       } else {
         const { error } = await supabase
           .from("lead_categories")
-          .insert([{ ...formData, organization_id: organization?.id }]);
+          .insert([{ ...formData, organization_id: organization.id }]);
         if (error) throw error;
         toast.success("Categoria criada com sucesso!");
       }
@@ -72,8 +78,9 @@ const CategoryManager = () => {
       setIsDialogOpen(false);
       fetchCategories();
     } catch (error: any) {
-      toast.error("Erro ao salvar categoria");
-      console.error(error);
+      const errorMessage = error?.message || "Erro ao salvar categoria";
+      toast.error(errorMessage);
+      console.error("Error saving category:", error);
     } finally {
       setLoading(false);
     }
@@ -347,7 +354,7 @@ const CategoryManager = () => {
                       <X className="w-4 h-4 mr-2" />
                       Cancelar
                     </Button>
-                    <Button type="submit" disabled={loading}>
+                    <Button type="submit" disabled={loading || !organization?.id}>
                       <Save className="w-4 h-4 mr-2" />
                       {editingId ? "Atualizar" : "Criar"}
                     </Button>
