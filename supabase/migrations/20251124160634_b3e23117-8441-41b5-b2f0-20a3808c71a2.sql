@@ -1,13 +1,18 @@
 -- Update organizations table to ensure plan structure is correct
 -- The table already exists, just making sure we have proper constraints
 
--- Add check constraint for valid plans
-ALTER TABLE public.organizations 
-DROP CONSTRAINT IF EXISTS organizations_plan_check;
+-- Add check constraint for valid plans (only if table exists)
+DO $$
+BEGIN
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'organizations') THEN
+    ALTER TABLE public.organizations 
+    DROP CONSTRAINT IF EXISTS organizations_plan_check;
 
-ALTER TABLE public.organizations 
-ADD CONSTRAINT organizations_plan_check 
-CHECK (plan IN ('free', 'pro'));
+    ALTER TABLE public.organizations 
+    ADD CONSTRAINT organizations_plan_check 
+    CHECK (plan IN ('free', 'pro'));
+  END IF;
+END $$;
 
 -- Create index for faster plan lookups
 CREATE INDEX IF NOT EXISTS idx_organizations_plan ON public.organizations(plan);

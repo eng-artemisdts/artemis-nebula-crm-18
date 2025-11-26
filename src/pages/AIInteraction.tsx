@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Eye, Copy, CheckSquare, Square } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useOrganization } from "@/hooks/useOrganization";
 
 interface AIInteractionSetting {
   id: string;
@@ -27,6 +28,7 @@ interface AIInteractionSetting {
 }
 
 const AIInteraction = () => {
+  const { organization } = useOrganization();
   const [settings, setSettings] = useState<AIInteractionSetting[]>([]);
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -112,9 +114,14 @@ DIRETRIZES:
         if (error) throw error;
         toast.success("Configuração atualizada com sucesso!");
       } else {
+        if (!organization?.id) {
+          toast.error("Organização não encontrada");
+          return;
+        }
+
         const { error } = await supabase
           .from("ai_interaction_settings")
-          .insert([formData]);
+          .insert([{ ...formData, organization_id: organization.id }]);
 
         if (error) throw error;
         toast.success("Configuração criada com sucesso!");
