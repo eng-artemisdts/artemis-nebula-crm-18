@@ -30,7 +30,7 @@ const Login = () => {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              'Authorization': `Bearer ${import.meta.env.SUPABASE_PUBLISHABLE_KEY}`,
             },
           }
         );
@@ -161,15 +161,15 @@ const Login = () => {
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/5 rounded-full blur-3xl animate-glow-pulse" />
       <div className="absolute top-1/4 left-1/4 w-[300px] h-[300px] bg-cosmic-glow/10 rounded-full blur-2xl animate-pulse" />
       <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-cosmic-accent/10 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '1s' }} />
-      
+
       <div className="relative z-10 w-full max-w-md animate-fade-in">
         {/* Header Section with Animation */}
         <div className="text-center space-y-4 mb-8 animate-scale-in">
           <Link to="/" className="inline-block group">
-            <img 
-              src="/src/assets/logo.png" 
-              alt="Artemis Nebula" 
-              className="h-20 mx-auto transition-transform duration-300 group-hover:scale-110" 
+            <img
+              src="/src/assets/logo.png"
+              alt="Artemis Nebula"
+              className="h-20 mx-auto transition-transform duration-300 group-hover:scale-110"
             />
           </Link>
           <div className="space-y-2">
@@ -185,8 +185,8 @@ const Login = () => {
         </div>
 
         {/* Main Form Card with Glassmorphism */}
-        <form 
-          onSubmit={handleSubmit} 
+        <form
+          onSubmit={handleSubmit}
           className="space-y-6 bg-card/50 backdrop-blur-xl border border-border/50 rounded-2xl p-8 shadow-2xl hover:shadow-primary/5 transition-all duration-300 animate-fade-in"
           style={{ animationDelay: '0.1s' }}
         >
@@ -217,7 +217,7 @@ const Login = () => {
                       <p className="text-3xl font-bold mb-2 bg-gradient-to-br from-foreground to-primary bg-clip-text text-transparent">R$ 0</p>
                       <p className="text-sm text-muted-foreground">7 dias de teste grátis</p>
                     </button>
-                    
+
                     <button
                       type="button"
                       onClick={() => setSelectedPlan("pro")}
@@ -288,7 +288,7 @@ const Login = () => {
                 </div>
               </>
             )}
-            
+
             {/* Email Input */}
             <div className="space-y-2 animate-fade-in" style={{ animationDelay: isSignUp ? '0.6s' : '0.2s' }}>
               <Label htmlFor="email" className="text-sm font-medium">Email *</Label>
@@ -321,9 +321,9 @@ const Login = () => {
           </div>
 
           {/* Submit Button */}
-          <Button 
-            type="submit" 
-            className="w-full h-12 text-base font-semibold transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/20 animate-fade-in" 
+          <Button
+            type="submit"
+            className="w-full h-12 text-base font-semibold transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/20 animate-fade-in"
             disabled={isLoading}
             style={{ animationDelay: isSignUp ? '0.8s' : '0.4s' }}
           >
