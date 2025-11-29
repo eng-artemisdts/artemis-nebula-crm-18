@@ -34,7 +34,7 @@ const Landing = () => {
       {/* Hero Section */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-cosmic-glow/10 via-background to-cosmic-accent/10" />
-        
+
         <nav className="relative z-10 container mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <img src={logo} alt="Artemis Nebula" className="h-16 hover-scale" />
@@ -47,15 +47,8 @@ const Landing = () => {
         </nav>
 
         <div className="relative z-10 container mx-auto px-6 py-20 md:py-32">
-          <div className="max-w-4xl mx-auto text-center space-y-8">
-            <div className="mb-2 animate-scale-in">
-              <img 
-                src={logo} 
-                alt="Artemis Nebula" 
-                className="h-40 md:h-52 mx-auto hover-scale" 
-              />
-            </div>
-            
+          <div className="max-w-4xl mx-auto text-center">
+
             <h1 className="text-5xl md:text-7xl font-bold leading-tight animate-fade-in">
               <span className="bg-gradient-to-r from-primary via-cosmic-glow to-cosmic-accent bg-clip-text text-transparent">
                 CRM do Futuro
@@ -63,7 +56,7 @@ const Landing = () => {
               <br />
               <span className="text-foreground">para Seu Negócio</span>
             </h1>
-            
+
             <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto animate-slide-up opacity-0 [animation-delay:200ms] [animation-fill-mode:forwards]">
               Gerencie leads, automatize processos e impulsione suas vendas com inteligência e simplicidade.
             </p>
@@ -89,7 +82,7 @@ const Landing = () => {
           <h2 className="text-4xl font-bold text-center mb-16 bg-gradient-to-r from-primary to-cosmic-accent bg-clip-text text-transparent animate-fade-in">
             Recursos Poderosos
           </h2>
-          
+
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             <div className="bg-card border border-border/50 rounded-lg p-6 hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/10 hover-scale animate-fade-in opacity-0 [animation-delay:100ms] [animation-fill-mode:forwards]">
               <div className="h-12 w-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">

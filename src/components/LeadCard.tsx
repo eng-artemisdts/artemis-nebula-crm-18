@@ -87,7 +87,15 @@ export const LeadCard = ({
         .maybeSingle();
 
       if (!whatsappInstance?.instance_name) {
-        toast.error("Nenhuma instância WhatsApp conectada");
+        toast.error("Nenhuma instância WhatsApp conectada. Configure em WhatsApp > Conectar", {
+          duration: 5000,
+          action: {
+            label: "Configurar",
+            onClick: () => {
+              window.location.href = "/whatsapp";
+            },
+          },
+        });
         return;
       }
 

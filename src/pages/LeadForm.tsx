@@ -9,9 +9,19 @@ import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeft, Save, Trash2, DollarSign, ExternalLink } from "lucide-react";
+import { ArrowLeft, Save, Trash2, DollarSign, ExternalLink, MessageCircle } from "lucide-react";
 import { useOrganization } from "@/hooks/useOrganization";
 import { cleanPhoneNumber, formatPhoneDisplay } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const LeadForm = () => {
   const { id } = useParams();
@@ -23,6 +33,7 @@ const LeadForm = () => {
   const [categories, setCategories] = useState<any[]>([]);
   const [aiInteractions, setAiInteractions] = useState<any[]>([]);
   const [invalidWhatsAppConfirmed, setInvalidWhatsAppConfirmed] = useState(false);
+  const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -106,6 +117,62 @@ const LeadForm = () => {
     }
   };
 
+  const handleSubmitWithoutValidation = async () => {
+    setLoading(true);
+    try {
+      const cleanedPhone = formData.contact_whatsapp ? cleanPhoneNumber(formData.contact_whatsapp) : null;
+      
+      // Continua sem validação do WhatsApp
+      const remoteJid = null;
+      const whatsappVerified = false;
+      
+      const paymentAmount = formData.payment_amount
+        ? parseFloat(formData.payment_amount.replace(/\./g, "").replace(",", "."))
+        : null;
+
+      const leadData = {
+        name: formData.name,
+        description: formData.description || null,
+        category: formData.category || null,
+        status: formData.status,
+        contact_email: formData.contact_email || null,
+        contact_whatsapp: cleanedPhone,
+        remote_jid: remoteJid,
+        whatsapp_verified: whatsappVerified,
+        source: formData.source || null,
+        integration_start_time: formData.integration_start_time ? `${formData.integration_start_time}:00+00` : null,
+        payment_amount: paymentAmount,
+        ai_interaction_id: formData.ai_interaction_id || null,
+        payment_link_url: paymentData.payment_link_url || null,
+        payment_stripe_id: paymentData.payment_stripe_id || null,
+        payment_status: paymentData.payment_status,
+        ...(isEdit ? {} : { organization_id: organization?.id }),
+      };
+
+      if (isEdit) {
+        const { error } = await supabase
+          .from("leads")
+          .update(leadData)
+          .eq("id", id);
+        if (error) throw error;
+        toast.success("Lead atualizado! ⚠️ WhatsApp não verificado - mensagens automáticas desabilitadas.");
+      } else {
+        const { error } = await supabase.from("leads").insert([leadData]);
+        if (error) throw error;
+        toast.success("Lead criado! ⚠️ WhatsApp não verificado - mensagens automáticas desabilitadas.");
+      }
+      
+      setInvalidWhatsAppConfirmed(false);
+      navigate("/");
+    } catch (error: any) {
+      const errorMessage = error?.message || "Erro ao salvar lead";
+      toast.error(errorMessage);
+      console.error("Save lead error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -141,7 +208,18 @@ const LeadForm = () => {
           if (checkError) {
             console.error("Error checking WhatsApp:", checkError);
             
-            // Perguntar se quer continuar mesmo com erro na validação
+            // Verifica se é erro de instância não conectada
+            const isNoInstanceError = checkError.message?.includes("No connected WhatsApp instance") || 
+                                     checkError.message?.includes("connected WhatsApp instance");
+            
+            if (isNoInstanceError) {
+              // Mostra diálogo informativo sobre instância não conectada
+              setLoading(false);
+              setShowWhatsAppDialog(true);
+              return;
+            }
+            
+            // Para outros erros, pergunta se quer continuar
             const shouldContinue = window.confirm(
               "Não foi possível validar o número no WhatsApp. Deseja cadastrar mesmo assim?\n\n" +
               "⚠️ Atenção: Não será possível enviar mensagens automaticamente para este lead."
@@ -581,14 +659,74 @@ const LeadForm = () => {
                 type="button"
                 variant="destructive"
                 onClick={handleDelete}
+                disabled={loading}
                 size="lg"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-4 h-4 mr-2" />
+                Excluir
               </Button>
             )}
           </div>
         </form>
       </div>
+
+      {/* WhatsApp Instance Dialog */}
+      <AlertDialog open={showWhatsAppDialog} onOpenChange={setShowWhatsAppDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <MessageCircle className="w-5 h-5 text-warning" />
+              WhatsApp Não Configurado
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                Não há nenhuma instância WhatsApp conectada no momento.
+              </p>
+              <p>
+                Para validar números de WhatsApp e enviar mensagens automáticas, você precisa:
+              </p>
+              <ul className="list-disc list-inside space-y-1 ml-2">
+                <li>Criar uma instância WhatsApp</li>
+                <li>Conectar a instância escaneando o QR Code</li>
+                <li>Aguardar a conexão ser estabelecida</li>
+              </ul>
+              <p className="mt-3 font-medium">
+                Deseja configurar o WhatsApp agora ou cadastrar o lead sem validação?
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setShowWhatsAppDialog(false);
+              setLoading(false);
+            }}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowWhatsAppDialog(false);
+                navigate("/whatsapp");
+              }}
+              className="bg-primary"
+            >
+              <MessageCircle className="w-4 h-4 mr-2" />
+              Configurar WhatsApp
+            </AlertDialogAction>
+            <AlertDialogAction
+              onClick={async () => {
+                setShowWhatsAppDialog(false);
+                // Continua sem validação - marca como confirmado
+                setInvalidWhatsAppConfirmed(true);
+                // Salva o lead sem validação do WhatsApp
+                await handleSubmitWithoutValidation();
+              }}
+              variant="outline"
+            >
+              Continuar Sem Validação
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 };
