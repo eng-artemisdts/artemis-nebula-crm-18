@@ -55,7 +55,7 @@ async function findOrCreateFolder(
   folderName: string,
   parentId?: string
 ): Promise<string> {
-  // Search for existing folder
+
   let query = `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
   if (parentId) {
     query += ` and '${parentId}' in parents`;
@@ -74,7 +74,7 @@ async function findOrCreateFolder(
     return searchData.files[0].id;
   }
 
-  // Create folder if it doesn't exist
+
   const metadata = {
     name: folderName,
     mimeType: 'application/vnd.google-apps.folder',
@@ -100,7 +100,7 @@ async function uploadFile(
   fileContent: Uint8Array,
   folderId: string
 ): Promise<GoogleDriveFile> {
-  // Upload the file
+
   const metadata = {
     name: fileName,
     parents: [folderId],
@@ -108,7 +108,7 @@ async function uploadFile(
 
   const form = new FormData();
   form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-  // Convert Uint8Array to Array for Blob compatibility
+
   const fileArray = Array.from(fileContent);
   const blob = new Blob([new Uint8Array(fileArray)], { 
     type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
@@ -136,7 +136,7 @@ async function uploadFile(
 
   console.log('File uploaded, converting to Google Docs format');
   
-  // Convert to Google Docs format
+
   const copyResponse = await fetch(
     `https://www.googleapis.com/drive/v3/files/${uploadedFile.id}/copy`,
     {
@@ -160,7 +160,7 @@ async function uploadFile(
 
   const convertedFile = await copyResponse.json();
 
-  // Delete the original .docx file
+
   await fetch(`https://www.googleapis.com/drive/v3/files/${uploadedFile.id}`, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -182,7 +182,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get user from auth header
+
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       throw new Error('Missing authorization header');
@@ -196,7 +196,7 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    // Handle DELETE request
+
     if (req.method === 'DELETE') {
       const { fileId } = await req.json();
       
@@ -208,7 +208,7 @@ serve(async (req) => {
       
       console.log('Deleting file from Google Drive:', fileId);
       
-      // Delete file from Google Drive
+
       const deleteResponse = await fetch(
         `https://www.googleapis.com/drive/v3/files/${fileId}`,
         {
@@ -233,7 +233,7 @@ serve(async (req) => {
       );
     }
 
-    // Get organization
+
     const { data: profile } = await supabase
       .from('profiles')
       .select('organization_id')
@@ -254,7 +254,7 @@ serve(async (req) => {
       throw new Error('Company name not found');
     }
 
-    // Parse multipart form data
+
     const formData = await req.formData();
     const files = formData.getAll('files');
 
@@ -262,20 +262,20 @@ serve(async (req) => {
       throw new Error('No files provided');
     }
 
-    // Get access token
+
     const accessToken = await getAccessToken();
 
-    // Create/find artemis-nebula folder
+
     const artemisFolder = await findOrCreateFolder(accessToken, 'artemis-nebula');
 
-    // Create/find company folder
+
     const companyFolder = await findOrCreateFolder(
       accessToken,
       organization.company_name,
       artemisFolder
     );
 
-    // Upload all files
+
     const uploadedFiles = [];
     for (const file of files) {
       if (file instanceof File) {
@@ -289,7 +289,7 @@ serve(async (req) => {
           companyFolder
         );
 
-        // Save to database
+
         const { data: savedDoc, error: saveError } = await supabase
           .from('company_documents')
           .insert({

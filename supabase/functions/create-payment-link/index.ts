@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -27,7 +27,7 @@ serve(async (req) => {
 
     console.log(`[CREATE-PAYMENT-LINK] Processing lead: ${leadId}`);
 
-    // Get lead information
+
     const { data: lead, error: leadError } = await supabaseClient
       .from("leads")
       .select("*")
@@ -39,10 +39,10 @@ serve(async (req) => {
       throw new Error("Lead not found");
     }
 
-    // Determine amount: prefer value from request, fallback to DB
+
     const amount = typeof paymentAmount === "number" ? paymentAmount : lead.payment_amount;
 
-    // Validate payment amount
+
     if (!amount || amount <= 0) {
       console.error("[CREATE-PAYMENT-LINK] Invalid payment amount:", amount);
       throw new Error("O lead precisa ter um valor válido definido antes de gerar o link de pagamento");
@@ -51,16 +51,16 @@ serve(async (req) => {
     console.log(`[CREATE-PAYMENT-LINK] Lead full data:`, JSON.stringify(lead));
     console.log(`[CREATE-PAYMENT-LINK] Using amount: R$ ${amount} (from ${typeof paymentAmount === "number" ? "request" : "lead"})`);
 
-    // Initialize Stripe
+
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
       apiVersion: "2025-08-27.basil",
     });
 
-    // Convert BRL to cents
+
     const amountInCents = Math.round(amount * 100);
     console.log(`[CREATE-PAYMENT-LINK] Amount in cents: ${amountInCents}`);
 
-    // Create a Checkout Session - try with PIX first, fallback to card and boleto only
+
     let session;
     const sessionConfig = {
       line_items: [
@@ -87,7 +87,7 @@ serve(async (req) => {
     };
 
     try {
-      // Try with PIX, card, and boleto
+
       console.log(`[CREATE-PAYMENT-LINK] Attempting to create session with PIX support`);
       session = await stripe.checkout.sessions.create({
         ...sessionConfig,
@@ -95,7 +95,7 @@ serve(async (req) => {
       });
       console.log(`[CREATE-PAYMENT-LINK] Session created with PIX support`);
     } catch (pixError: any) {
-      // If PIX is not available, fallback to card and boleto only
+
       if (pixError.code === 'parameter_invalid_value' || pixError.rawType === 'invalid_request_error') {
         console.log(`[CREATE-PAYMENT-LINK] PIX not available, creating session without PIX`);
         session = await stripe.checkout.sessions.create({
@@ -110,7 +110,7 @@ serve(async (req) => {
 
     console.log(`[CREATE-PAYMENT-LINK] Checkout session created: ${session.url}`);
 
-    // Update lead with payment information
+
     const { error: updateError } = await supabaseClient
       .from("leads")
       .update({

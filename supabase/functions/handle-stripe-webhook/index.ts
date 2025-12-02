@@ -20,7 +20,7 @@ serve(async (req) => {
   try {
     logStep("Webhook received");
 
-    // Get Stripe signature
+
     const signature = req.headers.get("stripe-signature");
     if (!signature) {
       logStep("ERROR: No signature found");
@@ -29,7 +29,7 @@ serve(async (req) => {
 
     const body = await req.text();
     
-    // Initialize Stripe
+
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     if (!stripeKey) {
       logStep("ERROR: No Stripe key");
@@ -40,13 +40,13 @@ serve(async (req) => {
       apiVersion: "2025-08-27.basil",
     });
 
-    // Validate webhook signature
+
     const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
     logStep("Webhook secret configured", { hasSecret: !!webhookSecret, secretPrefix: webhookSecret?.substring(0, 10) });
     let event;
     
     try {
-      // CRITICAL: Deno requires explicit CryptoProvider
+
       event = await stripe.webhooks.constructEventAsync(
         body, 
         signature, 
@@ -67,7 +67,7 @@ serve(async (req) => {
       });
     }
 
-    // Process payment completion event
+
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as any;
       const leadId = session.metadata?.lead_id;
@@ -82,7 +82,7 @@ serve(async (req) => {
 
       logStep("Payment completed", { leadId, sessionId: session.id });
 
-      // Update lead in database
+
       const supabaseClient = createClient(
         Deno.env.get("SUPABASE_URL") ?? "",
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""

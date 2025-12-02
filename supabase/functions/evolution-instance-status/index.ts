@@ -44,7 +44,7 @@ serve(async (req) => {
       throw new Error("Evolution API credentials not configured");
     }
 
-    // Get instance status from Evolution API
+
     const response = await fetch(`${EVOLUTION_API_URL}/instance/connectionState/${instanceName}`, {
       method: "GET",
       headers: {
@@ -63,13 +63,64 @@ serve(async (req) => {
 
     const isConnected = statusData.instance?.state === "open";
 
-    // Update instance status in database
+
     const updateData: any = {
       status: isConnected ? "connected" : statusData.instance?.state || "disconnected",
     };
 
-    if (isConnected && !statusData.connected_at) {
-      updateData.connected_at = new Date().toISOString();
+    if (isConnected) {
+
+      try {
+
+        if (statusData.instance?.owner) {
+          const phoneNumber = statusData.instance.owner.split('@')[0];
+          updateData.phone_number = phoneNumber;
+          logStep("Phone number found in connectionState", { phoneNumber });
+        } else {
+
+          const infoResponse = await fetch(`${EVOLUTION_API_URL}/instance/fetchInstances`, {
+            method: "GET",
+            headers: {
+              "apikey": EVOLUTION_API_KEY,
+            },
+          });
+
+          if (infoResponse.ok) {
+            const instancesInfo = await infoResponse.json();
+
+            const instancesArray = Array.isArray(instancesInfo) 
+              ? instancesInfo 
+              : (instancesInfo.data || instancesInfo.instances || []);
+            
+            const instanceInfo = instancesArray.find((inst: any) => {
+              const name = inst.instance?.instanceName || inst.instanceName || inst.name;
+              return name === instanceName;
+            });
+            
+            if (instanceInfo?.instance?.owner || instanceInfo?.owner) {
+
+              const owner = instanceInfo.instance?.owner || instanceInfo.owner;
+              const phoneNumber = owner.split('@')[0];
+              updateData.phone_number = phoneNumber;
+              logStep("Phone number found in fetchInstances", { phoneNumber });
+            }
+          }
+        }
+      } catch (error) {
+        logStep("Error fetching instance info", { error: error instanceof Error ? error.message : String(error) });
+
+      }
+
+
+      const { data: existingInstance } = await supabaseClient
+        .from("whatsapp_instances")
+        .select("connected_at")
+        .eq("instance_name", instanceName)
+        .single();
+
+      if (!existingInstance?.connected_at) {
+        updateData.connected_at = new Date().toISOString();
+      }
       updateData.qr_code = null; // Clear QR code once connected
     }
 

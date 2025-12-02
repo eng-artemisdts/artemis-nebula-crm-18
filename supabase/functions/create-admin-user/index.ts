@@ -6,13 +6,13 @@ const corsHeaders = {
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    // Create Supabase admin client with service role key
+
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
       }
     )
 
-    // Check if admin user already exists
+
     const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers()
     const adminExists = existingUser?.users?.some(user => user.email === 'admin@email.com')
 
@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Create the admin user
+
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email: 'admin@email.com',
       password: '132566@',

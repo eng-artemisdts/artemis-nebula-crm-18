@@ -1,0 +1,124 @@
+# Regras de Desenvolvimento - Padrões de Projeto
+
+## Princípios Fundamentais
+
+### SOLID
+Sempre aplique os princípios SOLID em todo o código:
+
+- **Single Responsibility Principle (SRP)**: Cada classe/função deve ter uma única responsabilidade
+- **Open/Closed Principle (OCP)**: Abra para extensão, feche para modificação
+- **Liskov Substitution Principle (LSP)**: Objetos derivados devem ser substituíveis por seus tipos base
+- **Interface Segregation Principle (ISP)**: Interfaces específicas são melhores que uma interface geral
+- **Dependency Inversion Principle (DIP)**: Dependa de abstrações, não de implementações concretas
+
+### Domain-Driven Design (DDD)
+- Organize o código em camadas: Domain, Application, Infrastructure, Presentation
+- Use entidades, value objects, agregados e serviços de domínio
+- Mantenha a lógica de negócio no domínio, não em camadas de infraestrutura
+- Defina bounded contexts claros para diferentes partes do sistema
+
+### Orientação a Objetos
+- **SEMPRE priorize orientação a objetos** quando possível
+- Use classes e interfaces para modelar o domínio
+- Encapsule dados e comportamentos relacionados
+- Aplique herança e polimorfismo quando apropriado
+- Evite funções soltas quando um objeto seria mais apropriado
+
+## Diretrizes de Implementação
+
+### Estrutura de Código
+- Organize classes e módulos por responsabilidade
+- Use injeção de dependências para desacoplar componentes
+- Prefira composição sobre herança quando possível
+- Mantenha métodos pequenos e focados (Single Responsibility)
+
+### Nomenclatura
+- Use nomes descritivos que expressem a intenção
+- Classes devem ser substantivos (ex: `LeadService`, `UserRepository`)
+- Métodos devem ser verbos (ex: `createLead()`, `validateEmail()`)
+- Interfaces devem começar com `I` ou terminar com `able` (ex: `ILeadRepository` ou `Validatable`)
+
+### Abstrações
+- Crie interfaces para contratos entre camadas
+- Use abstrações para facilitar testes e manutenção
+- Evite acoplamento direto com implementações concretas
+
+### Testabilidade
+- Escreva código testável desde o início
+- Use injeção de dependências para facilitar mocks
+- Separe lógica de negócio de frameworks e bibliotecas externas
+
+## Exemplos de Boas Práticas
+
+### ✅ BOM - Usando OOP e SOLID
+```typescript
+// Interface (ISP)
+interface ILeadRepository {
+  save(lead: Lead): Promise<void>;
+  findById(id: string): Promise<Lead | null>;
+}
+
+// Classe de domínio (SRP)
+class Lead {
+  constructor(
+    private id: string,
+    private name: string,
+    private email: string
+  ) {}
+
+  validate(): boolean {
+    return this.name.length > 0 && this.isValidEmail(this.email);
+  }
+
+  private isValidEmail(email: string): boolean {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  }
+}
+
+// Serviço de aplicação (DIP)
+class LeadService {
+  constructor(private repository: ILeadRepository) {}
+
+  async createLead(data: CreateLeadDTO): Promise<Lead> {
+    const lead = new Lead(data.id, data.name, data.email);
+    
+    if (!lead.validate()) {
+      throw new Error('Lead inválido');
+    }
+    
+    await this.repository.save(lead);
+    return lead;
+  }
+}
+```
+
+### ❌ RUIM - Sem OOP e SOLID
+```typescript
+// Funções soltas, sem encapsulamento
+function createLead(id: string, name: string, email: string) {
+  // Lógica misturada, difícil de testar
+  if (name.length === 0) return null;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
+  
+  // Acoplamento direto com banco de dados
+  supabase.from('leads').insert({ id, name, email });
+}
+```
+
+## Quando Aplicar
+
+- **Sempre** ao criar novas funcionalidades
+- **Sempre** ao refatorar código existente
+- **Sempre** ao revisar código de outros desenvolvedores
+- Priorize OOP especialmente em:
+  - Lógica de negócio complexa
+  - Entidades de domínio
+  - Serviços e repositórios
+  - Casos de uso da aplicação
+
+## Exceções
+
+- Componentes React podem usar hooks e funções quando apropriado, mas ainda devem seguir SRP
+- Utilitários simples podem ser funções puras
+- Quando a complexidade não justifica OOP, use funções, mas mantenha SOLID
+

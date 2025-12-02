@@ -24,17 +24,17 @@ serve(async (req) => {
       throw new Error("Evolution API credentials not configured");
     }
 
-    // Se há URL de imagem, envia a imagem PRIMEIRO
+
     if (imageUrl) {
       console.log("Preparing to send image:", imageUrl);
       
       try {
-        // Garante que a URL tenha extensão (necessário para Evolution API)
+
         let finalImageUrl = imageUrl;
         
-        // Se a URL não terminar com uma extensão de imagem, adiciona .png
+
         if (!imageUrl.match(/\.(png|jpg|jpeg|gif|webp)(\?.*)?$/i)) {
-          // Se já tem query params, adiciona antes deles
+
           if (imageUrl.includes('?')) {
             const [base, query] = imageUrl.split('?');
             finalImageUrl = `${base}.png?${query}`;
@@ -44,7 +44,7 @@ serve(async (req) => {
           console.log("URL without extension detected, modified to:", finalImageUrl);
         }
         
-        // Detecta mimetype baseado na extensão da URL
+
         const extension = finalImageUrl.match(/\.(png|jpg|jpeg|gif|webp)/i)?.[1]?.toLowerCase();
         const mimetypeMap: Record<string, string> = {
           'png': 'image/png',
@@ -81,15 +81,15 @@ serve(async (req) => {
         const imageResult = await imageResponse.json();
         console.log("Image sent successfully:", imageResult);
         
-        // Aguarda um pouco antes de enviar o texto
+
         await new Promise(resolve => setTimeout(resolve, 1500));
       } catch (imageError) {
         console.error("Error processing image:", imageError);
-        // Continua mesmo se a imagem falhar
+
       }
     }
 
-    // Envia mensagem de texto DEPOIS da imagem
+
     console.log("Sending text message to:", remoteJid);
     const textResponse = await fetch(`${EVOLUTION_API_URL}/message/sendText/${instanceName}`, {
       method: "POST",
@@ -107,7 +107,7 @@ serve(async (req) => {
       const errorData = await textResponse.text();
       console.error("Error sending text message:", errorData);
       
-      // If instance doesn't exist (404), provide a clear error message
+
       if (textResponse.status === 404) {
         throw new Error("A instância WhatsApp não está mais ativa. Por favor, reconecte no menu WhatsApp.");
       }

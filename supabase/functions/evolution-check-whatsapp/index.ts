@@ -5,26 +5,25 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Formata número para WhatsApp (com código do país)
 function formatWhatsAppNumber(phone: string): string {
   const cleaned = phone.replace(/\D/g, "");
   
-  // Se já começa com 55, retorna como está
+
   if (cleaned.startsWith("55")) {
     return cleaned;
   }
   
-  // Se tem 11 ou 10 dígitos, adiciona 55
+
   if (cleaned.length === 11 || cleaned.length === 10) {
     return `55${cleaned}`;
   }
   
-  // Se já tem código de país (mais de 11 dígitos), retorna como está
+
   if (cleaned.length > 11) {
     return cleaned;
   }
   
-  // Caso padrão: adiciona 55
+
   return `55${cleaned}`;
 }
 
@@ -47,7 +46,7 @@ serve(async (req) => {
       throw new Error("Evolution API credentials not configured");
     }
 
-    // Get instance name from whatsapp_instances table
+
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
@@ -70,7 +69,7 @@ serve(async (req) => {
     const instanceName = instances[0].instance_name;
     console.log("Using instance:", instanceName);
 
-    // Check each number with Evolution API
+
     const results = [];
     for (const number of numbers) {
       try {

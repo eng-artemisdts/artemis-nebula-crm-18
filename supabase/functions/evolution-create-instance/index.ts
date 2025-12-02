@@ -35,7 +35,7 @@ serve(async (req) => {
 
     logStep("User authenticated", { userId: userData.user.id });
 
-    // Get user's organization
+
     const { data: profile } = await supabaseClient
       .from("profiles")
       .select("organization_id")
@@ -43,6 +43,18 @@ serve(async (req) => {
       .single();
 
     if (!profile?.organization_id) throw new Error("Organization not found");
+
+
+    const { data: existingInstances, error: countError } = await supabaseClient
+      .from("whatsapp_instances")
+      .select("id")
+      .eq("organization_id", profile.organization_id);
+
+    if (countError) throw countError;
+
+    if (existingInstances && existingInstances.length >= 3) {
+      throw new Error("Limite máximo de 3 instâncias atingido. Delete uma instância existente para criar uma nova.");
+    }
 
     const { instanceName } = await req.json();
     if (!instanceName) throw new Error("Instance name is required");
@@ -56,7 +68,7 @@ serve(async (req) => {
       throw new Error("Evolution API credentials not configured");
     }
 
-    // Create instance in Evolution API
+
     const response = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
       method: "POST",
       headers: {
@@ -85,7 +97,7 @@ serve(async (req) => {
     const evolutionData = await response.json();
     logStep("Instance created in Evolution API", { evolutionData });
 
-    // Set webhook to receive messages
+
     const webhookUrl = "https://n8n-n8n.kltkek.easypanel.host/webhook/sdr";
     
     logStep("Configuring webhook", { webhookUrl });
@@ -114,12 +126,12 @@ serve(async (req) => {
     if (!webhookResponse.ok) {
       const webhookError = await webhookResponse.text();
       logStep("Webhook configuration warning", { error: webhookError });
-      // Continue even if webhook fails - we can set it up later
+
     } else {
       logStep("Webhook configured successfully");
     }
 
-    // Save instance to database
+
     const { data: instance, error: dbError } = await supabaseClient
       .from("whatsapp_instances")
       .insert({
