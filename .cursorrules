@@ -48,17 +48,22 @@ Sempre aplique os princípios SOLID em todo o código:
 - Use injeção de dependências para facilitar mocks
 - Separe lógica de negócio de frameworks e bibliotecas externas
 
+### Comentários no Código
+- **NUNCA escreva comentários no código**
+- O código deve ser autoexplicativo através de nomes descritivos e estrutura clara
+- Se o código precisa de comentário, refatore-o para ser mais claro
+- Use nomes de variáveis, funções e classes que expressem claramente sua intenção
+- A única exceção são comentários JSDoc/TSDoc para documentação de APIs públicas quando necessário para ferramentas de geração de documentação
+
 ## Exemplos de Boas Práticas
 
 ### ✅ BOM - Usando OOP e SOLID
 ```typescript
-// Interface (ISP)
 interface ILeadRepository {
   save(lead: Lead): Promise<void>;
   findById(id: string): Promise<Lead | null>;
 }
 
-// Classe de domínio (SRP)
 class Lead {
   constructor(
     private id: string,
@@ -75,7 +80,6 @@ class Lead {
   }
 }
 
-// Serviço de aplicação (DIP)
 class LeadService {
   constructor(private repository: ILeadRepository) {}
 
@@ -94,13 +98,10 @@ class LeadService {
 
 ### ❌ RUIM - Sem OOP e SOLID
 ```typescript
-// Funções soltas, sem encapsulamento
 function createLead(id: string, name: string, email: string) {
-  // Lógica misturada, difícil de testar
   if (name.length === 0) return null;
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
   
-  // Acoplamento direto com banco de dados
   supabase.from('leads').insert({ id, name, email });
 }
 ```

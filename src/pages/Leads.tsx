@@ -250,7 +250,14 @@ const Leads = () => {
                   </div>
                 )}
                 <div className={isSelectionMode ? 'pointer-events-none' : ''}>
-                  <LeadCard lead={lead} />
+                  <LeadCard 
+                    lead={lead} 
+                    onLeadUpdate={(updatedLead) => {
+                      setLeads(prevLeads => 
+                        prevLeads.map(l => l.id === updatedLead.id ? updatedLead : l)
+                      );
+                    }}
+                  />
                 </div>
               </div>
             ))}

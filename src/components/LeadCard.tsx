@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Mail, Phone, Clock, DollarSign, CheckCircle, MessageCircle } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -29,14 +30,17 @@ type Lead = {
   paid_at: string | null;
   created_at: string;
   remote_jid: string | null;
+  whatsapp_verified?: boolean;
 };
 
-export const LeadCard = ({ 
-  lead, 
-  isDraggable = false 
-}: { 
+export const LeadCard = ({
+  lead,
+  isDraggable = false,
+  onLeadUpdate
+}: {
   lead: Lead;
   isDraggable?: boolean;
+  onLeadUpdate?: (updatedLead: Lead) => void;
 }) => {
   const navigate = useNavigate();
   const [isStartingConversation, setIsStartingConversation] = useState(false);
@@ -45,7 +49,8 @@ export const LeadCard = ({
   const [previewImageUrl, setPreviewImageUrl] = useState<string | undefined>();
   const [previewSettings, setPreviewSettings] = useState<any>(null);
   const [previewInstanceName, setPreviewInstanceName] = useState<string | null>(null);
-  
+  const [availableInstances, setAvailableInstances] = useState<any[]>([]);
+
   const {
     attributes,
     listeners,
@@ -53,7 +58,7 @@ export const LeadCard = ({
     transform,
     transition,
     isDragging,
-  } = useSortable({ 
+  } = useSortable({
     id: lead.id,
     disabled: !isDraggable,
   });
@@ -79,14 +84,18 @@ export const LeadCard = ({
         .select("n8n_webhook_url, default_message, default_image_url")
         .maybeSingle();
 
-      // Busca a instância do WhatsApp da organização
-      const { data: whatsappInstance } = await supabase
+      // Busca todas as instâncias conectadas do WhatsApp
+      const { data: whatsappInstances, error: instancesError } = await supabase
         .from("whatsapp_instances")
-        .select("instance_name")
+        .select("id, instance_name, phone_number, status")
         .eq("status", "connected")
-        .maybeSingle();
+        .order("created_at", { ascending: false });
 
-      if (!whatsappInstance?.instance_name) {
+      if (instancesError) {
+        throw instancesError;
+      }
+
+      if (!whatsappInstances || whatsappInstances.length === 0) {
         toast.error("Nenhuma instância WhatsApp conectada. Configure em WhatsApp > Conectar", {
           duration: 5000,
           action: {
@@ -98,6 +107,8 @@ export const LeadCard = ({
         });
         return;
       }
+
+      setAvailableInstances(whatsappInstances);
 
       // Usa mensagem e imagem configuradas ou fallback para as padrões
       const message = settings?.default_message || `👋 Oi! Tudo bem?
@@ -139,7 +150,8 @@ Se quiser saber mais, é só acessar:
       setPreviewMessage(message);
       setPreviewImageUrl(imageUrl);
       setPreviewSettings(settings);
-      setPreviewInstanceName(whatsappInstance.instance_name);
+      // Define a primeira instância como padrão se houver apenas uma, caso contrário será selecionada pelo usuário
+      setPreviewInstanceName(whatsappInstances.length === 1 ? whatsappInstances[0].instance_name : null);
       setShowPreview(true);
     } catch (error: any) {
       toast.error("Erro ao carregar preview da mensagem");
@@ -154,28 +166,20 @@ Se quiser saber mais, é só acessar:
     try {
       if (!lead.contact_whatsapp || !previewInstanceName) {
         toast.error("Dados insuficientes para enviar mensagem");
+        setIsStartingConversation(false);
         return;
       }
 
       if (!lead.remote_jid) {
         toast.error("Lead não possui remoteJid válido. Por favor, recrie o lead.");
+        setIsStartingConversation(false);
         return;
       }
 
-      // Atualiza o status do lead e marca WhatsApp como verificado
-      const { error: updateError } = await supabase
-        .from("leads")
-        .update({ 
-          status: "conversa_iniciada",
-          whatsapp_verified: true
-        })
-        .eq("id", lead.id);
-
-      if (updateError) throw updateError;
-
       const remoteJid = lead.remote_jid;
-      
-      const { error: sendError } = await supabase.functions.invoke("evolution-send-message", {
+
+      // Envia a mensagem primeiro
+      const { data: sendData, error: sendError } = await supabase.functions.invoke("evolution-send-message", {
         body: {
           instanceName: previewInstanceName,
           remoteJid,
@@ -184,11 +188,44 @@ Se quiser saber mais, é só acessar:
         }
       });
 
+      // Verifica se há erro na resposta da função
       if (sendError) {
         console.error("Erro ao enviar mensagem:", sendError);
         const errorMessage = sendError.message || "Erro ao enviar mensagem";
         toast.error(errorMessage);
+        setIsStartingConversation(false);
         return;
+      }
+
+      // Verifica se a resposta contém um erro
+      if (sendData && typeof sendData === 'object' && 'error' in sendData) {
+        const errorMessage = (sendData as any).error || "Erro ao enviar mensagem";
+        console.error("Erro na resposta da função:", errorMessage);
+        toast.error(errorMessage);
+        setIsStartingConversation(false);
+        return;
+      }
+
+      // Só atualiza o status se o envio foi bem-sucedido
+      const { error: updateError } = await supabase
+        .from("leads")
+        .update({
+          status: "conversa_iniciada",
+          whatsapp_verified: true
+        })
+        .eq("id", lead.id);
+
+      if (updateError) {
+        console.error("Erro ao atualizar status do lead:", updateError);
+        toast.error("Mensagem enviada, mas houve erro ao atualizar o status do lead");
+        setIsStartingConversation(false);
+        return;
+      }
+
+      // Atualiza o lead localmente
+      const updatedLead = { ...lead, status: "conversa_iniciada", whatsapp_verified: true };
+      if (onLeadUpdate) {
+        onLeadUpdate(updatedLead);
       }
 
       // Se há webhook configurado, envia os dados
@@ -214,8 +251,9 @@ Se quiser saber mais, é só acessar:
 
       toast.success("Conversa iniciada com sucesso!");
     } catch (error: any) {
-      toast.error("Erro ao iniciar conversa");
-      console.error(error);
+      console.error("Erro ao iniciar conversa:", error);
+      const errorMessage = error?.message || "Erro ao iniciar conversa";
+      toast.error(errorMessage);
     } finally {
       setIsStartingConversation(false);
     }
@@ -229,7 +267,7 @@ Se quiser saber mais, é só acessar:
       style={style}
       {...attributes}
       {...listeners}
-      className="p-4 cursor-pointer hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/10 group"
+      className="p-4 cursor-pointer hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/10 group min-w-0 overflow-hidden"
       onClick={(e) => {
         if (!isDragging) {
           navigate(`/lead/${lead.id}`);
@@ -237,39 +275,50 @@ Se quiser saber mais, é só acessar:
       }}
     >
       <div className="space-y-3">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="font-semibold text-lg group-hover:text-primary transition-colors">
-            {lead.name}
-          </h3>
-          <StatusBadge status={lead.status as any} />
+        <div>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <h3 className="font-semibold text-lg group-hover:text-primary transition-colors break-words leading-tight line-clamp-2 cursor-default">
+                  {lead.name}
+                </h3>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{lead.name}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <div className="mt-1.5">
+            <StatusBadge status={lead.status as any} />
+          </div>
         </div>
 
         {lead.description && (
-          <p className="text-sm text-muted-foreground line-clamp-2">{lead.description}</p>
+          <p className="text-sm text-muted-foreground line-clamp-2 break-words overflow-hidden">{lead.description}</p>
         )}
 
         <div className="flex flex-wrap gap-2">
           {lead.category && (
-            <span className="inline-flex items-center px-2 py-1 rounded-md bg-secondary text-xs font-medium">
+            <span className="inline-flex items-center px-2 py-1 rounded-md bg-secondary text-xs font-medium break-all">
               {lead.category}
             </span>
           )}
           {lead.source && (
-            <span className="inline-flex items-center px-2 py-1 rounded-md bg-muted text-xs">
+            <span className="inline-flex items-center px-2 py-1 rounded-md bg-muted text-xs break-all">
               {lead.source}
             </span>
           )}
         </div>
 
-        <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 text-sm text-muted-foreground">
           {lead.contact_email && (
             <a
               href={`mailto:${lead.contact_email}`}
-              className="flex items-center gap-1 hover:text-primary transition-colors"
+              className="flex items-center gap-1 hover:text-primary transition-colors min-w-0 flex-1 sm:flex-initial"
               onClick={(e) => e.stopPropagation()}
             >
-              <Mail className="w-4 h-4" />
-              <span className="hidden sm:inline">{lead.contact_email}</span>
+              <Mail className="w-4 h-4 flex-shrink-0" />
+              <span className="break-all min-w-0">{lead.contact_email}</span>
             </a>
           )}
           {lead.contact_whatsapp && (
@@ -277,19 +326,19 @@ Se quiser saber mais, é só acessar:
               href={`https://wa.me/${formatWhatsAppNumber(lead.contact_whatsapp)}?text=${encodeURIComponent(`Olá ${lead.name}! Tudo bem?`)}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1 hover:text-primary transition-colors"
+              className="flex items-center gap-1 hover:text-primary transition-colors min-w-0 flex-1 sm:flex-initial"
               onClick={(e) => e.stopPropagation()}
             >
-              <Phone className="w-4 h-4" />
-              <span className="hidden sm:inline">{formatPhoneDisplay(lead.contact_whatsapp)}</span>
+              <Phone className="w-4 h-4 flex-shrink-0" />
+              <span className="break-all min-w-0">{formatPhoneDisplay(lead.contact_whatsapp)}</span>
             </a>
           )}
         </div>
 
         {lead.payment_amount && (
-          <div className="flex items-center justify-between p-2 bg-accent/10 rounded-md">
-            <span className="text-sm font-medium">Valor da Proposta:</span>
-            <span className="text-lg font-bold text-accent">
+          <div className="flex items-center justify-between p-2 bg-accent/10 rounded-md gap-2">
+            <span className="text-sm font-medium break-words min-w-0">Valor da Proposta:</span>
+            <span className="text-lg font-bold text-accent whitespace-nowrap">
               {new Intl.NumberFormat("pt-BR", {
                 style: "currency",
                 currency: "BRL",
@@ -300,8 +349,8 @@ Se quiser saber mais, é só acessar:
 
         {lead.status === "pago" && lead.paid_at && (
           <div className="flex items-center gap-2 p-2 bg-status-pago/10 rounded-md">
-            <CheckCircle className="w-4 h-4 text-status-pago" />
-            <span className="text-xs text-status-pago">
+            <CheckCircle className="w-4 h-4 text-status-pago flex-shrink-0" />
+            <span className="text-xs text-status-pago break-words min-w-0">
               Pago em {format(new Date(lead.paid_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
             </span>
           </div>
@@ -326,19 +375,22 @@ Se quiser saber mais, é só acessar:
               imageUrl={previewImageUrl}
               leadName={lead.name}
               isLoading={isStartingConversation}
+              instances={availableInstances}
+              selectedInstanceName={previewInstanceName}
+              onInstanceChange={setPreviewInstanceName}
             />
           </>
         )}
 
-        <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/50">
-          <div className="flex items-center gap-1">
-            <Clock className="w-3 h-3" />
-            {format(new Date(lead.created_at), "dd/MM/yyyy", { locale: ptBR })}
+        <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/50 gap-2">
+          <div className="flex items-center gap-1 min-w-0">
+            <Clock className="w-3 h-3 flex-shrink-0" />
+            <span className="whitespace-nowrap">{format(new Date(lead.created_at), "dd/MM/yyyy", { locale: ptBR })}</span>
           </div>
           {lead.payment_status !== "nao_criado" && (
-            <div className="flex items-center gap-1 text-accent">
-              <DollarSign className="w-3 h-3" />
-              <span className="capitalize">{lead.payment_status.replace("_", " ")}</span>
+            <div className="flex items-center gap-1 text-accent min-w-0">
+              <DollarSign className="w-3 h-3 flex-shrink-0" />
+              <span className="capitalize truncate">{lead.payment_status.replace("_", " ")}</span>
             </div>
           )}
         </div>

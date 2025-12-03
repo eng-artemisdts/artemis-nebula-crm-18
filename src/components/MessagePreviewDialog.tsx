@@ -1,6 +1,16 @@
+import { useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Image as ImageIcon } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MessageCircle, Image as ImageIcon, Smartphone } from "lucide-react";
+
+type WhatsAppInstance = {
+  id: string;
+  instance_name: string;
+  phone_number: string | null;
+  status: string;
+};
 
 type MessagePreviewDialogProps = {
   open: boolean;
@@ -10,6 +20,9 @@ type MessagePreviewDialogProps = {
   imageUrl?: string;
   leadName: string;
   isLoading: boolean;
+  instances: WhatsAppInstance[];
+  selectedInstanceName: string | null;
+  onInstanceChange: (instanceName: string) => void;
 };
 
 export const MessagePreviewDialog = ({
@@ -19,8 +32,17 @@ export const MessagePreviewDialog = ({
   message,
   imageUrl,
   leadName,
-  isLoading
+  isLoading,
+  instances,
+  selectedInstanceName,
+  onInstanceChange
 }: MessagePreviewDialogProps) => {
+  useEffect(() => {
+    if (open && instances.length === 1 && !selectedInstanceName) {
+      onInstanceChange(instances[0].instance_name);
+    }
+  }, [open, instances, selectedInstanceName, onInstanceChange]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
@@ -38,6 +60,41 @@ export const MessagePreviewDialog = ({
         </DialogHeader>
 
         <div className="space-y-4">
+          {instances.length > 1 && (
+            <div className="space-y-2">
+              <Label htmlFor="instance-select" className="flex items-center gap-2">
+                <Smartphone className="w-4 h-4" />
+                Selecionar Instância WhatsApp
+              </Label>
+              <Select
+                value={selectedInstanceName || undefined}
+                onValueChange={onInstanceChange}
+              >
+                <SelectTrigger id="instance-select">
+                  <SelectValue placeholder="Selecione uma instância" />
+                </SelectTrigger>
+                <SelectContent>
+                  {instances.map((instance) => (
+                    <SelectItem key={instance.id} value={instance.instance_name}>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{instance.instance_name}</span>
+                        {instance.phone_number && (
+                          <span className="text-xs text-muted-foreground">
+                            {instance.phone_number}
+                          </span>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {!selectedInstanceName && (
+                <p className="text-xs text-destructive">
+                  Por favor, selecione uma instância para continuar
+                </p>
+              )}
+            </div>
+          )}
           {imageUrl && (
             <div className="border rounded-lg p-4 bg-muted/30">
               <div className="flex items-center gap-2 mb-3">
@@ -86,7 +143,7 @@ export const MessagePreviewDialog = ({
               e.stopPropagation();
               onConfirm();
             }}
-            disabled={isLoading}
+            disabled={isLoading || (instances.length > 1 && !selectedInstanceName)}
           >
             {isLoading ? "Enviando..." : "Confirmar e Enviar"}
           </Button>

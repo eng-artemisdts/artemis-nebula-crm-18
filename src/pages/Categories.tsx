@@ -98,7 +98,15 @@ const Categories = () => {
             </p>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {filteredLeads.map((lead) => (
-                <LeadCard key={lead.id} lead={lead} />
+                <LeadCard 
+                  key={lead.id} 
+                  lead={lead}
+                  onLeadUpdate={(updatedLead) => {
+                    setLeads(prevLeads => 
+                      prevLeads.map(l => l.id === updatedLead.id ? updatedLead : l)
+                    );
+                  }}
+                />
               ))}
             </div>
           </div>
