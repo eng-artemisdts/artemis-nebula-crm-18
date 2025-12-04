@@ -18,6 +18,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatWhatsAppNumber, formatPhoneDisplay } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useOrganization } from "@/hooks/useOrganization";
 import {
   DndContext,
   DragEndEvent,
@@ -73,7 +74,7 @@ const TableRowMemo = memo(({
           onClick={(e) => e.stopPropagation()}
         />
       </TableCell>
-      <TableCell 
+      <TableCell
         className="font-medium max-w-[200px] cursor-pointer"
         onClick={() => onNavigate(`/lead/${lead.id}`)}
       >
@@ -171,13 +172,13 @@ const TableRowMemo = memo(({
 
 TableRowMemo.displayName = "TableRowMemo";
 
-const StatusColumn = memo(({ 
-  column, 
+const StatusColumn = memo(({
+  column,
   columnLeads,
   onLeadUpdate,
   maxVisibleLeads = 10
-}: { 
-  column: { id: string; label: string }; 
+}: {
+  column: { id: string; label: string };
   columnLeads: any[];
   onLeadUpdate?: (updatedLead: any) => void;
   maxVisibleLeads?: number;
@@ -200,18 +201,17 @@ const StatusColumn = memo(({
       </div>
       <div
         ref={setNodeRef}
-        className={`flex-1 overflow-y-auto space-y-3 min-h-[200px] max-h-[calc(100vh-400px)] p-2 rounded-lg transition-all scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent ${
-          isOver ? 'bg-primary/5 border-2 border-primary border-dashed' : 'border-2 border-transparent'
-        }`}
+        className={`flex-1 overflow-y-auto space-y-3 min-h-[200px] max-h-[calc(100vh-400px)] p-2 rounded-lg transition-all scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent ${isOver ? 'bg-primary/5 border-2 border-primary border-dashed' : 'border-2 border-transparent'
+          }`}
         data-status={column.id}
       >
         {visibleLeads.length > 0 ? (
           <>
             {visibleLeads.map((lead) => (
-              <LeadCard 
-                key={lead.id} 
-                lead={lead} 
-                isDraggable 
+              <LeadCard
+                key={lead.id}
+                lead={lead}
+                isDraggable
                 onLeadUpdate={onLeadUpdate}
               />
             ))}
@@ -250,6 +250,7 @@ StatusColumn.displayName = "StatusColumn";
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { organization } = useOrganization();
   const [leads, setLeads] = useState<any[]>([]);
   const [totalLeads, setTotalLeads] = useState<number>(0);
   const [loading, setLoading] = useState(true);
@@ -281,12 +282,16 @@ const Dashboard = () => {
   const fetchLeads = useCallback(async () => {
     try {
       setLoading(true);
-      
+
+      if (!organization?.id) {
+        setLoading(false);
+        return;
+      }
+
       const baseQuery = supabase
         .from("leads")
         .select("*", { count: "exact" })
-        .not("contact_whatsapp", "is", null)
-        .eq("whatsapp_verified", true)
+        .eq("organization_id", organization.id)
         .order("created_at", { ascending: false });
 
       if (searchQuery.trim() || viewMode === "kanban") {
@@ -297,10 +302,10 @@ const Dashboard = () => {
       } else {
         const startIndex = (currentPage - 1) * pageSize;
         const endIndex = startIndex + pageSize - 1;
-        
+
         const { data, error, count } = await baseQuery
           .range(startIndex, endIndex);
-        
+
         if (error) throw error;
         setLeads(data || []);
         setTotalLeads(count || 0);
@@ -311,7 +316,7 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize, searchQuery, viewMode]);
+  }, [currentPage, pageSize, searchQuery, viewMode, organization?.id]);
 
   const checkDefaultAI = async () => {
     try {
@@ -343,9 +348,9 @@ const Dashboard = () => {
 
   const filteredLeads = useMemo(() => {
     if (!searchQuery.trim()) return leads;
-    
+
     const query = searchQuery.toLowerCase();
-    return leads.filter((lead) => 
+    return leads.filter((lead) =>
       lead.name?.toLowerCase().includes(query) ||
       lead.contact_email?.toLowerCase().includes(query) ||
       lead.contact_whatsapp?.includes(query) ||
@@ -646,12 +651,81 @@ Se quiser saber mais, é só acessar:
     if (selectedLeads.size === 0) return;
 
     const selectedLeadsData = leads.filter(lead => selectedLeads.has(lead.id));
-    const validLeads = selectedLeadsData.filter(lead => 
+    const validLeads = selectedLeadsData.filter(lead =>
       lead.contact_whatsapp && lead.remote_jid && lead.status === "novo"
     );
 
     if (validLeads.length === 0) {
       toast.error("Nenhum lead válido selecionado. Os leads devem ter WhatsApp e estar no status 'Novo'.");
+      return;
+    }
+
+    if (selectedLeads.size > 1) {
+      try {
+        const { data: settings } = await supabase
+          .from("settings")
+          .select("n8n_webhook_url, default_message, default_image_url")
+          .maybeSingle();
+
+        const { data: whatsappInstances, error: instancesError } = await supabase
+          .from("whatsapp_instances")
+          .select("id, instance_name, phone_number, status")
+          .eq("status", "connected")
+          .order("created_at", { ascending: false });
+
+        if (instancesError || !whatsappInstances || whatsappInstances.length === 0) {
+          toast.error("Nenhuma instância WhatsApp conectada. Configure em WhatsApp > Conectar");
+          return;
+        }
+
+        const instanceName = whatsappInstances[0].instance_name;
+        const message = settings?.default_message || `👋 Oi! Tudo bem?
+Aqui é a equipe da Artemis Digital Solutions e temos uma oferta especial de Black Friday para impulsionar suas vendas e organizar seu atendimento nesse período de alta demanda.
+
+🤖 O que é um chatbot?
+
+É um assistente virtual que responde automaticamente seus clientes 24h por dia, mesmo quando você está ocupado, offline ou atendendo outras pessoas.
+Ele responde dúvidas, coleta informações, organiza pedidos e direciona atendimentos — tudo sem você precisar tocar no celular.
+
+🚀 Vantagens para o seu negócio
+
+✔ Atendimento 24h
+Nunca mais perca vendas por falta de resposta.
+
+✔ Respostas instantâneas ⚡
+Informações rápidas sobre preços, horários, serviços, catálogo, agenda e muito mais.
+
+✔ Adeus acúmulo de mensagens 📥
+O chatbot filtra, organiza e prioriza atendimentos.
+
+✔ Mais profissionalismo 💼
+Seu negócio transmite agilidade, organização e confiança.
+
+✔ Perfeito para a Black Friday 🖤
+Ele absorve o alto volume de mensagens e evita gargalos no atendimento.
+
+✔ Captura e organiza leads 🔥
+Coleta nome, WhatsApp, interesse e entrega tudo prontinho para você.
+
+Se quiser saber mais, é só acessar:
+🌐 www.artemisdigital.tech`;
+
+        const imageUrl = settings?.default_image_url && settings.default_image_url.startsWith('http')
+          ? settings.default_image_url
+          : undefined;
+
+        navigate("/schedule-messages", {
+          state: {
+            leads: validLeads,
+            message: message,
+            imageUrl: imageUrl,
+            instanceName: instanceName
+          }
+        });
+      } catch (error: any) {
+        console.error("Erro ao preparar agendamento:", error);
+        toast.error("Erro ao preparar agendamento");
+      }
       return;
     }
 
@@ -805,7 +879,7 @@ Se quiser saber mais, é só acessar:
             <AlertCircle className="h-5 w-5 text-amber-500" />
             <AlertTitle className="text-lg font-semibold">Configure sua IA Padrão</AlertTitle>
             <AlertDescription className="text-base mt-2">
-              Você ainda não configurou uma IA padrão para seus leads. Configure agora para 
+              Você ainda não configurou uma IA padrão para seus leads. Configure agora para
               automatizar o atendimento dos novos leads.
               <br />
               <Button
@@ -905,7 +979,7 @@ Se quiser saber mais, é só acessar:
             />
             <StatsCard
               title="Taxa de Conversão $"
-              value={financialStats.totalValue > 0 
+              value={financialStats.totalValue > 0
                 ? `${Math.round((financialStats.paidValue / financialStats.totalValue) * 100)}%`
                 : "0%"}
               icon={Target}
@@ -983,7 +1057,7 @@ Se quiser saber mais, é só acessar:
                       columnLeads={columnLeads}
                       maxVisibleLeads={15}
                       onLeadUpdate={(updatedLead) => {
-                        setLeads(prevLeads => 
+                        setLeads(prevLeads =>
                           prevLeads.map(l => l.id === updatedLead.id ? updatedLead : l)
                         );
                       }}

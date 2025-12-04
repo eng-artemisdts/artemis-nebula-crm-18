@@ -7,8 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Plus, Search, Filter, CheckSquare, Square, Trash2 } from "lucide-react";
+import { Plus, Search, Filter, CheckSquare, Square, Trash2, Upload, Bot, Calendar } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { LeadImportDialog } from "@/components/LeadImportDialog";
 
 const Leads = () => {
   const navigate = useNavigate();
@@ -21,14 +22,28 @@ const Leads = () => {
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
 
   const fetchLeads = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("organization_id")
+        .eq("id", user.id)
+        .single();
+
+      if (!profile?.organization_id) {
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from("leads")
         .select("*")
-        .not("contact_whatsapp", "is", null)
-        .eq("whatsapp_verified", true)
+        .eq("organization_id", profile.organization_id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -76,7 +91,7 @@ const Leads = () => {
   }, [searchQuery, statusFilter, categoryFilter, leads]);
 
   const toggleSelection = (id: string) => {
-    setSelectedIds(prev => 
+    setSelectedIds(prev =>
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
   };
@@ -91,7 +106,7 @@ const Leads = () => {
 
   const handleBulkDelete = async () => {
     if (selectedIds.length === 0) return;
-    
+
     if (!confirm(`Deseja realmente excluir ${selectedIds.length} lead(s)?`)) return;
 
     setLoading(true);
@@ -110,6 +125,60 @@ const Leads = () => {
       fetchLeads();
     }
     setLoading(false);
+  };
+
+  const handleScheduleInteractions = async () => {
+    if (selectedIds.length === 0) {
+      toast.error("Selecione pelo menos um lead para agendar interações");
+      return;
+    }
+
+    const selectedLeadsData = filteredLeads.filter(lead => selectedIds.includes(lead.id));
+    const validLeads = selectedLeadsData.filter(lead =>
+      lead.contact_whatsapp && lead.remote_jid
+    );
+
+    if (validLeads.length === 0) {
+      toast.error("Nenhum lead válido selecionado. Os leads devem ter WhatsApp e remote_jid configurados.");
+      return;
+    }
+
+    if (validLeads.length < selectedIds.length) {
+      toast.warning(`${validLeads.length} de ${selectedIds.length} lead(s) são válidos para agendamento.`);
+    }
+
+    try {
+      const { data: settings } = await supabase
+        .from("settings")
+        .select("default_ai_interaction_id")
+        .maybeSingle();
+
+      const { data: whatsappInstances, error: instancesError } = await supabase
+        .from("whatsapp_instances")
+        .select("instance_name")
+        .eq("status", "connected")
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (instancesError || !whatsappInstances || whatsappInstances.length === 0) {
+        toast.error("Nenhuma instância WhatsApp conectada. Configure em WhatsApp > Conectar");
+        return;
+      }
+
+      const instanceName = whatsappInstances[0].instance_name;
+      const aiInteractionId = settings?.default_ai_interaction_id || null;
+
+      navigate("/schedule-interactions", {
+        state: {
+          leads: validLeads,
+          aiInteractionId: aiInteractionId,
+          instanceName: instanceName
+        }
+      });
+    } catch (error: any) {
+      console.error("Erro ao preparar agendamento de interações:", error);
+      toast.error("Erro ao preparar agendamento de interações");
+    }
   };
 
   return (
@@ -143,6 +212,16 @@ const Leads = () => {
                         </>
                       )}
                     </Button>
+                    {selectedIds.length > 0 && (
+                      <Button
+                        variant="default"
+                        onClick={handleScheduleInteractions}
+                        className="gap-2"
+                      >
+                        <Bot className="w-4 h-4" />
+                        Agendar Interações ({selectedIds.length})
+                      </Button>
+                    )}
                     <Button
                       variant="destructive"
                       onClick={handleBulkDelete}
@@ -171,6 +250,15 @@ const Leads = () => {
                 )}
               </>
             )}
+            <Button
+              variant="outline"
+              onClick={() => setImportDialogOpen(true)}
+              size="lg"
+              className="gap-2"
+            >
+              <Upload className="w-4 h-4" />
+              Importar Leads
+            </Button>
             <Button onClick={() => navigate("/lead/new")} size="lg" className="gap-2">
               <Plus className="w-4 h-4" />
               Novo Lead
@@ -232,13 +320,11 @@ const Leads = () => {
         ) : filteredLeads.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredLeads.map((lead) => (
-              <div 
-                key={lead.id} 
-                className={`relative transition-all ${
-                  isSelectionMode ? 'cursor-pointer' : ''
-                } ${
-                  selectedIds.includes(lead.id) ? 'ring-2 ring-primary rounded-lg' : ''
-                }`}
+              <div
+                key={lead.id}
+                className={`relative transition-all ${isSelectionMode ? 'cursor-pointer' : ''
+                  } ${selectedIds.includes(lead.id) ? 'ring-2 ring-primary rounded-lg' : ''
+                  }`}
                 onClick={isSelectionMode ? () => toggleSelection(lead.id) : undefined}
               >
                 {isSelectionMode && (
@@ -250,10 +336,10 @@ const Leads = () => {
                   </div>
                 )}
                 <div className={isSelectionMode ? 'pointer-events-none' : ''}>
-                  <LeadCard 
-                    lead={lead} 
+                  <LeadCard
+                    lead={lead}
                     onLeadUpdate={(updatedLead) => {
-                      setLeads(prevLeads => 
+                      setLeads(prevLeads =>
                         prevLeads.map(l => l.id === updatedLead.id ? updatedLead : l)
                       );
                     }}
@@ -268,6 +354,12 @@ const Leads = () => {
           </div>
         )}
       </div>
+
+      <LeadImportDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        onImportComplete={fetchLeads}
+      />
     </Layout>
   );
 };

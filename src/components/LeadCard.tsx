@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Mail, Phone, Clock, DollarSign, CheckCircle, MessageCircle } from "lucide-react";
+import { Mail, Phone, Clock, DollarSign, CheckCircle, MessageCircle, RefreshCw, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
@@ -11,7 +11,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useState } from "react";
-import { formatWhatsAppNumber, formatPhoneDisplay } from "@/lib/utils";
+import { formatWhatsAppNumber, formatPhoneDisplay, cleanPhoneNumber } from "@/lib/utils";
 import { MessagePreviewDialog } from "@/components/MessagePreviewDialog";
 
 type Lead = {
@@ -50,6 +50,7 @@ export const LeadCard = ({
   const [previewSettings, setPreviewSettings] = useState<any>(null);
   const [previewInstanceName, setPreviewInstanceName] = useState<string | null>(null);
   const [availableInstances, setAvailableInstances] = useState<any[]>([]);
+  const [isValidatingWhatsApp, setIsValidatingWhatsApp] = useState(false);
 
   const {
     attributes,
@@ -260,6 +261,82 @@ Se quiser saber mais, é só acessar:
   };
 
   const canStartConversation = lead.status === "novo" && (lead.contact_whatsapp || lead.contact_email);
+  const needsWhatsAppValidation = lead.contact_whatsapp && (!lead.remote_jid || !lead.whatsapp_verified);
+
+  const handleValidateWhatsApp = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (!lead.contact_whatsapp) {
+      toast.error("Lead não possui número de WhatsApp");
+      return;
+    }
+
+    setIsValidatingWhatsApp(true);
+
+    try {
+      const cleanedPhone = cleanPhoneNumber(lead.contact_whatsapp);
+
+      const { data: checkData, error: checkError } = await supabase.functions.invoke('evolution-check-whatsapp', {
+        body: { numbers: [cleanedPhone] }
+      });
+
+      if (checkError) {
+        console.error("Error checking WhatsApp:", checkError);
+
+        const isNoInstanceError = checkError.message?.includes("No connected WhatsApp instance") ||
+          checkError.message?.includes("connected WhatsApp instance");
+
+        if (isNoInstanceError) {
+          toast.error("Nenhuma instância WhatsApp conectada. Configure em WhatsApp > Conectar", {
+            duration: 5000,
+            action: {
+              label: "Configurar",
+              onClick: () => navigate("/whatsapp"),
+            },
+          });
+          setIsValidatingWhatsApp(false);
+          return;
+        }
+
+        toast.error("Erro ao validar WhatsApp: " + (checkError.message || "Erro desconhecido"));
+        setIsValidatingWhatsApp(false);
+        return;
+      }
+
+      if (checkData?.results?.[0]?.exists && checkData.results[0].jid) {
+        const remoteJid = checkData.results[0].jid;
+
+        const { error: updateError } = await supabase
+          .from("leads")
+          .update({
+            remote_jid: remoteJid,
+            whatsapp_verified: true
+          })
+          .eq("id", lead.id);
+
+        if (updateError) {
+          console.error("Error updating lead:", updateError);
+          toast.error("Erro ao atualizar lead");
+          setIsValidatingWhatsApp(false);
+          return;
+        }
+
+        const updatedLead = { ...lead, remote_jid: remoteJid, whatsapp_verified: true };
+        if (onLeadUpdate) {
+          onLeadUpdate(updatedLead);
+        }
+
+        toast.success("WhatsApp validado com sucesso! ✅ Agora é possível agendar interações.");
+      } else {
+        toast.warning("Este número não está registrado no WhatsApp. Verifique se o número está correto.");
+      }
+    } catch (error: any) {
+      console.error("Error validating WhatsApp:", error);
+      toast.error("Erro ao validar WhatsApp: " + (error.message || "Erro desconhecido"));
+    } finally {
+      setIsValidatingWhatsApp(false);
+    }
+  };
 
   return (
     <Card
@@ -354,6 +431,19 @@ Se quiser saber mais, é só acessar:
               Pago em {format(new Date(lead.paid_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
             </span>
           </div>
+        )}
+
+        {needsWhatsAppValidation && (
+          <Button
+            onClick={handleValidateWhatsApp}
+            disabled={isValidatingWhatsApp}
+            variant="outline"
+            className="w-full gap-2 border-amber-500/50 text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950"
+            size="sm"
+          >
+            <RefreshCw className={`w-4 h-4 ${isValidatingWhatsApp ? "animate-spin" : ""}`} />
+            {isValidatingWhatsApp ? "Validando..." : "Validar WhatsApp"}
+          </Button>
         )}
 
         {canStartConversation && (

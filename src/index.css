@@ -8,6 +8,69 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
+    /* Light theme with vibrant cyan and orange accents */
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    /* Vibrant cyan primary */
+    --primary: 189 94% 45%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Light card secondary */
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    /* Orange accent */
+    --accent: 25 95% 53%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 189 94% 45%;
+
+    --radius: 0.75rem;
+
+    /* Custom cosmic colors */
+    --cosmic-glow: 189 94% 45%;
+    --cosmic-accent: 25 95% 53%;
+    --cosmic-surface: 210 40% 98%;
+
+    /* Gradients */
+    --gradient-cosmic: linear-gradient(135deg, hsl(189 94% 45% / 0.1), hsl(25 95% 53% / 0.1));
+    --gradient-glow: radial-gradient(circle at 50% 50%, hsl(189 94% 45% / 0.1), transparent 70%);
+
+    /* Sidebar */
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 189 94% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 40% 96%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 214 32% 91%;
+    --sidebar-ring: 189 94% 45%;
+
+    /* Status colors */
+    --status-novo: 189 94% 45%;
+    --status-conversa: 200 80% 50%;
+    --status-proposta: 45 93% 58%;
+    --status-pagamento: 25 95% 53%;
+    --status-pago: 142 76% 36%;
+    --status-perdido: 0 84% 60%;
+  }
+
+  .dark {
     /* Cosmic dark theme with vibrant cyan and orange accents */
     --background: 222 47% 5%;
     --foreground: 210 40% 98%;
@@ -46,7 +109,7 @@ All colors MUST be HSL.
     --cosmic-glow: 189 94% 55%;
     --cosmic-accent: 25 95% 53%;
     --cosmic-surface: 222 47% 10%;
-    
+
     /* Gradients */
     --gradient-cosmic: linear-gradient(135deg, hsl(189 94% 55% / 0.2), hsl(25 95% 53% / 0.2));
     --gradient-glow: radial-gradient(circle at 50% 50%, hsl(189 94% 55% / 0.15), transparent 70%);
@@ -60,7 +123,7 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 222 47% 15%;
     --sidebar-ring: 189 94% 55%;
-    
+
     /* Status colors */
     --status-novo: 189 94% 55%;
     --status-conversa: 200 80% 50%;
@@ -111,6 +174,7 @@ All colors MUST be HSL.
 }
 
 @layer utilities {
+
   /* Cosmic glow effect */
   .cosmic-glow {
     box-shadow: 0 0 20px hsl(var(--cosmic-glow) / 0.3);

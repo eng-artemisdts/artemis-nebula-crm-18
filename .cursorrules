@@ -48,6 +48,14 @@ Sempre aplique os princípios SOLID em todo o código:
 - Use injeção de dependências para facilitar mocks
 - Separe lógica de negócio de frameworks e bibliotecas externas
 
+### Gerenciamento de Dependências
+- **SEMPRE use yarn** para instalar, atualizar ou remover pacotes
+- **NUNCA use npm** neste projeto
+- Use `yarn add` ao invés de `npm install`
+- Use `yarn remove` ao invés de `npm uninstall`
+- Use `yarn` ao invés de `npm install` para instalar dependências do projeto
+- O projeto possui `yarn.lock` e deve ser mantido atualizado
+
 ### Comentários no Código
 - **NUNCA escreva comentários no código**
 - O código deve ser autoexplicativo através de nomes descritivos e estrutura clara
