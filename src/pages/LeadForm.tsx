@@ -6,10 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeft, Save, Trash2, DollarSign, ExternalLink, MessageCircle } from "lucide-react";
+import { ArrowLeft, Save, Trash2, DollarSign, ExternalLink, MessageCircle, AlertTriangle, Info, RefreshCw, CheckCircle } from "lucide-react";
 import { useOrganization } from "@/hooks/useOrganization";
 import { cleanPhoneNumber, formatPhoneDisplay } from "@/lib/utils";
 import {
@@ -34,6 +35,9 @@ const LeadForm = () => {
   const [aiInteractions, setAiInteractions] = useState<any[]>([]);
   const [invalidWhatsAppConfirmed, setInvalidWhatsAppConfirmed] = useState(false);
   const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false);
+  const [isValidatingWhatsApp, setIsValidatingWhatsApp] = useState(false);
+  const [leadRemoteJid, setLeadRemoteJid] = useState<string | null>(null);
+  const [leadWhatsappVerified, setLeadWhatsappVerified] = useState<boolean>(false);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -86,7 +90,7 @@ const LeadForm = () => {
         console.error("Fetch lead error:", error);
         throw error;
       }
-      
+
       if (data) {
         setFormData({
           name: data.name,
@@ -97,11 +101,11 @@ const LeadForm = () => {
           contact_whatsapp: data.contact_whatsapp || "",
           source: data.source || "",
           integration_start_time: data.integration_start_time?.slice(0, 5) || "09:00",
-          payment_amount: data.payment_amount 
+          payment_amount: data.payment_amount
             ? data.payment_amount.toLocaleString("pt-BR", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })
             : "",
           ai_interaction_id: data.ai_interaction_id || "",
         });
@@ -110,6 +114,8 @@ const LeadForm = () => {
           payment_stripe_id: data.payment_stripe_id || "",
           payment_status: data.payment_status,
         });
+        setLeadRemoteJid(data.remote_jid);
+        setLeadWhatsappVerified(data.whatsapp_verified || false);
       }
     } catch (error: any) {
       toast.error("Erro ao carregar lead");
@@ -121,11 +127,11 @@ const LeadForm = () => {
     setLoading(true);
     try {
       const cleanedPhone = formData.contact_whatsapp ? cleanPhoneNumber(formData.contact_whatsapp) : null;
-      
+
       // Continua sem validação do WhatsApp
       const remoteJid = null;
       const whatsappVerified = false;
-      
+
       const paymentAmount = formData.payment_amount
         ? parseFloat(formData.payment_amount.replace(/\./g, "").replace(",", "."))
         : null;
@@ -161,7 +167,7 @@ const LeadForm = () => {
         if (error) throw error;
         toast.success("Lead criado! ⚠️ WhatsApp não verificado - mensagens automáticas desabilitadas.");
       }
-      
+
       setInvalidWhatsAppConfirmed(false);
       navigate("/");
     } catch (error: any) {
@@ -194,11 +200,11 @@ const LeadForm = () => {
         : null;
 
       const cleanedPhone = formData.contact_whatsapp ? cleanPhoneNumber(formData.contact_whatsapp) : null;
-      
+
       // Get correct remote_jid from Evolution API if phone exists
       let remoteJid = null;
       let whatsappVerified = false;
-      
+
       if (cleanedPhone && !invalidWhatsAppConfirmed) {
         try {
           const { data: checkData, error: checkError } = await supabase.functions.invoke('evolution-check-whatsapp', {
@@ -207,29 +213,29 @@ const LeadForm = () => {
 
           if (checkError) {
             console.error("Error checking WhatsApp:", checkError);
-            
+
             // Verifica se é erro de instância não conectada
-            const isNoInstanceError = checkError.message?.includes("No connected WhatsApp instance") || 
-                                     checkError.message?.includes("connected WhatsApp instance");
-            
+            const isNoInstanceError = checkError.message?.includes("No connected WhatsApp instance") ||
+              checkError.message?.includes("connected WhatsApp instance");
+
             if (isNoInstanceError) {
               // Mostra diálogo informativo sobre instância não conectada
               setLoading(false);
               setShowWhatsAppDialog(true);
               return;
             }
-            
+
             // Para outros erros, pergunta se quer continuar
             const shouldContinue = window.confirm(
               "Não foi possível validar o número no WhatsApp. Deseja cadastrar mesmo assim?\n\n" +
               "⚠️ Atenção: Não será possível enviar mensagens automaticamente para este lead."
             );
-            
+
             if (!shouldContinue) {
               setLoading(false);
               return;
             }
-            
+
             // Continua sem validação
             remoteJid = null;
             whatsappVerified = false;
@@ -244,12 +250,12 @@ const LeadForm = () => {
               "Deseja cadastrar o lead mesmo assim?\n\n" +
               "Nota: Não será possível enviar mensagens automaticamente para este lead."
             );
-            
+
             if (!shouldContinue) {
               setLoading(false);
               return;
             }
-            
+
             // Usuário confirmou, salvar sem remote_jid
             setInvalidWhatsAppConfirmed(true);
             remoteJid = null;
@@ -257,18 +263,18 @@ const LeadForm = () => {
           }
         } catch (error) {
           console.error("Error validating WhatsApp:", error);
-          
+
           const shouldContinue = window.confirm(
             "Erro ao validar WhatsApp. Deseja cadastrar mesmo assim?\n\n" +
             "⚠️ Verifique se há uma instância WhatsApp conectada.\n" +
             "Não será possível enviar mensagens automaticamente para este lead."
           );
-          
+
           if (!shouldContinue) {
             setLoading(false);
             return;
           }
-          
+
           remoteJid = null;
           whatsappVerified = false;
         }
@@ -277,7 +283,7 @@ const LeadForm = () => {
         remoteJid = null;
         whatsappVerified = false;
       }
-      
+
       const leadData = {
         name: formData.name,
         description: formData.description || null,
@@ -306,13 +312,13 @@ const LeadForm = () => {
           console.error("Update error:", error);
           throw error;
         }
-        
+
         if (whatsappVerified) {
-          toast.success("Lead atualizado com sucesso!");
+          toast.success("Lead atualizado com sucesso! ✅ WhatsApp verificado - pronto para agendar interações.");
         } else if (cleanedPhone) {
-          toast.success("Lead atualizado! ⚠️ WhatsApp não verificado - mensagens automáticas desabilitadas.");
+          toast.warning("Lead atualizado! ⚠️ WhatsApp não verificado. Não será possível agendar interações ou iniciar conversas automáticas até que o WhatsApp seja verificado. Configure uma instância WhatsApp conectada e tente novamente.");
         } else {
-          toast.success("Lead atualizado com sucesso!");
+          toast.success("Lead atualizado com sucesso! ⚠️ Para agendar interações, adicione um WhatsApp válido.");
         }
       } else {
         const { error } = await supabase.from("leads").insert([leadData]);
@@ -320,16 +326,16 @@ const LeadForm = () => {
           console.error("Insert error:", error);
           throw error;
         }
-        
+
         if (whatsappVerified) {
-          toast.success("Lead criado com sucesso!");
+          toast.success("Lead criado com sucesso! ✅ WhatsApp verificado - pronto para agendar interações.");
         } else if (cleanedPhone) {
-          toast.success("Lead criado! ⚠️ WhatsApp não verificado - mensagens automáticas desabilitadas.");
+          toast.warning("Lead criado! ⚠️ WhatsApp não verificado. Não será possível agendar interações ou iniciar conversas automáticas até que o WhatsApp seja verificado. Configure uma instância WhatsApp conectada e tente novamente.");
         } else {
-          toast.success("Lead criado com sucesso!");
+          toast.success("Lead criado com sucesso! ⚠️ Para agendar interações, adicione um WhatsApp válido.");
         }
       }
-      
+
       // Reset confirmation state
       setInvalidWhatsAppConfirmed(false);
       navigate("/");
@@ -366,7 +372,7 @@ const LeadForm = () => {
     const amount = formData.payment_amount
       ? parseFloat(formData.payment_amount.replace(/\./g, "").replace(",", "."))
       : 0;
-    
+
     if (!amount || amount <= 0) {
       toast.error("Defina um valor válido para a proposta antes de gerar o link");
       return;
@@ -375,22 +381,22 @@ const LeadForm = () => {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("create-payment-link", {
-        body: { 
+        body: {
           leadId: id,
-          paymentAmount: amount 
+          paymentAmount: amount
         },
       });
 
       if (error) throw error;
-      
+
       setPaymentData({
         payment_link_url: data.url,
         payment_stripe_id: data.stripe_id,
         payment_status: "link_gerado",
       });
-      
+
       await fetchLead();
-      
+
       // Open checkout in new tab
       window.open(data.url, '_blank');
       toast.success("Checkout aberto! Complete o pagamento na nova aba.");
@@ -399,6 +405,82 @@ const LeadForm = () => {
       console.error(error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleValidateWhatsApp = async () => {
+    if (!formData.contact_whatsapp) {
+      toast.error("Adicione um número de WhatsApp primeiro");
+      return;
+    }
+
+    setIsValidatingWhatsApp(true);
+
+    try {
+      const cleanedPhone = cleanPhoneNumber(formData.contact_whatsapp);
+
+      if (cleanedPhone.length < 10 || cleanedPhone.length > 13) {
+        toast.error("Número de WhatsApp inválido. Use formato: (11) 99999-9999");
+        setIsValidatingWhatsApp(false);
+        return;
+      }
+
+      const { data: checkData, error: checkError } = await supabase.functions.invoke('evolution-check-whatsapp', {
+        body: { numbers: [cleanedPhone] }
+      });
+
+      if (checkError) {
+        console.error("Error checking WhatsApp:", checkError);
+
+        const isNoInstanceError = checkError.message?.includes("No connected WhatsApp instance") ||
+          checkError.message?.includes("connected WhatsApp instance");
+
+        if (isNoInstanceError) {
+          setShowWhatsAppDialog(true);
+          setIsValidatingWhatsApp(false);
+          return;
+        }
+
+        toast.error("Erro ao validar WhatsApp: " + (checkError.message || "Erro desconhecido"));
+        setIsValidatingWhatsApp(false);
+        return;
+      }
+
+      if (checkData?.results?.[0]?.exists && checkData.results[0].jid) {
+        const remoteJid = checkData.results[0].jid;
+
+        if (isEdit && id) {
+          const { error: updateError } = await supabase
+            .from("leads")
+            .update({
+              remote_jid: remoteJid,
+              whatsapp_verified: true
+            })
+            .eq("id", id);
+
+          if (updateError) {
+            console.error("Error updating lead:", updateError);
+            toast.error("Erro ao atualizar lead");
+            setIsValidatingWhatsApp(false);
+            return;
+          }
+
+          setLeadRemoteJid(remoteJid);
+          setLeadWhatsappVerified(true);
+          toast.success("WhatsApp validado com sucesso! ✅ Agora é possível agendar interações.");
+        } else {
+          setLeadRemoteJid(remoteJid);
+          setLeadWhatsappVerified(true);
+          toast.success("WhatsApp validado! ✅ O remote_jid será salvo quando você salvar o lead.");
+        }
+      } else {
+        toast.warning("Este número não está registrado no WhatsApp. Verifique se o número está correto.");
+      }
+    } catch (error: any) {
+      console.error("Error validating WhatsApp:", error);
+      toast.error("Erro ao validar WhatsApp: " + (error.message || "Erro desconhecido"));
+    } finally {
+      setIsValidatingWhatsApp(false);
     }
   };
 
@@ -521,6 +603,46 @@ const LeadForm = () => {
                 <p className="text-xs text-muted-foreground">
                   Digite apenas números. Exemplo: 11999998888 ou 5511999998888
                 </p>
+                <Alert className="border-amber-500/50 bg-amber-500/10">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  <AlertTitle className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+                    Importante para Agendar Interações
+                  </AlertTitle>
+                  <AlertDescription className="text-xs text-amber-700/90 dark:text-amber-400/90 mt-1">
+                    Para poder agendar interações com IA e iniciar conversas automáticas, este lead precisa ter:
+                    <ul className="list-disc list-inside mt-1 space-y-0.5">
+                      <li>WhatsApp válido e verificado</li>
+                      <li>Remote JID configurado (gerado automaticamente quando o número é verificado)</li>
+                    </ul>
+                    {isEdit && formData.contact_whatsapp && (!leadRemoteJid || !leadWhatsappVerified) && (
+                      <div className="mt-2 pt-2 border-t border-amber-500/30">
+                        <p className="mb-2 font-medium">WhatsApp não verificado</p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleValidateWhatsApp}
+                          disabled={isValidatingWhatsApp}
+                          className="w-full gap-2 border-amber-500/50 text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950"
+                        >
+                          <RefreshCw className={`w-4 h-4 ${isValidatingWhatsApp ? "animate-spin" : ""}`} />
+                          {isValidatingWhatsApp ? "Validando..." : "Validar WhatsApp Agora"}
+                        </Button>
+                      </div>
+                    )}
+                    {isEdit && leadRemoteJid && leadWhatsappVerified && (
+                      <div className="mt-2 pt-2 border-t border-amber-500/30">
+                        <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                          <CheckCircle className="w-4 h-4" />
+                          <span className="font-medium">WhatsApp verificado e pronto para agendar interações</span>
+                        </div>
+                      </div>
+                    )}
+                    {!isEdit && (
+                      <p className="mt-2">O sistema tentará validar o número automaticamente ao salvar. Se a validação falhar, o lead poderá ser salvo, mas não será possível agendar interações até que o WhatsApp seja verificado.</p>
+                    )}
+                  </AlertDescription>
+                </Alert>
               </div>
             </div>
 
@@ -720,7 +842,7 @@ const LeadForm = () => {
                 // Salva o lead sem validação do WhatsApp
                 await handleSubmitWithoutValidation();
               }}
-              variant="outline"
+              className="bg-secondary text-secondary-foreground hover:bg-secondary/80"
             >
               Continuar Sem Validação
             </AlertDialogAction>

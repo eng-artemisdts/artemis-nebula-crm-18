@@ -44,7 +44,7 @@ serve(async (req) => {
       throw new Error("Evolution API credentials not configured");
     }
 
-    // Get QR code from Evolution API
+
     const response = await fetch(`${EVOLUTION_API_URL}/instance/connect/${instanceName}`, {
       method: "GET",
       headers: {
@@ -61,7 +61,7 @@ serve(async (req) => {
     const qrData = await response.json();
     logStep("QR code received", { hasQR: !!qrData.base64 });
 
-    // Set webhook to receive messages
+
     const webhookUrl = "https://n8n-n8n.kltkek.easypanel.host/webhook/sdr";
     
     logStep("Configuring webhook", { webhookUrl });
@@ -90,12 +90,12 @@ serve(async (req) => {
     if (!webhookResponse.ok) {
       const webhookError = await webhookResponse.text();
       logStep("Webhook configuration warning", { error: webhookError });
-      // Continue even if webhook fails - we can set it up later
+
     } else {
       logStep("Webhook configured successfully");
     }
 
-    // Update instance with QR code
+
     const { error: updateError } = await supabaseClient
       .from("whatsapp_instances")
       .update({

@@ -6,7 +6,27 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Smartphone, QrCode, CheckCircle2, Trash2 } from "lucide-react";
+import {
+  Loader2,
+  Smartphone,
+  QrCode,
+  CheckCircle2,
+  Trash2,
+  MessageCircle,
+  Zap,
+  Star,
+  Heart,
+  Rocket,
+  Crown,
+  Sparkles,
+  Trophy,
+  Gem,
+  Flame,
+  Sun,
+  Moon,
+  Cloud,
+  Leaf
+} from "lucide-react";
 import { Layout } from "@/components/Layout";
 import {
   AlertDialog,
@@ -18,6 +38,33 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+
+const INSTANCE_ICONS = [
+  MessageCircle,
+  Zap,
+  Star,
+  Heart,
+  Rocket,
+  Crown,
+  Sparkles,
+  Trophy,
+  Gem,
+  Flame,
+  Sun,
+  Moon,
+  Cloud,
+  Leaf,
+];
+
+const getInstanceIcon = (instanceId: string) => {
+  let hash = 0;
+  for (let i = 0; i < instanceId.length; i++) {
+    hash = ((hash << 5) - hash) + instanceId.charCodeAt(i);
+    hash = hash & hash;
+  }
+  const index = Math.abs(hash) % INSTANCE_ICONS.length;
+  return INSTANCE_ICONS[index];
+};
 
 const WhatsAppConnect = () => {
   const [instanceName, setInstanceName] = useState("");
@@ -67,6 +114,16 @@ const WhatsAppConnect = () => {
       return;
     }
 
+    // Verificar limite de 3 instâncias antes de criar
+    if (instances.length >= 3) {
+      toast({
+        title: "Limite atingido",
+        description: "Você já possui 3 instâncias. Delete uma instância existente para criar uma nova.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsCreating(true);
     try {
       const { data, error } = await supabase.functions.invoke("evolution-create-instance", {
@@ -98,7 +155,7 @@ const WhatsAppConnect = () => {
   const connectInstance = async (instance: any) => {
     setIsConnecting(true);
     setSelectedInstance(instance);
-    
+
     try {
       const { data, error } = await supabase.functions.invoke("evolution-connect-instance", {
         body: { instanceName: instance.instance_name },
@@ -205,7 +262,7 @@ const WhatsAppConnect = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex gap-4">
+              <div className="flex gap-4 items-start">
                 <div className="flex-1 space-y-2">
                   <Label htmlFor="instanceName">Nome da Instância</Label>
                   <Input
@@ -213,13 +270,19 @@ const WhatsAppConnect = () => {
                     placeholder="Ex: atendimento-vendas"
                     value={instanceName}
                     onChange={(e) => setInstanceName(e.target.value)}
-                    disabled={isCreating}
+                    disabled={isCreating || instances.length >= 3}
                   />
+                  <p className="text-sm text-muted-foreground">
+                    {instances.length >= 3
+                      ? "Limite de 3 instâncias atingido. Delete uma instância para criar uma nova."
+                      : `${instances.length}/3 instâncias criadas`
+                    }
+                  </p>
                 </div>
-                <div className="flex items-end">
+                <div className="flex items-center pt-8">
                   <Button
                     onClick={createInstance}
-                    disabled={isCreating || !instanceName.trim()}
+                    disabled={isCreating || !instanceName.trim() || instances.length >= 3}
                   >
                     {isCreating ? (
                       <>
@@ -275,54 +338,67 @@ const WhatsAppConnect = () => {
                 </p>
               ) : (
                 <div className="space-y-4">
-                  {instances.map((instance) => (
-                    <div
-                      key={instance.id}
-                      className="flex items-center justify-between p-4 border rounded-lg"
-                    >
-                      <div className="flex-1">
-                        <h3 className="font-semibold">{instance.instance_name}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Status: {instance.status}
-                        </p>
-                        {instance.connected_at && (
-                          <p className="text-xs text-muted-foreground">
-                            Conectado em: {new Date(instance.connected_at).toLocaleString("pt-BR")}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {instance.status === "connected" ? (
-                          <div className="flex items-center gap-2 text-green-600">
-                            <CheckCircle2 className="h-5 w-5" />
-                            <span className="text-sm font-medium">Conectado</span>
+                  {instances.map((instance) => {
+                    const InstanceIcon = getInstanceIcon(instance.id);
+                    return (
+                      <div
+                        key={instance.id}
+                        className="flex items-center justify-between p-4 border rounded-lg"
+                      >
+                        <div className="flex items-start gap-3 flex-1">
+                          <div className="p-2 rounded-lg bg-primary/10">
+                            <InstanceIcon className="h-5 w-5 text-primary" />
                           </div>
-                        ) : (
+                          <div className="flex-1">
+                            <h3 className="font-semibold">{instance.instance_name}</h3>
+                            <p className="text-sm text-muted-foreground">
+                              Status: {instance.status}
+                            </p>
+                            {instance.phone_number && (
+                              <p className="text-sm font-medium text-primary mt-1">
+                                Número: {instance.phone_number}
+                              </p>
+                            )}
+                            {instance.connected_at && (
+                              <p className="text-xs text-muted-foreground">
+                                Conectado em: {new Date(instance.connected_at).toLocaleString("pt-BR")}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {instance.status === "connected" ? (
+                            <div className="flex items-center gap-2 text-green-600">
+                              <CheckCircle2 className="h-5 w-5" />
+                              <span className="text-sm font-medium">Conectado</span>
+                            </div>
+                          ) : (
+                            <Button
+                              onClick={() => connectInstance(instance)}
+                              disabled={isConnecting && selectedInstance?.id === instance.id}
+                              size="sm"
+                            >
+                              {isConnecting && selectedInstance?.id === instance.id ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Conectando...
+                                </>
+                              ) : (
+                                "Conectar"
+                              )}
+                            </Button>
+                          )}
                           <Button
-                            onClick={() => connectInstance(instance)}
-                            disabled={isConnecting && selectedInstance?.id === instance.id}
+                            onClick={() => setInstanceToDelete(instance)}
+                            variant="destructive"
                             size="sm"
                           >
-                            {isConnecting && selectedInstance?.id === instance.id ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Conectando...
-                              </>
-                            ) : (
-                              "Conectar"
-                            )}
+                            <Trash2 className="h-4 w-4" />
                           </Button>
-                        )}
-                        <Button
-                          onClick={() => setInstanceToDelete(instance)}
-                          variant="destructive"
-                          size="sm"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
@@ -335,7 +411,7 @@ const WhatsAppConnect = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Deletar Instância</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja deletar a instância "{instanceToDelete?.instance_name}"? 
+              Tem certeza que deseja deletar a instância "{instanceToDelete?.instance_name}"?
               Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>

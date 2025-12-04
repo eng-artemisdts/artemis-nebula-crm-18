@@ -7,14 +7,19 @@ import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Save, Settings as SettingsIcon, Building2, Upload, CreditCard, Bot } from "lucide-react";
+import { Save, Settings as SettingsIcon, Building2, Upload, CreditCard, Bot, Moon, Sun, Monitor } from "lucide-react";
 import { useOrganization } from "@/hooks/useOrganization";
 import { PlanModal } from "@/components/PlanModal";
+import { useTheme } from "next-themes";
 
 const Settings = () => {
   const [loading, setLoading] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const { organization } = useOrganization();
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  const currentTheme = theme || "dark";
   const [settings, setSettings] = useState({
     id: "",
     default_integration_start_time: "09:00",
@@ -33,6 +38,7 @@ const Settings = () => {
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     fetchSettings();
     if (organization) {
       setCompanyInfo({
@@ -179,6 +185,60 @@ const Settings = () => {
         </div>
 
         <div className="space-y-6">
+          {/* Theme Selection Section */}
+          <Card className="p-6 space-y-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                <Sun className="w-5 h-5" />
+              </div>
+              <h3 className="text-lg font-semibold">Aparência</h3>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="theme">Tema da Aplicação</Label>
+              <Select value={mounted ? currentTheme : "dark"} onValueChange={(value) => mounted && setTheme(value)}>
+                <SelectTrigger id="theme" className="w-full" disabled={!mounted}>
+                  <div className="flex items-center gap-2 flex-1">
+                    {currentTheme === "light" && <Sun className="w-4 h-4 shrink-0" />}
+                    {currentTheme === "dark" && <Moon className="w-4 h-4 shrink-0" />}
+                    {currentTheme === "system" && <Monitor className="w-4 h-4 shrink-0" />}
+                    <span>
+                      {currentTheme === "light" && "Claro"}
+                      {currentTheme === "dark" && "Escuro"}
+                      {currentTheme === "system" && "Sistema"}
+                      {!mounted && "Carregando..."}
+                    </span>
+                  </div>
+                </SelectTrigger>
+                {mounted && (
+                  <SelectContent className="min-w-[var(--radix-select-trigger-width)]">
+                    <SelectItem value="light">
+                      <div className="flex items-center gap-2">
+                        <Sun className="w-4 h-4 shrink-0" />
+                        <span>Claro</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="dark">
+                      <div className="flex items-center gap-2">
+                        <Moon className="w-4 h-4 shrink-0" />
+                        <span>Escuro</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="system">
+                      <div className="flex items-center gap-2">
+                        <Monitor className="w-4 h-4 shrink-0" />
+                        <span>Sistema</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                )}
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Escolha entre tema claro, escuro ou seguir a preferência do sistema
+              </p>
+            </div>
+          </Card>
+
           {/* Plan Management Section */}
           {organization?.plan === "free" && (
             <Card className="p-6 space-y-4 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
@@ -327,71 +387,71 @@ const Settings = () => {
           </Card>
 
           <form onSubmit={handleSave} className="space-y-6">
-          <Card className="p-6 space-y-4">
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Configurações Gerais</h3>
-              
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="default_time">
-                    Horário Padrão de Integração
-                  </Label>
-                  <Input
-                    id="default_time"
-                    type="time"
-                    value={settings.default_integration_start_time}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        default_integration_start_time: e.target.value,
-                      })
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Horário padrão usado para novos leads (pode ser alterado individualmente)
-                  </p>
-                </div>
+            <Card className="p-6 space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Configurações Gerais</h3>
 
-                <div className="space-y-2">
-                  <Label htmlFor="webhook_url">URL do Webhook n8n</Label>
-                  <Input
-                    id="webhook_url"
-                    type="url"
-                    value={settings.n8n_webhook_url}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        n8n_webhook_url: e.target.value,
-                      })
-                    }
-                    placeholder="https://your-n8n-instance.com/webhook/..."
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    URL do webhook do n8n para automações de leads
-                  </p>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="default_time">
+                      Horário Padrão de Integração
+                    </Label>
+                    <Input
+                      id="default_time"
+                      type="time"
+                      value={settings.default_integration_start_time}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          default_integration_start_time: e.target.value,
+                        })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Horário padrão usado para novos leads (pode ser alterado individualmente)
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="webhook_url">URL do Webhook n8n</Label>
+                    <Input
+                      id="webhook_url"
+                      type="url"
+                      value={settings.n8n_webhook_url}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          n8n_webhook_url: e.target.value,
+                        })
+                      }
+                      placeholder="https://your-n8n-instance.com/webhook/..."
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      URL do webhook do n8n para automações de leads
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-          </Card>
+            </Card>
 
-          <Card className="p-6 bg-muted/50 border-accent/30">
-            <div className="space-y-2">
-              <h3 className="font-semibold flex items-center gap-2">
-                <span className="text-accent">💡</span>
-                Dicas de Integração
-              </h3>
-              <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                <li>Configure o webhook do n8n para receber informações dos leads</li>
-                <li>Use o horário de integração para agendar automações diárias</li>
-                <li>O horário pode ser personalizado para cada lead individualmente</li>
-              </ul>
-            </div>
-          </Card>
+            <Card className="p-6 bg-muted/50 border-accent/30">
+              <div className="space-y-2">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <span className="text-accent">💡</span>
+                  Dicas de Integração
+                </h3>
+                <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                  <li>Configure o webhook do n8n para receber informações dos leads</li>
+                  <li>Use o horário de integração para agendar automações diárias</li>
+                  <li>O horário pode ser personalizado para cada lead individualmente</li>
+                </ul>
+              </div>
+            </Card>
 
-          <Button type="submit" disabled={loading} size="lg" className="w-full gap-2">
-            <Save className="w-4 h-4" />
-            Salvar Configurações
-          </Button>
+            <Button type="submit" disabled={loading} size="lg" className="w-full gap-2">
+              <Save className="w-4 h-4" />
+              Salvar Configurações
+            </Button>
           </form>
         </div>
       </div>

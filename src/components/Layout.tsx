@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { Home, Users, Settings, List, LogOut, FolderKanban, SearchCheck, Bot, Smartphone, CreditCard, Sparkles, FileText, MessageSquare } from "lucide-react";
+import { Home, Users, Settings, List, LogOut, FolderKanban, SearchCheck, Bot, Smartphone, CreditCard, Sparkles, FileText, MessageSquare, ChevronRight, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -15,22 +15,112 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
   SidebarProvider,
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import logo from "@/assets/logo.png";
 
-const menuItems = [
+interface MenuItem {
+  title: string;
+  url?: string;
+  icon: React.ComponentType<{ className?: string }>;
+  subItems?: { title: string; url: string; icon: React.ComponentType<{ className?: string }> }[];
+}
+
+interface MenuItemWithSubItemsProps {
+  item: MenuItem;
+  location: { pathname: string };
+  isCollapsed: boolean;
+}
+
+const MenuItemWithSubItems = ({ item, location, isCollapsed }: MenuItemWithSubItemsProps) => {
+  const isCategoryActive = item.subItems?.some(
+    (subItem) => location.pathname === subItem.url
+  ) || false;
+  const [isOpen, setIsOpen] = useState(isCategoryActive);
+
+  return (
+    <Collapsible
+      asChild
+      defaultOpen={isCategoryActive}
+      open={isOpen}
+      onOpenChange={setIsOpen}
+    >
+      <SidebarMenuItem>
+        <CollapsibleTrigger asChild>
+          <SidebarMenuButton
+            isActive={isCategoryActive}
+            tooltip={isCollapsed ? item.title : undefined}
+          >
+            <item.icon className="w-5 h-5 shrink-0" />
+            {!isCollapsed && <span className="font-medium">{item.title}</span>}
+            {!isCollapsed && (
+              <ChevronRight className={`ml-auto w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
+            )}
+          </SidebarMenuButton>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <SidebarMenuSub>
+            {item.subItems?.map((subItem) => (
+              <SidebarMenuSubItem key={subItem.title}>
+                <SidebarMenuSubButton
+                  asChild
+                  isActive={location.pathname === subItem.url}
+                >
+                  <NavLink to={subItem.url}>
+                    <subItem.icon className="w-4 h-4 shrink-0" />
+                    <span>{subItem.title}</span>
+                  </NavLink>
+                </SidebarMenuSubButton>
+              </SidebarMenuSubItem>
+            ))}
+          </SidebarMenuSub>
+        </CollapsibleContent>
+      </SidebarMenuItem>
+    </Collapsible>
+  );
+};
+
+const menuItems: MenuItem[] = [
   { title: "Painel", url: "/dashboard", icon: Home },
-  { title: "Todos os Leads", url: "/leads", icon: List },
-  { title: "Buscar Leads", url: "/lead-search", icon: SearchCheck },
-  { title: "Configurar IA Padrão", url: "/ai-configuration", icon: Sparkles },
-  { title: "Interações com IA", url: "/ai-interaction", icon: Bot },
-  { title: "Mensagem Padrão", url: "/message-configuration", icon: MessageSquare },
-  { title: "Conectar WhatsApp", url: "/whatsapp", icon: Smartphone },
-  { title: "Categorias", url: "/categories", icon: Users },
-  { title: "Gerenciar Categorias", url: "/category-manager", icon: FolderKanban },
+  {
+    title: "Leads",
+    icon: List,
+    subItems: [
+      { title: "Todos os Leads", url: "/leads", icon: List },
+      { title: "Buscar Leads", url: "/lead-search", icon: SearchCheck },
+      { title: "Agendar Interações", url: "/schedule-interactions", icon: Calendar },
+    ],
+  },
+  {
+    title: "Inteligência Artificial",
+    icon: Bot,
+    subItems: [
+      { title: "Configurar IA Padrão", url: "/ai-configuration", icon: Sparkles },
+      { title: "Interações com IA", url: "/ai-interaction", icon: Bot },
+    ],
+  },
+  {
+    title: "Mensagens",
+    icon: MessageSquare,
+    subItems: [
+      { title: "Mensagem Padrão", url: "/message-configuration", icon: MessageSquare },
+      { title: "Conectar WhatsApp", url: "/whatsapp", icon: Smartphone },
+    ],
+  },
+  {
+    title: "Categorias",
+    icon: FolderKanban,
+    subItems: [
+      { title: "Categorias", url: "/categories", icon: Users },
+      { title: "Gerenciar Categorias", url: "/category-manager", icon: FolderKanban },
+    ],
+  },
   { title: "Documentos", url: "/documents", icon: FileText },
   { title: "Configurações", url: "/settings", icon: Settings },
 ];
@@ -71,12 +161,11 @@ function AppSidebar() {
           <NavLink to="/dashboard" className="block group">
             <div className="relative flex items-center justify-center">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-accent/30 blur-2xl opacity-50 group-hover:opacity-100 transition-opacity duration-500"></div>
-              <img 
-                src={displayLogo} 
-                alt={organization?.company_name || "Logo"} 
-                className={`relative z-10 transition-all duration-500 group-hover:scale-105 drop-shadow-2xl object-contain ${
-                  isCollapsed ? 'w-10 h-10' : 'w-[200px] h-[200px]'
-                }`}
+              <img
+                src={displayLogo}
+                alt={organization?.company_name || "Logo"}
+                className={`relative z-10 transition-all duration-500 group-hover:scale-105 drop-shadow-2xl object-contain ${isCollapsed ? 'w-10 h-10' : 'w-[200px] h-[200px]'
+                  }`}
               />
             </div>
           </NavLink>
@@ -92,20 +181,33 @@ function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={location.pathname === item.url}>
-                    <NavLink 
-                      to={item.url} 
-                      className="flex items-center gap-3 px-4 py-3 transition-all hover:bg-secondary/50"
-                      activeClassName="bg-primary text-primary-foreground shadow-lg"
+              {menuItems.map((item) => {
+                if (item.subItems) {
+                  return (
+                    <MenuItemWithSubItems
+                      key={item.title}
+                      item={item}
+                      location={location}
+                      isCollapsed={isCollapsed}
+                    />
+                  );
+                }
+
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location.pathname === item.url}
+                      tooltip={isCollapsed ? item.title : undefined}
                     >
-                      <item.icon className="w-5 h-5 shrink-0" />
-                      {!isCollapsed && <span className="font-medium">{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+                      <NavLink to={item.url || "#"}>
+                        <item.icon className="w-5 h-5 shrink-0" />
+                        {!isCollapsed && <span className="font-medium">{item.title}</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -128,13 +230,12 @@ function AppSidebar() {
               </Button>
             </div>
           )}
-          
+
           {/* Logout Button */}
           <Button
             variant="ghost"
-            className={`w-full gap-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 ${
-              isCollapsed ? 'justify-center px-2' : 'justify-start'
-            }`}
+            className={`w-full gap-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 ${isCollapsed ? 'justify-center px-2' : 'justify-start'
+              }`}
             onClick={handleLogout}
           >
             <LogOut className="h-5 w-5 shrink-0" />
@@ -142,7 +243,7 @@ function AppSidebar() {
           </Button>
         </div>
       </SidebarContent>
-      
+
       <PlanModal open={isPlanModalOpen} onOpenChange={setIsPlanModalOpen} />
     </Sidebar>
   );
@@ -153,7 +254,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     <SidebarProvider defaultOpen={true}>
       <div className="min-h-screen flex w-full bg-background">
         <AppSidebar />
-        
+
         <div className="flex-1 flex flex-col">
           {/* Header with trigger */}
           <header className="h-14 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-40 flex items-center px-4">

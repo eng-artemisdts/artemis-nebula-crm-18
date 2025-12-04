@@ -17,10 +17,10 @@ const statusConfig: Record<Status, { label: string; className: string }> = {
   perdido: { label: "Perdido", className: "bg-status-perdido/20 text-status-perdido border-status-perdido/30" },
 };
 
-export const StatusBadge = ({ status }: { status: Status }) => {
+export const StatusBadge = ({ status, className }: { status: Status; className?: string }) => {
   const config = statusConfig[status];
   return (
-    <Badge variant="outline" className={`${config.className} border font-medium`}>
+    <Badge variant="outline" className={`${config.className} border font-medium ${className || ''}`}>
       {config.label}
     </Badge>
   );

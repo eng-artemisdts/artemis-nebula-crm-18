@@ -32,7 +32,7 @@ serve(async (req) => {
     const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
     if (userError) throw userError;
 
-    // Get user's organization_id from profiles table
+
     const { data: profile, error: profileError } = await supabaseClient
       .from("profiles")
       .select("organization_id")
@@ -60,7 +60,7 @@ serve(async (req) => {
       throw new Error("Evolution API credentials not configured");
     }
 
-    // Delete instance from Evolution API
+
     const response = await fetch(`${EVOLUTION_API_URL}/instance/delete/${instanceName}`, {
       method: "DELETE",
       headers: {
@@ -71,12 +71,12 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       logStep("Evolution API error", { status: response.status, error: errorText });
-      // Continue even if Evolution API fails - we still want to delete from our database
+
     } else {
       logStep("Instance deleted from Evolution API");
     }
 
-    // Delete instance from database
+
     const { error: deleteError } = await supabaseClient
       .from("whatsapp_instances")
       .delete()

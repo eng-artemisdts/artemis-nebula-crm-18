@@ -20,7 +20,7 @@ interface WebhookMessage {
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -32,12 +32,54 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const payload: WebhookMessage = await req.json();
+    const payload: any = await req.json();
     console.log('Webhook payload:', JSON.stringify(payload, null, 2));
 
-    // Only process incoming messages (not sent by us)
-    if (payload.event !== 'messages.upsert' || payload.data.key.fromMe) {
-      console.log('Ignoring event:', payload.event, 'fromMe:', payload.data.key.fromMe);
+
+    if (payload.event === 'connection.update' || payload.event === 'CONNECTION_UPDATE') {
+      const connectionState = payload.data?.state || payload.data?.connection || payload.connection;
+      
+      if (connectionState === 'open' || connectionState === 'connected') {
+
+        const phoneNumber = payload.data?.user?.id || 
+                           payload.data?.user?.jid?.split('@')[0] ||
+                           payload.data?.jid?.split('@')[0] ||
+                           payload.user?.id?.split('@')[0];
+        
+        if (phoneNumber) {
+          const cleanedPhone = phoneNumber.replace(/\D/g, '');
+          
+
+          const { error: updateError } = await supabase
+            .from('whatsapp_instances')
+            .update({
+              phone_number: cleanedPhone,
+              status: 'connected',
+              connected_at: new Date().toISOString(),
+              qr_code: null,
+            })
+            .eq('instance_name', payload.instance);
+          
+          if (updateError) {
+            console.error('Error updating instance phone number:', updateError);
+          } else {
+            console.log('Instance phone number updated:', cleanedPhone);
+          }
+        }
+      }
+      
+      return new Response(
+        JSON.stringify({ success: true, message: 'Connection update processed' }),
+        { 
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+
+    if (payload.event !== 'messages.upsert' || payload.data?.key?.fromMe) {
+      console.log('Ignoring event:', payload.event, 'fromMe:', payload.data?.key?.fromMe);
       return new Response(
         JSON.stringify({ message: 'Event ignored' }),
         { 
@@ -47,23 +89,23 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Extract phone number - prefer senderPn when available (contains real number)
-    const remoteJid = payload.data.key.remoteJid;
-    const senderPn = payload.data.key.senderPn;
+
+    const remoteJid = payload.data?.key?.remoteJid;
+    const senderPn = payload.data?.key?.senderPn;
     
     let phoneNumber: string;
     
-    // Use senderPn if available (it contains the real phone number)
+
     if (senderPn && typeof senderPn === 'string') {
       phoneNumber = senderPn.split('@')[0];
     } else {
       phoneNumber = remoteJid.split('@')[0];
     }
     
-    // Clean the phone number: remove any non-digit characters
+
     phoneNumber = phoneNumber.replace(/\D/g, '');
     
-    // Ensure it's a valid phone number format (at least 10 digits)
+
     if (phoneNumber.length < 10) {
       console.log('Invalid phone number format:', phoneNumber);
       return new Response(
@@ -75,11 +117,11 @@ Deno.serve(async (req) => {
       );
     }
     
-    const contactName = payload.data.pushName || '';
+    const contactName = payload.data?.pushName || '';
 
     console.log('Processing message from:', phoneNumber, 'name:', contactName, 'remoteJid:', remoteJid, 'senderPn:', senderPn);
 
-    // Find the instance to get the organization
+
     const { data: instance, error: instanceError } = await supabase
       .from('whatsapp_instances')
       .select('organization_id')
@@ -97,7 +139,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check if lead exists
+
     const { data: existingLead, error: findError } = await supabase
       .from('leads')
       .select('*')
@@ -111,7 +153,7 @@ Deno.serve(async (req) => {
     }
 
     if (existingLead) {
-      // Update existing lead status to "conversa_iniciada"
+
       console.log('Updating existing lead:', existingLead.id);
       
       const updateData: any = {
@@ -119,7 +161,7 @@ Deno.serve(async (req) => {
         remote_jid: remoteJid,
       };
 
-      // Update name if we have it and lead doesn't
+
       if (contactName && !existingLead.name) {
         updateData.name = contactName;
       }
@@ -136,7 +178,7 @@ Deno.serve(async (req) => {
 
       console.log('Lead updated successfully');
     } else {
-      // Create new lead
+
       console.log('Creating new lead for:', phoneNumber);
       
       const { error: insertError } = await supabase

@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -75,7 +75,7 @@ serve(async (req) => {
     const data = await response.json();
     console.log('OpenAI response:', data);
 
-    // Extract categories from tool call
+
     const toolCall = data.choices[0].message.tool_calls?.[0];
     if (!toolCall) {
       console.error('No tool call in response');
