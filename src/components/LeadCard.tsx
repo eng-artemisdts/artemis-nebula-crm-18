@@ -64,6 +64,8 @@ export const LeadCard = ({
     disabled: !isDraggable,
   });
 
+  const { className: _, ...attributesWithoutClassName } = attributes || {};
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -342,7 +344,7 @@ Se quiser saber mais, é só acessar:
     <Card
       ref={setNodeRef}
       style={style}
-      {...attributes}
+      {...attributesWithoutClassName}
       {...listeners}
       className="p-4 cursor-pointer hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/10 group min-w-0 w-full overflow-hidden"
       onClick={(e) => {
