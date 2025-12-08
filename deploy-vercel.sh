@@ -16,6 +16,31 @@ fi
 echo "✅ Autenticado na Vercel"
 echo ""
 
+# Verificar configuração do Git
+echo "📋 Verificando configuração do Git..."
+git_email=$(git config user.email)
+git_name=$(git config user.name)
+
+if [ -z "$git_email" ] || [ -z "$git_name" ]; then
+    echo "❌ Configuração do Git não encontrada para este projeto"
+    echo ""
+    echo "💡 Execute o script de configuração:"
+    echo "   ./configure-git-user.sh"
+    echo ""
+    echo "   Ou configure manualmente:"
+    echo "   git config --local user.email 'seu-email@github.com'"
+    echo "   git config --local user.name 'Seu Nome'"
+    echo ""
+    exit 1
+fi
+
+echo "   Nome: $git_name"
+echo "   Email: $git_email"
+echo ""
+echo "⚠️  Certifique-se de que o email acima está vinculado à sua conta GitHub"
+echo "   para que o Vercel reconheça os commits corretamente"
+echo ""
+
 # Verificar variáveis de ambiente
 echo "📋 Verificando variáveis de ambiente..."
 echo ""

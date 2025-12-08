@@ -4,15 +4,5 @@
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ],
-  "crons": [
-    {
-      "path": "/api/cron/process-scheduled-messages",
-      "schedule": "* * * * *"
-    },
-    {
-      "path": "/api/cron/rabbitmq-consume-interactions",
-      "schedule": "* * * * *"
-    }
   ]
 }
