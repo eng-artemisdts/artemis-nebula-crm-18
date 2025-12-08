@@ -344,7 +344,7 @@ Se quiser saber mais, é só acessar:
       style={style}
       {...attributes}
       {...listeners}
-      className="p-4 cursor-pointer hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/10 group min-w-0 overflow-hidden"
+      className="p-4 cursor-pointer hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/10 group min-w-0 w-full overflow-hidden"
       onClick={(e) => {
         if (!isDragging) {
           navigate(`/lead/${lead.id}`);
@@ -413,9 +413,9 @@ Se quiser saber mais, é só acessar:
         </div>
 
         {lead.payment_amount && (
-          <div className="flex items-center justify-between p-2 bg-accent/10 rounded-md gap-2">
-            <span className="text-sm font-medium break-words min-w-0">Valor da Proposta:</span>
-            <span className="text-lg font-bold text-accent whitespace-nowrap">
+          <div className="flex flex-col p-2 bg-accent/10 rounded-md gap-1 min-w-0">
+            <span className="text-sm font-medium text-muted-foreground">Valor da Proposta:</span>
+            <span className="text-lg font-bold text-accent">
               {new Intl.NumberFormat("pt-BR", {
                 style: "currency",
                 currency: "BRL",

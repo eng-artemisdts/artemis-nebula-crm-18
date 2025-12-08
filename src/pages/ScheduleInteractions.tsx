@@ -16,6 +16,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatPhoneDisplay } from "@/lib/utils";
 import { useOrganization } from "@/hooks/useOrganization";
+import { rabbitMQService, ScheduledInteractionMessage } from "@/services/RabbitMQService";
 
 interface ScheduledInteraction {
   leadId: string;
@@ -314,13 +315,31 @@ const ScheduleInteractions = () => {
         status: "pending"
       }));
 
-      const { error: insertError } = await supabase
+      const { data: insertedData, error: insertError } = await supabase
         .from("scheduled_interactions")
-        .insert(scheduledInteractions);
+        .insert(scheduledInteractions)
+        .select();
 
       if (insertError) {
         throw insertError;
       }
+
+      if (!insertedData || insertedData.length === 0) {
+        throw new Error("Nenhuma interação foi inserida no banco de dados");
+      }
+
+      const messages: ScheduledInteractionMessage[] = insertedData.map((interaction, index) => ({
+        scheduledInteractionId: interaction.id,
+        leadId: interaction.lead_id,
+        leadName: leads[index].leadName,
+        leadWhatsApp: leads[index].leadWhatsApp,
+        remoteJid: interaction.remote_jid,
+        aiInteractionId: interaction.ai_interaction_id,
+        instanceName: interaction.instance_name,
+        scheduledAt: interaction.scheduled_at,
+      }));
+
+      await rabbitMQService.publishMultipleScheduledInteractions(messages);
 
       toast.success(`${leads.length} interação(ões) agendada(s) com sucesso!`);
 

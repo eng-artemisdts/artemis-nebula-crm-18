@@ -11,6 +11,7 @@ import LeadForm from "./pages/LeadForm";
 import Leads from "./pages/Leads";
 import Categories from "./pages/Categories";
 import CategoryManager from "./pages/CategoryManager";
+import StatusManager from "./pages/StatusManager";
 import LeadSearch from "./pages/LeadSearch";
 import AIConfiguration from "./pages/AIConfiguration";
 import AIInteraction from "./pages/AIInteraction";
@@ -72,6 +73,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <CategoryManager />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/status-manager"
+              element={
+                <ProtectedRoute>
+                  <StatusManager />
                 </ProtectedRoute>
               }
             />
