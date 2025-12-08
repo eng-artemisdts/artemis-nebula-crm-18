@@ -49,3 +49,4 @@ BEFORE UPDATE ON public.scheduled_interactions
 FOR EACH ROW
 EXECUTE FUNCTION public.update_updated_at_column();
 
+

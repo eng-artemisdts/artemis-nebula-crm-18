@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.upload-to-google-drive]
 verify_jwt = true
+
+[functions.get-company-by-whatsapp]
+verify_jwt = true

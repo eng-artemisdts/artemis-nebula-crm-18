@@ -1,0 +1,5 @@
+nome,email,whatsapp,status,categoria,descricao,origem,valor,horario_integracao
+Gabriel de Moura,gabriel@email.com,31982936068,novo,Cliente Potencial,Lead interessado em nossos serviços,Google Ads,1500.00,09:00
+Matheus Fonseca,maria@exemplo.com,31994794413,conversa_iniciada,Cliente VIP,Cliente com alto potencial de conversão,Indicação,2500.50,10:30
+Matheus Magnani,joao@exemplo.com,31994040500,proposta_enviada,Cliente Regular,Proposta enviada aguardando resposta,Facebook Ads,800.00,14:00
+Lucas Taguchi,pedro@exemplo.com,31983040185,proposta_enviada,Cliente Regular,Proposta enviada aguardando resposta,Facebook Ads,800.00,14:00

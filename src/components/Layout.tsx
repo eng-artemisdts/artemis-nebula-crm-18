@@ -20,6 +20,7 @@ import {
   SidebarMenuSubButton,
   SidebarProvider,
   SidebarTrigger,
+  SidebarInset,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -119,9 +120,9 @@ const menuItems: MenuItem[] = [
     subItems: [
       { title: "Categorias", url: "/categories", icon: Users },
       { title: "Gerenciar Categorias", url: "/category-manager", icon: FolderKanban },
+      { title: "Gerenciar Status", url: "/status-manager", icon: List },
     ],
   },
-  { title: "Documentos", url: "/documents", icon: FileText },
   { title: "Configurações", url: "/settings", icon: Settings },
 ];
 
@@ -255,7 +256,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       <div className="min-h-screen flex w-full bg-background">
         <AppSidebar />
 
-        <div className="flex-1 flex flex-col">
+        <SidebarInset className="flex flex-col">
           {/* Header with trigger */}
           <header className="h-14 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-40 flex items-center px-4">
             <SidebarTrigger />
@@ -263,7 +264,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
           {/* Main Content */}
           <main className="flex-1 p-8 overflow-auto">{children}</main>
-        </div>
+        </SidebarInset>
       </div>
     </SidebarProvider>
   );

@@ -32,15 +32,7 @@ import {
   useDroppable,
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-
-const statusColumns = [
-  { id: "novo", label: "Novo" },
-  { id: "conversa_iniciada", label: "Conversa Iniciada" },
-  { id: "proposta_enviada", label: "Proposta Enviada" },
-  { id: "link_pagamento_enviado", label: "Link Pagamento" },
-  { id: "pago", label: "Pago" },
-  { id: "perdido", label: "Perdido" },
-];
+import { LeadStatusService, LeadStatus } from "@/services/LeadStatusService";
 
 const TableRowMemo = memo(({
   lead,
@@ -52,7 +44,8 @@ const TableRowMemo = memo(({
   formatWhatsAppNumber,
   formatPhoneDisplay,
   format,
-  ptBR
+  ptBR,
+  statusColumns
 }: {
   lead: any;
   isSelected: boolean;
@@ -64,6 +57,7 @@ const TableRowMemo = memo(({
   formatPhoneDisplay: (phone: string) => string;
   format: any;
   ptBR: any;
+  statusColumns: { id: string; label: string }[];
 }) => {
   return (
     <TableRow className="hover:bg-muted/50">
@@ -89,7 +83,10 @@ const TableRowMemo = memo(({
         >
           <SelectTrigger className="w-[200px] h-8 border-none bg-transparent hover:bg-transparent p-0">
             <div className="flex items-center">
-              <StatusBadge status={lead.status as any} />
+              <StatusBadge
+                status={lead.status as any}
+                label={statusColumns.find(col => col.id === lead.status)?.label}
+              />
             </div>
           </SelectTrigger>
           <SelectContent>
@@ -154,7 +151,7 @@ const TableRowMemo = memo(({
         {format(new Date(lead.created_at), "dd/MM/yyyy", { locale: ptBR })}
       </TableCell>
       <TableCell onClick={(e) => e.stopPropagation()}>
-        {lead.status === "novo" && lead.contact_whatsapp && (
+        {(lead.status === "new" || lead.status === "novo") && lead.contact_whatsapp && (
           <Button
             variant="outline"
             size="sm"
@@ -192,16 +189,16 @@ const StatusColumn = memo(({
   const hasMore = columnLeads.length > maxVisibleLeads;
 
   return (
-    <div className="flex flex-col h-full min-h-0">
-      <div className="flex items-center justify-between p-3 rounded-lg bg-card border border-border flex-shrink-0">
-        <h3 className="font-semibold text-sm">{column.label}</h3>
-        <span className="text-xs font-medium px-2 py-1 rounded-full bg-primary/10 text-primary">
+    <div className="flex flex-col h-full min-h-0 min-w-0">
+      <div className="flex items-center justify-between p-3 rounded-lg bg-card border border-border flex-shrink-0 min-w-0">
+        <h3 className="font-semibold text-sm truncate">{column.label}</h3>
+        <span className="text-xs font-medium px-2 py-1 rounded-full bg-primary/10 text-primary flex-shrink-0">
           {columnLeads.length}
         </span>
       </div>
       <div
         ref={setNodeRef}
-        className={`flex-1 overflow-y-auto space-y-3 min-h-[200px] max-h-[calc(100vh-400px)] p-2 rounded-lg transition-all scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent ${isOver ? 'bg-primary/5 border-2 border-primary border-dashed' : 'border-2 border-transparent'
+        className={`flex-1 overflow-y-auto space-y-3 min-h-[200px] max-h-[calc(100vh-400px)] p-2 rounded-lg transition-all scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent min-w-0 ${isOver ? 'bg-primary/5 border-2 border-primary border-dashed' : 'border-2 border-transparent'
           }`}
         data-status={column.id}
       >
@@ -270,6 +267,8 @@ const Dashboard = () => {
   const [availableInstances, setAvailableInstances] = useState<any[]>([]);
   const [isStartingConversation, setIsStartingConversation] = useState(false);
   const [isStartingBulkConversation, setIsStartingBulkConversation] = useState(false);
+  const [statusColumns, setStatusColumns] = useState<{ id: string; label: string }[]>([]);
+  const statusService = new LeadStatusService();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -332,9 +331,22 @@ const Dashboard = () => {
     }
   };
 
+  const fetchStatuses = async () => {
+    if (!organization?.id) return;
+
+    try {
+      const statuses = await statusService.getAll(organization.id);
+      setStatusColumns(statuses.map((s) => ({ id: s.status_key, label: s.label })));
+    } catch (error: any) {
+      console.error("Erro ao carregar status:", error);
+      toast.error("Erro ao carregar status personalizados");
+    }
+  };
+
   useEffect(() => {
     checkDefaultAI();
-  }, []);
+    fetchStatuses();
+  }, [organization?.id]);
 
   useEffect(() => {
     if (searchQuery.trim() || viewMode === "kanban") {
@@ -438,17 +450,29 @@ const Dashboard = () => {
       newStatus = targetLead.status;
     }
 
+    // Se o status não existe nas colunas, não permite a mudança
+    if (!statusIds.includes(newStatus)) {
+      toast.error("Status inválido. Por favor, atualize os status personalizados.");
+      return;
+    }
+
     await handleStatusChange(leadId, newStatus);
   };
 
   const activeLead = activeId ? filteredLeads.find((l) => l.id === activeId) : null;
 
-  const stats = useMemo(() => ({
-    total: filteredLeads.length,
-    novos: filteredLeads.filter((lead) => lead.status === "novo").length,
-    pagos: filteredLeads.filter((lead) => lead.status === "pago").length,
-    perdidos: filteredLeads.filter((lead) => lead.status === "perdido").length,
-  }), [filteredLeads]);
+  const stats = useMemo(() => {
+    const newStatusKey = statusColumns.find(s => s.label === "Novo")?.id || "new";
+    const paidStatusKey = statusColumns.find(s => s.label === "Pago")?.id || "pago";
+    const lostStatusKey = statusColumns.find(s => s.label === "Perdido")?.id || "perdido";
+
+    return {
+      total: filteredLeads.length,
+      novos: filteredLeads.filter((lead) => lead.status === newStatusKey || lead.status === "novo").length,
+      pagos: filteredLeads.filter((lead) => lead.status === paidStatusKey || lead.status === "pago").length,
+      perdidos: filteredLeads.filter((lead) => lead.status === lostStatusKey || lead.status === "perdido").length,
+    };
+  }, [filteredLeads, statusColumns]);
 
   const financialStats = useMemo(() => ({
     totalValue: filteredLeads.reduce((sum, lead) => sum + (lead.payment_amount || 0), 0),
@@ -599,10 +623,11 @@ Se quiser saber mais, é só acessar:
         return;
       }
 
+      const conversationStartedKey = statusColumns.find(s => s.label === "Conversa Iniciada")?.id || "conversation_started";
       const { error: updateError } = await supabase
         .from("leads")
         .update({
-          status: "conversa_iniciada",
+          status: conversationStartedKey,
           whatsapp_verified: true
         })
         .eq("id", previewLead.id);
@@ -614,7 +639,7 @@ Se quiser saber mais, é só acessar:
       }
 
       setLeads(prevLeads =>
-        prevLeads.map(l => l.id === previewLead.id ? { ...l, status: "conversa_iniciada", whatsapp_verified: true } : l)
+        prevLeads.map(l => l.id === previewLead.id ? { ...l, status: conversationStartedKey, whatsapp_verified: true } : l)
       );
 
       if (previewSettings?.n8n_webhook_url) {
@@ -651,8 +676,9 @@ Se quiser saber mais, é só acessar:
     if (selectedLeads.size === 0) return;
 
     const selectedLeadsData = leads.filter(lead => selectedLeads.has(lead.id));
+    const newStatusKey = statusColumns.find(s => s.label === "Novo")?.id || "new";
     const validLeads = selectedLeadsData.filter(lead =>
-      lead.contact_whatsapp && lead.remote_jid && lead.status === "novo"
+      lead.contact_whatsapp && lead.remote_jid && (lead.status === newStatusKey || lead.status === "novo")
     );
 
     if (validLeads.length === 0) {
@@ -787,6 +813,7 @@ Se quiser saber mais, é só acessar:
       let successCount = 0;
       let errorCount = 0;
       const successfulLeadIds: string[] = [];
+      const conversationStartedKey = statusColumns.find(s => s.label === "Conversa Iniciada")?.id || "conversation_started";
 
       for (const lead of validLeads) {
         try {
@@ -807,7 +834,7 @@ Se quiser saber mais, é só acessar:
           const { error: updateError } = await supabase
             .from("leads")
             .update({
-              status: "conversa_iniciada",
+              status: conversationStartedKey,
               whatsapp_verified: true
             })
             .eq("id", lead.id);
@@ -848,7 +875,7 @@ Se quiser saber mais, é só acessar:
       setLeads(prevLeads =>
         prevLeads.map(l => {
           if (successfulLeadIds.includes(l.id)) {
-            return { ...l, status: "conversa_iniciada", whatsapp_verified: true };
+            return { ...l, status: conversationStartedKey, whatsapp_verified: true };
           }
           return l;
         })
@@ -1047,7 +1074,7 @@ Se quiser saber mais, é só acessar:
               onDragEnd={handleDragEnd}
               collisionDetection={closestCenter}
             >
-              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 min-w-0">
                 {statusColumns.map((column) => {
                   const columnLeads = getLeadsByStatus(column.id);
                   return (
@@ -1134,6 +1161,7 @@ Se quiser saber mais, é só acessar:
                           formatPhoneDisplay={formatPhoneDisplay}
                           format={format}
                           ptBR={ptBR}
+                          statusColumns={statusColumns}
                         />
                       ))
                     ) : (

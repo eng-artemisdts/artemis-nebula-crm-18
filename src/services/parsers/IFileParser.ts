@@ -11,3 +11,4 @@ export interface IFileParser {
   parse(file: File): Promise<ParseResult>;
 }
 
+
