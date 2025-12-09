@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import logo from "@/assets/logo.png";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -167,7 +168,7 @@ const Login = () => {
         <div className="text-center space-y-4 mb-8 animate-scale-in">
           <Link to="/" className="inline-block group">
             <img
-              src="/src/assets/logo.png"
+              src={logo}
               alt="Artemis Nebula"
               className="h-20 mx-auto transition-transform duration-300 group-hover:scale-110"
             />
