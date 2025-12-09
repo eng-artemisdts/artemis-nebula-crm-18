@@ -91,17 +91,41 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       logStep("Evolution API error", { status: response.status, error: errorText });
-      throw new Error(`Evolution API error: ${errorText}`);
+
+      let errorMessage = `Evolution API error: ${errorText}`;
+
+      try {
+        const errorData = JSON.parse(errorText);
+        if (response.status === 403 && errorData?.response?.message) {
+          const message = Array.isArray(errorData.response.message)
+            ? errorData.response.message[0]
+            : errorData.response.message;
+
+          if (message?.includes("is already in use")) {
+            errorMessage = `O nome da instância "${instanceName}" já está em uso. Escolha outro nome.`;
+          }
+        }
+      } catch (parseError) {
+      }
+
+      return new Response(
+        JSON.stringify({ error: errorMessage, success: false }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        }
+      );
     }
 
     const evolutionData = await response.json();
     logStep("Instance created in Evolution API", { evolutionData });
 
 
-    const webhookUrl = "https://n8n-n8n.kltkek.easypanel.host/webhook/sdr";
-    
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const webhookUrl = `${supabaseUrl}/functions/v1/evolution-webhook`;
+
     logStep("Configuring webhook", { webhookUrl });
-    
+
     const webhookResponse = await fetch(`${EVOLUTION_API_URL}/webhook/set/${instanceName}`, {
       method: "POST",
       headers: {

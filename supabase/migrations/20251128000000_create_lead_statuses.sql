@@ -110,3 +110,4 @@ BEGIN
     PERFORM public.initialize_organization_statuses(org_record.id);
   END LOOP;
 END $$;
+

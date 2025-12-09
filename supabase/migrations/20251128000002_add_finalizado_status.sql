@@ -60,3 +60,4 @@ BEGIN
   WHERE organization_id = org_id AND status_key = 'finished';
 END;
 $$;
+

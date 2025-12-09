@@ -6,19 +6,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const logStep = (step: string, details?: any) => {
-  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
-  console.log(`[GET-COMPANY-BY-WHATSAPP] ${step}${detailsStr}`);
-};
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    logStep("Function started");
-
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
@@ -27,143 +20,132 @@ serve(async (req) => {
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      throw new Error("No authorization header");
+      return new Response(
+        JSON.stringify({ error: "Authorization header required" }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
     const token = authHeader.replace("Bearer ", "");
     const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
-    if (userError) {
-      throw userError;
-    }
-
-    if (!userData.user) {
-      throw new Error("User not authenticated");
-    }
-
-    const { phone_number } = await req.json();
-    if (!phone_number) {
-      throw new Error("phone_number is required");
-    }
-
-    const cleanedPhoneNumber = phone_number.replace(/\D/g, '');
-
-    if (!cleanedPhoneNumber || cleanedPhoneNumber.length < 10) {
-      throw new Error("Número de WhatsApp inválido");
-    }
-
-    logStep("Searching for WhatsApp instance", { phone_number: cleanedPhoneNumber });
-
-    const { data: whatsappInstance, error: instanceError } = await supabaseClient
-      .from("whatsapp_instances")
-      .select("organization_id, phone_number, instance_name, status")
-      .eq("phone_number", cleanedPhoneNumber)
-      .eq("status", "connected")
-      .maybeSingle();
-
-    if (instanceError) {
-      logStep("Error searching instance", { error: instanceError.message });
-      throw new Error(`Erro ao buscar instância: ${instanceError.message}`);
-    }
-
-    if (!whatsappInstance || !whatsappInstance.organization_id) {
+    if (userError || !userData?.user) {
       return new Response(
-        JSON.stringify({
-          error: "Nenhuma instância de WhatsApp conectada encontrada para este número"
-        }),
+        JSON.stringify({ error: "Invalid or expired token" }),
         {
+          status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 404,
         }
       );
     }
 
-    logStep("Instance found", { organization_id: whatsappInstance.organization_id });
+    const { phone_number, whatsapp_jid } = await req.json();
 
-    const organizationId = whatsappInstance.organization_id;
+    if (!phone_number && !whatsapp_jid) {
+      return new Response(
+        JSON.stringify({ error: "phone_number or whatsapp_jid is required" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    let instanceQuery = supabaseClient
+      .from("whatsapp_instances")
+      .select("organization_id")
+      .eq("status", "connected");
+
+    if (whatsapp_jid) {
+      instanceQuery = instanceQuery.eq("whatsapp_jid", whatsapp_jid);
+    } else if (phone_number) {
+      let cleanedPhone = phone_number.replace(/\D/g, "");
+
+      if (cleanedPhone.startsWith("55") && cleanedPhone.length > 10) {
+        cleanedPhone = cleanedPhone.substring(2);
+      }
+
+      instanceQuery = instanceQuery.eq("phone_number", cleanedPhone);
+    }
+
+    const { data: instance, error: instanceError } = await instanceQuery.maybeSingle();
+
+    if (instanceError) {
+      console.error("Error finding instance:", instanceError);
+      return new Response(
+        JSON.stringify({ error: "Error finding WhatsApp instance" }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    if (!instance || !instance.organization_id) {
+      return new Response(
+        JSON.stringify({ error: "No connected WhatsApp instance found for the provided number" }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
 
     const { data: organization, error: orgError } = await supabaseClient
       .from("organizations")
       .select("*")
-      .eq("id", organizationId)
+      .eq("id", instance.organization_id)
       .single();
 
-    if (orgError) {
-      logStep("Error fetching organization", { error: orgError.message });
-      throw new Error(`Erro ao buscar organização: ${orgError.message}`);
-    }
-
-    if (!organization) {
+    if (orgError || !organization) {
+      console.error("Error finding organization:", orgError);
       return new Response(
-        JSON.stringify({ error: "Organização não encontrada" }),
+        JSON.stringify({ error: "Organization not found" }),
         {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
 
-    logStep("Organization found", { organization_id: organization.id });
-
     const { data: settings, error: settingsError } = await supabaseClient
       .from("settings")
       .select("default_ai_interaction_id")
-      .eq("organization_id", organizationId)
+      .eq("organization_id", instance.organization_id)
       .maybeSingle();
 
-    if (settingsError) {
-      logStep("Error fetching settings", { error: settingsError.message });
-    }
-
-    let defaultAIContext = null;
+    let defaultAiContext = null;
     if (settings?.default_ai_interaction_id) {
-      const { data: aiInteraction, error: aiError } = await supabaseClient
+      const { data: aiContext, error: aiError } = await supabaseClient
         .from("ai_interaction_settings")
         .select("*")
         .eq("id", settings.default_ai_interaction_id)
-        .single();
+        .eq("organization_id", instance.organization_id)
+        .maybeSingle();
 
-      if (!aiError && aiInteraction) {
-        defaultAIContext = aiInteraction;
-        logStep("Default AI context found", { ai_interaction_id: aiInteraction.id });
-      } else {
-        logStep("Error fetching AI context", { error: aiError?.message });
+      if (!aiError && aiContext) {
+        defaultAiContext = aiContext;
       }
     }
 
     const { data: statuses, error: statusesError } = await supabaseClient
       .from("lead_statuses")
       .select("*")
-      .eq("organization_id", organizationId)
+      .eq("organization_id", instance.organization_id)
       .order("display_order", { ascending: true });
 
     if (statusesError) {
-      logStep("Error fetching statuses", { error: statusesError.message });
+      console.error("Error fetching statuses:", statusesError);
     }
-
-    const finishedStatus = statuses?.find(s => s.status_key === "finished");
-    const otherStatuses = statuses?.filter(s => s.status_key !== "finished") || [];
-    const orderedStatuses = finishedStatus
-      ? [...otherStatuses, finishedStatus]
-      : (statuses || []);
 
     return new Response(
       JSON.stringify({
         success: true,
-        organization: {
-          id: organization.id,
-          name: organization.name,
-          company_name: organization.company_name,
-          phone: organization.phone,
-          cnpj: organization.cnpj,
-          address: organization.address,
-          website: organization.website,
-          logo_url: organization.logo_url,
-          plan: organization.plan,
-          created_at: organization.created_at,
-          updated_at: organization.updated_at,
-        },
-        default_ai_context: defaultAIContext,
-        statuses: orderedStatuses,
+        organization,
+        default_ai_context: defaultAiContext,
+        statuses: statuses || [],
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -171,8 +153,8 @@ serve(async (req) => {
       }
     );
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logStep("Error", { message: errorMessage });
+    console.error("Error in get-company-by-whatsapp:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(
       JSON.stringify({ error: errorMessage }),
       {

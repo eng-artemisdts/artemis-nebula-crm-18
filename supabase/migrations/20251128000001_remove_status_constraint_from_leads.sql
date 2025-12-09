@@ -2,3 +2,4 @@
 -- This allows organizations to use custom statuses
 ALTER TABLE public.leads
 DROP CONSTRAINT IF EXISTS valid_status;
+

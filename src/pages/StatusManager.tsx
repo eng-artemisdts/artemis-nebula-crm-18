@@ -278,7 +278,7 @@ const StatusManager = () => {
           <div>
             <h1 className="text-3xl font-bold">Gerenciar Status de Leads</h1>
             <p className="text-muted-foreground mt-1">
-              Personalize os status dos seus leads. Os status "Novo", "Conversa Iniciada" e "Finalizado" são obrigatórios.
+              Personalize os status dos seus leads. Os status "Novo", "Conversa Iniciada", "Proposta Enviada", "Reunião Agendada" e "Finalizado" são obrigatórios.
             </p>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -478,3 +478,4 @@ const StatusManager = () => {
 };
 
 export default StatusManager;
+

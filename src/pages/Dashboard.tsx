@@ -358,6 +358,20 @@ const Dashboard = () => {
     fetchLeads();
   }, [fetchLeads]);
 
+  useEffect(() => {
+    if (viewMode !== "kanban" || !organization?.id) {
+      return;
+    }
+
+    const updateInterval = setInterval(() => {
+      fetchLeads();
+    }, 30000);
+
+    return () => {
+      clearInterval(updateInterval);
+    };
+  }, [viewMode, organization?.id, fetchLeads]);
+
   const filteredLeads = useMemo(() => {
     if (!searchQuery.trim()) return leads;
 

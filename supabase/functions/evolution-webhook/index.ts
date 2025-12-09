@@ -37,42 +37,161 @@ Deno.serve(async (req) => {
 
 
     if (payload.event === 'connection.update' || payload.event === 'CONNECTION_UPDATE') {
-      const connectionState = payload.data?.state || payload.data?.connection || payload.connection;
-      
+      const connectionState = payload.data?.state || payload.data?.connection || payload.connection || payload.state;
+
+      console.log('Connection update event received', {
+        event: payload.event,
+        connectionState,
+        instance: payload.instance,
+        payloadKeys: Object.keys(payload),
+        dataKeys: payload.data ? Object.keys(payload.data) : null
+      });
+
       if (connectionState === 'open' || connectionState === 'connected') {
+        let phoneNumber: string | null = null;
+        let whatsappJid: string | null = null;
 
-        const phoneNumber = payload.data?.user?.id || 
-                           payload.data?.user?.jid?.split('@')[0] ||
-                           payload.data?.jid?.split('@')[0] ||
-                           payload.user?.id?.split('@')[0];
-        
+        const possiblePaths = [
+          payload.data?.wuid,
+          payload.sender,
+          payload.data?.user?.id,
+          payload.data?.user?.jid,
+          payload.data?.jid,
+          payload.user?.id,
+          payload.user?.jid,
+          payload.data?.user,
+          payload.data?.owner,
+          payload.owner,
+          payload.instance?.owner,
+          payload.data?.instance?.owner
+        ];
+
+        for (const path of possiblePaths) {
+          if (path) {
+            if (typeof path === 'string') {
+              whatsappJid = path;
+              phoneNumber = path.split('@')[0];
+              break;
+            } else if (path && typeof path === 'object' && path.id) {
+              whatsappJid = path.id;
+              phoneNumber = path.id.split('@')[0];
+              break;
+            } else if (path && typeof path === 'object' && path.jid) {
+              whatsappJid = path.jid;
+              phoneNumber = path.jid.split('@')[0];
+              break;
+            }
+          }
+        }
+
+        console.log('Extracted phone number from connection update:', phoneNumber);
+        console.log('Extracted WhatsApp JID:', whatsappJid);
+
         if (phoneNumber) {
-          const cleanedPhone = phoneNumber.replace(/\D/g, '');
-          
+          let cleanedPhone = phoneNumber.replace(/\D/g, '');
 
-          const { error: updateError } = await supabase
-            .from('whatsapp_instances')
-            .update({
+          if (cleanedPhone.startsWith('55') && cleanedPhone.length > 10) {
+            cleanedPhone = cleanedPhone.substring(2);
+          }
+
+          if (cleanedPhone.length >= 10) {
+            console.log('Updating instance with phone number:', cleanedPhone, 'and JID:', whatsappJid, 'for instance:', payload.instance);
+
+            const { data: existingInstance } = await supabase
+              .from('whatsapp_instances')
+              .select('id, instance_name')
+              .eq('instance_name', payload.instance)
+              .single();
+
+            if (!existingInstance) {
+              console.error('Instance not found for update');
+              return new Response(
+                JSON.stringify({ success: true, message: 'Instance not found' }),
+                {
+                  status: 200,
+                  headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                }
+              );
+            }
+
+            const { data: duplicateByPhone } = await supabase
+              .from('whatsapp_instances')
+              .select('id, instance_name')
+              .eq('phone_number', cleanedPhone)
+              .neq('id', existingInstance.id)
+              .maybeSingle();
+
+            if (duplicateByPhone) {
+              console.error('Duplicate instance found with same phone number:', duplicateByPhone.instance_name);
+              return new Response(
+                JSON.stringify({
+                  success: false,
+                  error: `Já existe uma instância conectada com este número de WhatsApp: ${duplicateByPhone.instance_name}`
+                }),
+                {
+                  status: 409,
+                  headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                }
+              );
+            }
+
+            if (whatsappJid) {
+              const { data: duplicateByJid } = await supabase
+                .from('whatsapp_instances')
+                .select('id, instance_name')
+                .eq('whatsapp_jid', whatsappJid)
+                .neq('id', existingInstance.id)
+                .maybeSingle();
+
+              if (duplicateByJid) {
+                console.error('Duplicate instance found with same JID:', duplicateByJid.instance_name);
+                return new Response(
+                  JSON.stringify({
+                    success: false,
+                    error: `Já existe uma instância conectada com este WhatsApp JID: ${duplicateByJid.instance_name}`
+                  }),
+                  {
+                    status: 409,
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                  }
+                );
+              }
+            }
+
+            const updateData: any = {
               phone_number: cleanedPhone,
               status: 'connected',
               connected_at: new Date().toISOString(),
               qr_code: null,
-            })
-            .eq('instance_name', payload.instance);
-          
-          if (updateError) {
-            console.error('Error updating instance phone number:', updateError);
+            };
+
+            if (whatsappJid) {
+              updateData.whatsapp_jid = whatsappJid;
+            }
+
+            const { error: updateError } = await supabase
+              .from('whatsapp_instances')
+              .update(updateData)
+              .eq('instance_name', payload.instance);
+
+            if (updateError) {
+              console.error('Error updating instance phone number:', updateError);
+            } else {
+              console.log('Instance phone number updated successfully:', cleanedPhone);
+            }
           } else {
-            console.log('Instance phone number updated:', cleanedPhone);
+            console.warn('Phone number too short after cleaning:', cleanedPhone);
           }
+        } else {
+          console.warn('Could not extract phone number from connection update payload');
         }
       }
-      
+
       return new Response(
         JSON.stringify({ success: true, message: 'Connection update processed' }),
-        { 
-          status: 200, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
     }
@@ -82,9 +201,9 @@ Deno.serve(async (req) => {
       console.log('Ignoring event:', payload.event, 'fromMe:', payload.data?.key?.fromMe);
       return new Response(
         JSON.stringify({ message: 'Event ignored' }),
-        { 
-          status: 200, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
     }
@@ -92,31 +211,31 @@ Deno.serve(async (req) => {
 
     const remoteJid = payload.data?.key?.remoteJid;
     const senderPn = payload.data?.key?.senderPn;
-    
+
     let phoneNumber: string;
-    
+
 
     if (senderPn && typeof senderPn === 'string') {
       phoneNumber = senderPn.split('@')[0];
     } else {
       phoneNumber = remoteJid.split('@')[0];
     }
-    
+
 
     phoneNumber = phoneNumber.replace(/\D/g, '');
-    
+
 
     if (phoneNumber.length < 10) {
       console.log('Invalid phone number format:', phoneNumber);
       return new Response(
         JSON.stringify({ message: 'Invalid phone number format' }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
     }
-    
+
     const contactName = payload.data?.pushName || '';
 
     console.log('Processing message from:', phoneNumber, 'name:', contactName, 'remoteJid:', remoteJid, 'senderPn:', senderPn);
@@ -132,9 +251,9 @@ Deno.serve(async (req) => {
       console.error('Instance not found:', instanceError);
       return new Response(
         JSON.stringify({ error: 'Instance not found' }),
-        { 
-          status: 404, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
     }
@@ -152,12 +271,16 @@ Deno.serve(async (req) => {
       throw findError;
     }
 
+    let leadId: string;
+    let lead: any = null;
+
     if (existingLead) {
 
       console.log('Updating existing lead:', existingLead.id);
-      
+      leadId = existingLead.id;
+
       const updateData: any = {
-        status: 'conversa_iniciada',
+        status: 'conversation_started',
         remote_jid: remoteJid,
       };
 
@@ -180,32 +303,192 @@ Deno.serve(async (req) => {
     } else {
 
       console.log('Creating new lead for:', phoneNumber);
-      
-      const { error: insertError } = await supabase
+
+      const { data: newLead, error: insertError } = await supabase
         .from('leads')
         .insert({
           name: contactName || `Lead ${phoneNumber}`,
           contact_whatsapp: phoneNumber,
-          status: 'conversa_iniciada',
+          status: 'conversation_started',
           organization_id: instance.organization_id,
           whatsapp_verified: true,
           source: 'whatsapp',
           remote_jid: remoteJid,
-        });
+        })
+        .select()
+        .single();
 
       if (insertError) {
         console.error('Error creating lead:', insertError);
         throw insertError;
       }
 
+      if (newLead) {
+        leadId = newLead.id;
+        lead = newLead;
+      }
+
       console.log('Lead created successfully');
     }
 
+    if (!lead && leadId) {
+      const { data: fetchedLead, error: fetchError } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('id', leadId)
+        .single();
+
+      if (!fetchError && fetchedLead) {
+        lead = fetchedLead;
+      }
+    }
+
+    const messageType = payload.data?.messageType || null;
+    const conversation = payload.data?.message?.conversation || null;
+    const messageId = payload.data?.key?.id || null;
+    const fromMe = payload.data?.key?.fromMe || false;
+
+    const { data: organization, error: orgError } = await supabase
+      .from('organizations')
+      .select('*')
+      .eq('id', instance.organization_id)
+      .single();
+
+    if (orgError) {
+      console.error('Error fetching organization:', orgError);
+    }
+
+    let aiConfig = null;
+    let aiInteractionId: string | null = null;
+
+    if (lead) {
+      if (lead.ai_interaction_id) {
+        aiInteractionId = lead.ai_interaction_id;
+      } else {
+        const { data: settings } = await supabase
+          .from('settings')
+          .select('default_ai_interaction_id')
+          .eq('organization_id', instance.organization_id)
+          .maybeSingle();
+
+        if (settings?.default_ai_interaction_id) {
+          aiInteractionId = settings.default_ai_interaction_id;
+        }
+      }
+
+      if (aiInteractionId) {
+        const { data: aiInteraction, error: aiError } = await supabase
+          .from('ai_interaction_settings')
+          .select('*')
+          .eq('id', aiInteractionId)
+          .eq('organization_id', instance.organization_id)
+          .maybeSingle();
+
+        if (!aiError && aiInteraction) {
+          aiConfig = aiInteraction;
+        }
+      }
+    }
+
+    // Buscar status personalizados da organização
+    let leadStatuses: any[] = [];
+    const { data: statusesData, error: statusesError } = await supabase
+      .from('lead_statuses')
+      .select('*')
+      .eq('organization_id', instance.organization_id)
+      .order('display_order', { ascending: true });
+
+    if (!statusesError && statusesData) {
+      // Ordenar conforme a lógica: obrigatórios primeiro (exceto finished), depois customizados, depois finished
+      const finishedStatus = statusesData.find((s: any) => s.status_key === 'finished');
+      const requiredStatuses = statusesData.filter((s: any) => s.is_required && s.status_key !== 'finished');
+      const customStatuses = statusesData.filter((s: any) => !s.is_required && s.status_key !== 'finished');
+
+      const sortedRequiredStatuses = requiredStatuses.sort((a: any, b: any) => a.display_order - b.display_order);
+      const sortedCustomStatuses = customStatuses.sort((a: any, b: any) => a.display_order - b.display_order);
+
+      if (finishedStatus) {
+        leadStatuses = [...sortedRequiredStatuses, ...sortedCustomStatuses, finishedStatus];
+      } else {
+        leadStatuses = [...sortedRequiredStatuses, ...sortedCustomStatuses];
+      }
+    }
+
+    const responseData = {
+      success: true,
+      message: 'Lead processed',
+      lead: lead || null,
+      organization: organization || null,
+      ai_config: aiConfig,
+      lead_statuses: leadStatuses,
+      messageType: messageType,
+      conversation: conversation,
+      messageId: messageId,
+      fromMe: fromMe,
+      evolution: {
+        apikey: payload.apikey || null,
+        serverUrl: payload.server_url || null,
+        instance: payload.instance || null
+      }
+    };
+
+    if (lead) {
+      const { data: settings } = await supabase
+        .from('settings')
+        .select('n8n_webhook_url')
+        .eq('organization_id', instance.organization_id)
+        .maybeSingle();
+
+      if (settings?.n8n_webhook_url) {
+        console.log('Calling n8n webhook:', settings.n8n_webhook_url);
+        fetch(settings.n8n_webhook_url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            event: payload.event,
+            instance: payload.instance,
+            lead: lead,
+            organization: organization,
+            ai_config: aiConfig,
+            lead_statuses: leadStatuses,
+            message: payload.data?.message,
+            messageType: messageType,
+            conversation: conversation,
+            messageId: messageId,
+            contactName: contactName,
+            phoneNumber: phoneNumber,
+            remoteJid: remoteJid,
+            fromMe: fromMe,
+            evolution: {
+              apikey: payload.apikey || null,
+              serverUrl: payload.server_url || null,
+              instance: payload.instance || null
+            },
+            timestamp: new Date().toISOString(),
+          }),
+        })
+          .then((response) => {
+            if (!response.ok) {
+              console.error('n8n webhook returned error:', response.status, response.statusText);
+            } else {
+              console.log('n8n webhook called successfully');
+            }
+          })
+          .catch((error) => {
+            console.error('Error calling n8n webhook:', error);
+          });
+      } else {
+        console.log('No n8n webhook URL configured for organization');
+      }
+    }
+
     return new Response(
-      JSON.stringify({ success: true, message: 'Lead processed' }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      JSON.stringify(responseData),
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
 
@@ -214,9 +497,9 @@ Deno.serve(async (req) => {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
       JSON.stringify({ error: errorMessage }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
   }

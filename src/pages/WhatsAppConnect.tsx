@@ -12,6 +12,7 @@ import {
   QrCode,
   CheckCircle2,
   Trash2,
+  RefreshCw,
   MessageCircle,
   Zap,
   Star,
@@ -179,6 +180,43 @@ const WhatsAppConnect = () => {
     }
   };
 
+  const reconnectInstance = async (instance: any) => {
+    setIsConnecting(true);
+    setSelectedInstance(instance);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("evolution-connect-instance", {
+        body: { instanceName: instance.instance_name },
+      });
+
+      if (error) {
+        if (error.error) {
+          throw new Error(error.error);
+        }
+        throw error;
+      }
+
+      if (data.qrcode) {
+        setQrCode(data.qrcode);
+        startStatusPolling(instance.instance_name);
+        toast({
+          title: "Reconectando...",
+          description: "Escaneie o novo QR Code para reconectar",
+        });
+      } else {
+        throw new Error("QR Code não recebido");
+      }
+    } catch (error: any) {
+      console.error("Error reconnecting instance:", error);
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao reconectar instância",
+        variant: "destructive",
+      });
+      setIsConnecting(false);
+    }
+  };
+
   const startStatusPolling = (instanceName: string) => {
     const pollInterval = setInterval(async () => {
       try {
@@ -186,9 +224,78 @@ const WhatsAppConnect = () => {
           body: { instanceName },
         });
 
-        if (error) throw error;
+        if (error) {
+          if (error.message?.includes("Já existe uma instância conectada")) {
+            clearInterval(pollInterval);
+            setQrCode(null);
+            setIsConnecting(false);
+            toast({
+              title: "Erro",
+              description: error.message || "Já existe uma instância conectada com este número de WhatsApp",
+              variant: "destructive",
+            });
+            await loadInstances();
+            return;
+          }
+          throw error;
+        }
 
-        if (data.connected) {
+        if (data.connected && data.hasOwner) {
+          const { data: updatedInstance } = await supabase
+            .from("whatsapp_instances")
+            .select("phone_number, whatsapp_jid, instance_name, status")
+            .eq("instance_name", instanceName)
+            .single();
+
+          if (!updatedInstance) {
+            console.error("Instance not found after connection");
+            return;
+          }
+
+          if (updatedInstance.status !== "connected") {
+            console.log("Instance not marked as connected yet, waiting...");
+            return;
+          }
+
+          if (updatedInstance?.phone_number || updatedInstance?.whatsapp_jid) {
+            const { data: duplicateInstances, error: checkError } = await supabase
+              .from("whatsapp_instances")
+              .select("instance_name, phone_number, whatsapp_jid")
+              .eq("status", "connected")
+              .neq("instance_name", instanceName);
+
+            if (!checkError && duplicateInstances) {
+              const hasDuplicate = duplicateInstances.some((inst) => {
+                if (updatedInstance.phone_number && inst.phone_number === updatedInstance.phone_number) {
+                  return true;
+                }
+                if (updatedInstance.whatsapp_jid && inst.whatsapp_jid === updatedInstance.whatsapp_jid) {
+                  return true;
+                }
+                return false;
+              });
+
+              if (hasDuplicate) {
+                const duplicate = duplicateInstances.find(
+                  (inst) =>
+                    (updatedInstance.phone_number && inst.phone_number === updatedInstance.phone_number) ||
+                    (updatedInstance.whatsapp_jid && inst.whatsapp_jid === updatedInstance.whatsapp_jid)
+                );
+
+                clearInterval(pollInterval);
+                setQrCode(null);
+                setIsConnecting(false);
+                toast({
+                  title: "Erro",
+                  description: `Já existe uma instância conectada com este número de WhatsApp: ${duplicate?.instance_name}`,
+                  variant: "destructive",
+                });
+                await loadInstances();
+                return;
+              }
+            }
+          }
+
           clearInterval(pollInterval);
           setQrCode(null);
           setIsConnecting(false);
@@ -198,8 +305,20 @@ const WhatsAppConnect = () => {
           });
           await loadInstances();
         }
-      } catch (error) {
-        console.error("Error checking status:", error);
+      } catch (error: any) {
+        if (error.message?.includes("Já existe uma instância conectada")) {
+          clearInterval(pollInterval);
+          setQrCode(null);
+          setIsConnecting(false);
+          toast({
+            title: "Erro",
+            description: error.message || "Já existe uma instância conectada com este número de WhatsApp",
+            variant: "destructive",
+          });
+          await loadInstances();
+        } else {
+          console.error("Error checking status:", error);
+        }
       }
     }, 3000); // Check every 3 seconds
 
@@ -368,10 +487,30 @@ const WhatsAppConnect = () => {
                         </div>
                         <div className="flex items-center gap-2">
                           {instance.status === "connected" ? (
-                            <div className="flex items-center gap-2 text-green-600">
-                              <CheckCircle2 className="h-5 w-5" />
-                              <span className="text-sm font-medium">Conectado</span>
-                            </div>
+                            <>
+                              <div className="flex items-center gap-2 text-green-600">
+                                <CheckCircle2 className="h-5 w-5" />
+                                <span className="text-sm font-medium">Conectado</span>
+                              </div>
+                              <Button
+                                onClick={() => reconnectInstance(instance)}
+                                disabled={isConnecting && selectedInstance?.id === instance.id}
+                                variant="outline"
+                                size="sm"
+                              >
+                                {isConnecting && selectedInstance?.id === instance.id ? (
+                                  <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Reconectando...
+                                  </>
+                                ) : (
+                                  <>
+                                    <RefreshCw className="mr-2 h-4 w-4" />
+                                    Reconectar
+                                  </>
+                                )}
+                              </Button>
+                            </>
                           ) : (
                             <Button
                               onClick={() => connectInstance(instance)}

@@ -176,7 +176,7 @@ Inicie a conversa com o lead ${message.leadName} de forma natural e amigável.`;
         await supabase
           .from("leads")
           .update({
-            status: "conversa_iniciada",
+            status: "conversation_started",
             whatsapp_verified: true,
           })
           .eq("id", message.leadId);

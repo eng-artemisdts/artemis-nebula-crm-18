@@ -1,35 +1,5 @@
--- Fix finished status to always be the last one
--- This migration ensures that the 'finished' status always has the highest display_order
-
-DO $$
-DECLARE
-  org_record RECORD;
-  max_order INTEGER;
-  finished_order INTEGER;
-BEGIN
-  FOR org_record IN SELECT id FROM public.organizations
-  LOOP
-    -- Get the maximum display_order excluding finished
-    SELECT COALESCE(MAX(display_order), 0) INTO max_order
-    FROM public.lead_statuses
-    WHERE organization_id = org_record.id 
-      AND status_key != 'finished';
-    
-    -- Get current finished order
-    SELECT display_order INTO finished_order
-    FROM public.lead_statuses
-    WHERE organization_id = org_record.id 
-      AND status_key = 'finished';
-    
-    -- Update finished to be the last if it exists and is not already last
-    IF finished_order IS NOT NULL AND finished_order <= max_order THEN
-      UPDATE public.lead_statuses
-      SET display_order = max_order + 1
-      WHERE organization_id = org_record.id 
-        AND status_key = 'finished';
-    END IF;
-  END LOOP;
-END $$;
+-- Ensure default statuses are created for all organizations
+-- This migration fixes the issue where default statuses are not being created automatically
 
 -- Update the function to ensure finished is always last when initializing
 CREATE OR REPLACE FUNCTION public.initialize_organization_statuses(org_id UUID)
@@ -69,3 +39,41 @@ BEGIN
 END;
 $$;
 
+-- Ensure the trigger function exists and is correct
+CREATE OR REPLACE FUNCTION public.handle_new_organization()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  PERFORM public.initialize_organization_statuses(NEW.id);
+  RETURN NEW;
+END;
+$$;
+
+-- Drop and recreate the trigger to ensure it exists
+DROP TRIGGER IF EXISTS on_organization_created ON public.organizations;
+CREATE TRIGGER on_organization_created
+  AFTER INSERT ON public.organizations
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_new_organization();
+
+-- Initialize statuses for all existing organizations that don't have them
+DO $$
+DECLARE
+  org_record RECORD;
+BEGIN
+  FOR org_record IN 
+    SELECT o.id 
+    FROM public.organizations o
+    WHERE NOT EXISTS (
+      SELECT 1 
+      FROM public.lead_statuses ls 
+      WHERE ls.organization_id = o.id 
+      AND ls.status_key = 'new'
+    )
+  LOOP
+    PERFORM public.initialize_organization_statuses(org_record.id);
+  END LOOP;
+END $$;

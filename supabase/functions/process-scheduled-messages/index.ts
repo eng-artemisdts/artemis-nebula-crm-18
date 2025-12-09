@@ -41,7 +41,7 @@ serve(async (req) => {
     if (!scheduledMessages || scheduledMessages.length === 0) {
       return new Response(
         JSON.stringify({ message: "No messages to process", processed: 0 }),
-        { 
+        {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 200,
         },
@@ -55,7 +55,7 @@ serve(async (req) => {
       try {
         if (scheduled.image_url) {
           let finalImageUrl = scheduled.image_url;
-          
+
           if (!scheduled.image_url.match(/\.(png|jpg|jpeg|gif|webp)(\?.*)?$/i)) {
             if (scheduled.image_url.includes('?')) {
               const [base, query] = scheduled.image_url.split('?');
@@ -64,7 +64,7 @@ serve(async (req) => {
               finalImageUrl = `${scheduled.image_url}.png`;
             }
           }
-          
+
           const extension = finalImageUrl.match(/\.(png|jpg|jpeg|gif|webp)/i)?.[1]?.toLowerCase();
           const mimetypeMap: Record<string, string> = {
             'png': 'image/png',
@@ -74,7 +74,7 @@ serve(async (req) => {
             'webp': 'image/webp'
           };
           const mimetype = mimetypeMap[extension || 'png'] || 'image/png';
-          
+
           const imageResponse = await fetch(`${EVOLUTION_API_URL}/message/sendMedia/${scheduled.instance_name}`, {
             method: "POST",
             headers: {
@@ -93,7 +93,7 @@ serve(async (req) => {
           if (!imageResponse.ok) {
             throw new Error(`Failed to send image: ${imageResponse.status}`);
           }
-          
+
           await new Promise(resolve => setTimeout(resolve, 1500));
         }
 
@@ -121,7 +121,7 @@ serve(async (req) => {
         await supabase
           .from("leads")
           .update({
-            status: "conversa_iniciada",
+            status: "conversation_started",
             whatsapp_verified: true
           })
           .eq("id", scheduled.lead_id);
@@ -129,27 +129,27 @@ serve(async (req) => {
         successCount++;
       } catch (error) {
         console.error(`Error processing scheduled message ${scheduled.id}:`, error);
-        
+
         await supabase
           .from("scheduled_messages")
-          .update({ 
-            status: "failed", 
-            updated_at: new Date().toISOString() 
+          .update({
+            status: "failed",
+            updated_at: new Date().toISOString()
           })
           .eq("id", scheduled.id);
-        
+
         errorCount++;
       }
     }
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         message: "Processing completed",
         processed: scheduledMessages.length,
         success: successCount,
         errors: errorCount
       }),
-      { 
+      {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       },
@@ -159,7 +159,7 @@ serve(async (req) => {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(
       JSON.stringify({ error: errorMessage }),
-      { 
+      {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
       },

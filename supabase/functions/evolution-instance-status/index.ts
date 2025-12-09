@@ -61,21 +61,45 @@ serve(async (req) => {
     const statusData = await response.json();
     logStep("Status received", { statusData });
 
-    const isConnected = statusData.instance?.state === "open";
+    const state = statusData.instance?.state;
+    const hasOwner = !!statusData.instance?.owner;
 
+    const isConnected = state === "open" && hasOwner;
+
+    logStep("Connection check", {
+      state,
+      hasOwner,
+      isConnected,
+      owner: statusData.instance?.owner
+    });
 
     const updateData: any = {
-      status: isConnected ? "connected" : statusData.instance?.state || "disconnected",
+      status: isConnected ? "connected" : (state || "disconnected"),
     };
+
+    if (!isConnected) {
+      if (state === "close" || state === "closed") {
+        updateData.status = "disconnected";
+        updateData.phone_number = null;
+        updateData.whatsapp_jid = null;
+        updateData.connected_at = null;
+        updateData.qr_code = null;
+      } else if (state && state !== "open") {
+        updateData.status = state;
+      }
+    }
 
     if (isConnected) {
 
       try {
 
+        let phoneNumber: string | null = null;
+        let whatsappJid: string | null = null;
+
         if (statusData.instance?.owner) {
-          const phoneNumber = statusData.instance.owner.split('@')[0];
-          updateData.phone_number = phoneNumber;
-          logStep("Phone number found in connectionState", { phoneNumber });
+          whatsappJid = statusData.instance.owner;
+          phoneNumber = statusData.instance.owner.split('@')[0];
+          logStep("Phone number found in connectionState", { phoneNumber, raw: statusData.instance.owner });
         } else {
 
           const infoResponse = await fetch(`${EVOLUTION_API_URL}/instance/fetchInstances`, {
@@ -88,27 +112,87 @@ serve(async (req) => {
           if (infoResponse.ok) {
             const instancesInfo = await infoResponse.json();
 
-            const instancesArray = Array.isArray(instancesInfo) 
-              ? instancesInfo 
+            const instancesArray = Array.isArray(instancesInfo)
+              ? instancesInfo
               : (instancesInfo.data || instancesInfo.instances || []);
-            
+
             const instanceInfo = instancesArray.find((inst: any) => {
               const name = inst.instance?.instanceName || inst.instanceName || inst.name;
               return name === instanceName;
             });
-            
+
             if (instanceInfo?.instance?.owner || instanceInfo?.owner) {
 
               const owner = instanceInfo.instance?.owner || instanceInfo.owner;
-              const phoneNumber = owner.split('@')[0];
-              updateData.phone_number = phoneNumber;
-              logStep("Phone number found in fetchInstances", { phoneNumber });
+              whatsappJid = owner;
+              phoneNumber = owner.split('@')[0];
+              logStep("Phone number found in fetchInstances", { phoneNumber, raw: owner });
             }
           }
         }
+
+        if (phoneNumber) {
+          let cleanedPhone = phoneNumber.replace(/\D/g, '');
+
+          if (cleanedPhone.startsWith('55') && cleanedPhone.length > 10) {
+            cleanedPhone = cleanedPhone.substring(2);
+          }
+
+          if (cleanedPhone.length >= 10) {
+            const { data: currentInstance } = await supabaseClient
+              .from("whatsapp_instances")
+              .select("id")
+              .eq("instance_name", instanceName)
+              .single();
+
+            if (currentInstance) {
+              const { data: duplicateByPhone } = await supabaseClient
+                .from("whatsapp_instances")
+                .select("id, instance_name")
+                .eq("phone_number", cleanedPhone)
+                .neq("id", currentInstance.id)
+                .maybeSingle();
+
+              if (duplicateByPhone) {
+                logStep("Duplicate instance found with same phone number", {
+                  duplicate: duplicateByPhone.instance_name,
+                  phone: cleanedPhone
+                });
+                throw new Error(`Já existe uma instância conectada com este número de WhatsApp: ${duplicateByPhone.instance_name}`);
+              }
+
+              if (whatsappJid) {
+                const { data: duplicateByJid } = await supabaseClient
+                  .from("whatsapp_instances")
+                  .select("id, instance_name")
+                  .eq("whatsapp_jid", whatsappJid)
+                  .neq("id", currentInstance.id)
+                  .maybeSingle();
+
+                if (duplicateByJid) {
+                  logStep("Duplicate instance found with same JID", {
+                    duplicate: duplicateByJid.instance_name,
+                    jid: whatsappJid
+                  });
+                  throw new Error(`Já existe uma instância conectada com este WhatsApp JID: ${duplicateByJid.instance_name}`);
+                }
+              }
+            }
+
+            updateData.phone_number = cleanedPhone;
+            if (whatsappJid) {
+              updateData.whatsapp_jid = whatsappJid;
+            }
+            logStep("Phone number cleaned and set", { cleanedPhone, original: phoneNumber, jid: whatsappJid });
+          } else {
+            logStep("Phone number too short after cleaning", { cleanedPhone, original: phoneNumber });
+          }
+        } else {
+          logStep("No phone number found in instance data");
+        }
       } catch (error) {
         logStep("Error fetching instance info", { error: error instanceof Error ? error.message : String(error) });
-
+        throw error;
       }
 
 
@@ -138,6 +222,8 @@ serve(async (req) => {
         success: true,
         status: statusData.instance?.state || "unknown",
         connected: isConnected,
+        hasOwner: hasOwner,
+        owner: statusData.instance?.owner || null,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -39,13 +39,17 @@ export class LeadStatusService {
     }
 
     const finishedStatus = data.find(s => s.status_key === "finished");
-    const otherStatuses = data.filter(s => s.status_key !== "finished");
+    const requiredStatuses = data.filter(s => s.is_required && s.status_key !== "finished");
+    const customStatuses = data.filter(s => !s.is_required && s.status_key !== "finished");
+
+    const sortedRequiredStatuses = requiredStatuses.sort((a, b) => a.display_order - b.display_order);
+    const sortedCustomStatuses = customStatuses.sort((a, b) => a.display_order - b.display_order);
 
     if (finishedStatus) {
-      return [...otherStatuses, finishedStatus];
+      return [...sortedRequiredStatuses, ...sortedCustomStatuses, finishedStatus];
     }
 
-    return data;
+    return [...sortedRequiredStatuses, ...sortedCustomStatuses];
   }
 
   async getByKey(organizationId: string, statusKey: string): Promise<LeadStatus | null> {
@@ -64,8 +68,8 @@ export class LeadStatusService {
   }
 
   async create(organizationId: string, dto: CreateLeadStatusDTO): Promise<LeadStatus> {
-    if (dto.status_key === "new" || dto.status_key === "conversation_started" || dto.status_key === "finished") {
-      throw new Error("Não é possível criar status com as chaves 'new', 'conversation_started' ou 'finished'. Estes são status obrigatórios.");
+    if (dto.status_key === "new" || dto.status_key === "conversation_started" || dto.status_key === "proposal_sent" || dto.status_key === "meeting_scheduled" || dto.status_key === "finished") {
+      throw new Error("Não é possível criar status com as chaves 'new', 'conversation_started', 'proposal_sent', 'meeting_scheduled' ou 'finished'. Estes são status obrigatórios.");
     }
 
     const existingStatus = await this.getByKey(organizationId, dto.status_key);
@@ -278,3 +282,4 @@ export class LeadStatusService {
     return count ?? 0;
   }
 }
+
