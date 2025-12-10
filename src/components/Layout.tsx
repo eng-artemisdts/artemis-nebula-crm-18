@@ -156,7 +156,7 @@ function AppSidebar() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const location = useLocation();
-  const { organization } = useOrganization();
+  const { organization, loading: organizationLoading } = useOrganization();
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
 
   const handleLogout = async () => {
@@ -178,6 +178,8 @@ function AppSidebar() {
 
   const isCollapsed = state === "collapsed";
   const displayLogo = organization?.logo_url || logo;
+  const displayCompanyName = organization?.company_name;
+  const displayPlan = organization?.plan;
 
   return (
     <Sidebar collapsible="icon">
@@ -189,16 +191,22 @@ function AppSidebar() {
               <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-accent/30 blur-2xl opacity-50 group-hover:opacity-100 transition-opacity duration-500"></div>
               <img
                 src={displayLogo}
-                alt={organization?.company_name || "Logo"}
+                alt={displayCompanyName || "Logo"}
                 className={`relative z-10 transition-all duration-500 group-hover:scale-105 drop-shadow-2xl object-contain ${isCollapsed ? 'w-10 h-10' : 'w-[200px] h-[200px]'
                   }`}
               />
             </div>
           </NavLink>
-          {!isCollapsed && organization?.company_name && (
+          {!isCollapsed && !organizationLoading && displayCompanyName && (
             <div className="mt-4 text-center">
-              <p className="text-sm font-semibold text-foreground">{organization.company_name}</p>
-              <p className="text-xs text-muted-foreground capitalize">{organization.plan}</p>
+              <p className="text-sm font-semibold text-foreground">{displayCompanyName}</p>
+              <p className="text-xs text-muted-foreground capitalize">{displayPlan}</p>
+            </div>
+          )}
+          {!isCollapsed && organizationLoading && (
+            <div className="mt-4 text-center space-y-2">
+              <div className="h-4 bg-muted animate-pulse rounded w-24 mx-auto"></div>
+              <div className="h-3 bg-muted animate-pulse rounded w-16 mx-auto"></div>
             </div>
           )}
         </div>
@@ -240,13 +248,13 @@ function AppSidebar() {
 
         {/* Plan Section */}
         <div className="mt-auto p-4 border-t border-border space-y-3">
-          {!isCollapsed && organization?.plan === "free" && (
+          {!isCollapsed && !organizationLoading && organization?.plan === "free" && (
             <div className="bg-gradient-to-br from-primary/10 to-accent/10 p-3 rounded-lg border border-primary/20">
               <div className="flex items-center gap-2 mb-2">
                 <CreditCard className="h-4 w-4 text-primary" />
                 <span className="text-xs font-semibold text-muted-foreground">Plano Atual</span>
               </div>
-              <p className="text-sm font-bold text-foreground capitalize mb-3">{organization?.plan}</p>
+              <p className="text-sm font-bold text-foreground capitalize mb-3">{displayPlan}</p>
               <Button
                 size="sm"
                 className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
@@ -276,7 +284,7 @@ function AppSidebar() {
 }
 
 export const Layout = ({ children }: { children: React.ReactNode }) => {
-  const { organization } = useOrganization();
+  const { organization, loading: organizationLoading } = useOrganization();
 
   return (
     <SidebarProvider defaultOpen={true}>
