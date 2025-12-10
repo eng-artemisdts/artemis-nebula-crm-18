@@ -21,10 +21,10 @@ export const useOrganization = () => {
 
   const fetchOrganization = async () => {
     try {
-      setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setOrganization(null);
+        setLoading(false);
         return;
       }
 
@@ -36,6 +36,7 @@ export const useOrganization = () => {
 
       if (!profile?.organization_id) {
         setOrganization(null);
+        setLoading(false);
         return;
       }
 
@@ -47,6 +48,8 @@ export const useOrganization = () => {
 
       if (org) {
         setOrganization(org);
+      } else {
+        setOrganization(null);
       }
     } catch (error) {
       console.error("Error fetching organization:", error);
