@@ -61,10 +61,61 @@ serve(async (req) => {
     const statusData = await response.json();
     logStep("Status received", { statusData });
 
-    const state = statusData.instance?.state;
-    const hasOwner = !!statusData.instance?.owner;
+    const state =
+      statusData.instance?.state ||
+      statusData.state ||
+      statusData.status ||
+      statusData.instance?.connection ||
+      null;
 
-    const isConnected = state === "open" && hasOwner;
+    let ownerFromStatus =
+      statusData.instance?.owner ||
+      statusData.instance?.instance?.owner ||
+      statusData.owner ||
+      statusData.instance?.ownerJid ||
+      statusData.instance?.user ||
+      null;
+
+    const ensureOwnerFromFetchInstances = async () => {
+      const infoResponse = await fetch(`${EVOLUTION_API_URL}/instance/fetchInstances`, {
+        method: "GET",
+        headers: {
+          "apikey": EVOLUTION_API_KEY,
+        },
+      });
+
+      if (!infoResponse.ok) {
+        logStep("fetchInstances failed", { status: infoResponse.status });
+        return null;
+      }
+
+      const instancesInfo = await infoResponse.json();
+      const instancesArray = Array.isArray(instancesInfo)
+        ? instancesInfo
+        : (instancesInfo.data || instancesInfo.instances || []);
+
+      const instanceInfo = instancesArray.find((inst: any) => {
+        const name = inst.instance?.instanceName || inst.instanceName || inst.name;
+        return name === instanceName;
+      });
+
+      const ownerCandidate =
+        instanceInfo?.instance?.owner ||
+        instanceInfo?.owner ||
+        instanceInfo?.instance?.ownerJid ||
+        instanceInfo?.instance?.user ||
+        null;
+
+      return ownerCandidate || null;
+    };
+
+    if (!ownerFromStatus) {
+      ownerFromStatus = await ensureOwnerFromFetchInstances();
+      logStep("Owner resolved via fetchInstances", { ownerFromStatus });
+    }
+
+    const hasOwner = !!ownerFromStatus;
+    const isConnected = state === "open";
 
     logStep("Connection check", {
       state,
@@ -96,39 +147,10 @@ serve(async (req) => {
         let phoneNumber: string | null = null;
         let whatsappJid: string | null = null;
 
-        if (statusData.instance?.owner) {
-          whatsappJid = statusData.instance.owner;
-          phoneNumber = statusData.instance.owner.split('@')[0];
-          logStep("Phone number found in connectionState", { phoneNumber, raw: statusData.instance.owner });
-        } else {
-
-          const infoResponse = await fetch(`${EVOLUTION_API_URL}/instance/fetchInstances`, {
-            method: "GET",
-            headers: {
-              "apikey": EVOLUTION_API_KEY,
-            },
-          });
-
-          if (infoResponse.ok) {
-            const instancesInfo = await infoResponse.json();
-
-            const instancesArray = Array.isArray(instancesInfo)
-              ? instancesInfo
-              : (instancesInfo.data || instancesInfo.instances || []);
-
-            const instanceInfo = instancesArray.find((inst: any) => {
-              const name = inst.instance?.instanceName || inst.instanceName || inst.name;
-              return name === instanceName;
-            });
-
-            if (instanceInfo?.instance?.owner || instanceInfo?.owner) {
-
-              const owner = instanceInfo.instance?.owner || instanceInfo.owner;
-              whatsappJid = owner;
-              phoneNumber = owner.split('@')[0];
-              logStep("Phone number found in fetchInstances", { phoneNumber, raw: owner });
-            }
-          }
+        if (ownerFromStatus) {
+          whatsappJid = ownerFromStatus;
+          phoneNumber = ownerFromStatus.split('@')[0];
+          logStep("Phone number resolved", { phoneNumber, raw: ownerFromStatus });
         }
 
         if (phoneNumber) {

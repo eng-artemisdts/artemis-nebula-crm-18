@@ -240,71 +240,74 @@ const WhatsAppConnect = () => {
           throw error;
         }
 
-        if (data.connected && data.hasOwner) {
-          const { data: updatedInstance } = await supabase
+        const stateIsOpen = data.status === "open" || data.connected;
+
+        const { data: updatedInstance } = await supabase
+          .from("whatsapp_instances")
+          .select("phone_number, whatsapp_jid, instance_name, status")
+          .eq("instance_name", instanceName)
+          .single();
+
+        if (!updatedInstance) {
+          console.error("Instance not found after connection");
+          return;
+        }
+
+        const dbConnected = updatedInstance.status === "connected";
+        const resolvedConnected = stateIsOpen || dbConnected;
+
+        if (!resolvedConnected) {
+          console.log("Instance not marked as connected yet, waiting...");
+          return;
+        }
+
+        if (updatedInstance?.phone_number || updatedInstance?.whatsapp_jid) {
+          const { data: duplicateInstances, error: checkError } = await supabase
             .from("whatsapp_instances")
-            .select("phone_number, whatsapp_jid, instance_name, status")
-            .eq("instance_name", instanceName)
-            .single();
+            .select("instance_name, phone_number, whatsapp_jid")
+            .eq("status", "connected")
+            .neq("instance_name", instanceName);
 
-          if (!updatedInstance) {
-            console.error("Instance not found after connection");
-            return;
-          }
-
-          if (updatedInstance.status !== "connected") {
-            console.log("Instance not marked as connected yet, waiting...");
-            return;
-          }
-
-          if (updatedInstance?.phone_number || updatedInstance?.whatsapp_jid) {
-            const { data: duplicateInstances, error: checkError } = await supabase
-              .from("whatsapp_instances")
-              .select("instance_name, phone_number, whatsapp_jid")
-              .eq("status", "connected")
-              .neq("instance_name", instanceName);
-
-            if (!checkError && duplicateInstances) {
-              const hasDuplicate = duplicateInstances.some((inst) => {
-                if (updatedInstance.phone_number && inst.phone_number === updatedInstance.phone_number) {
-                  return true;
-                }
-                if (updatedInstance.whatsapp_jid && inst.whatsapp_jid === updatedInstance.whatsapp_jid) {
-                  return true;
-                }
-                return false;
-              });
-
-              if (hasDuplicate) {
-                const duplicate = duplicateInstances.find(
-                  (inst) =>
-                    (updatedInstance.phone_number && inst.phone_number === updatedInstance.phone_number) ||
-                    (updatedInstance.whatsapp_jid && inst.whatsapp_jid === updatedInstance.whatsapp_jid)
-                );
-
-                clearInterval(pollInterval);
-                setQrCode(null);
-                setIsConnecting(false);
-                toast({
-                  title: "Erro",
-                  description: `Já existe uma instância conectada com este número de WhatsApp: ${duplicate?.instance_name}`,
-                  variant: "destructive",
-                });
-                await loadInstances();
-                return;
+          if (!checkError && duplicateInstances) {
+            const hasDuplicate = duplicateInstances.some((inst) => {
+              if (updatedInstance.phone_number && inst.phone_number === updatedInstance.phone_number) {
+                return true;
               }
+              if (updatedInstance.whatsapp_jid && inst.whatsapp_jid === updatedInstance.whatsapp_jid) {
+                return true;
+              }
+              return false;
+            });
+
+            if (hasDuplicate) {
+              const duplicate = duplicateInstances.find(
+                (inst) =>
+                  (updatedInstance.phone_number && inst.phone_number === updatedInstance.phone_number) ||
+                  (updatedInstance.whatsapp_jid && inst.whatsapp_jid === updatedInstance.whatsapp_jid)
+              );
+
+              clearInterval(pollInterval);
+              setQrCode(null);
+              setIsConnecting(false);
+              toast({
+                title: "Erro",
+                description: `Já existe uma instância conectada com este número de WhatsApp: ${duplicate?.instance_name}`,
+                variant: "destructive",
+              });
+              await loadInstances();
+              return;
             }
           }
-
-          clearInterval(pollInterval);
-          setQrCode(null);
-          setIsConnecting(false);
-          toast({
-            title: "Conectado!",
-            description: "WhatsApp conectado com sucesso",
-          });
-          await loadInstances();
         }
+
+        clearInterval(pollInterval);
+        setQrCode(null);
+        setIsConnecting(false);
+        toast({
+          title: "Conectado!",
+          description: "WhatsApp conectado com sucesso",
+        });
+        await loadInstances();
       } catch (error: any) {
         if (error.message?.includes("Já existe uma instância conectada")) {
           clearInterval(pollInterval);

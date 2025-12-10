@@ -75,3 +75,4 @@ BEGIN
       AND status_key = 'finished';
   END LOOP;
 END $$;
+

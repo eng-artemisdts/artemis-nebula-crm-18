@@ -3,3 +3,4 @@
 ALTER TABLE public.leads
 DROP CONSTRAINT IF EXISTS valid_status;
 
+

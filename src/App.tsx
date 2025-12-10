@@ -22,6 +22,7 @@ import MessageConfiguration from "./pages/MessageConfiguration";
 import ScheduleMessages from "./pages/ScheduleMessages";
 import ScheduleInteractions from "./pages/ScheduleInteractions";
 import NotFound from "./pages/NotFound";
+import ChatComingSoon from "./pages/ChatComingSoon";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -153,6 +154,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <ScheduleInteractions />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/chat"
+              element={
+                <ProtectedRoute>
+                  <ChatComingSoon />
                 </ProtectedRoute>
               }
             />
