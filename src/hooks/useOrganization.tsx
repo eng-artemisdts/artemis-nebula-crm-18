@@ -19,38 +19,55 @@ export const useOrganization = () => {
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchOrganization = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("organization_id")
-          .eq("id", user.id)
-          .single();
-
-        if (!profile?.organization_id) return;
-
-        const { data: org } = await supabase
-          .from("organizations")
-          .select("*")
-          .eq("id", profile.organization_id)
-          .single();
-
-        if (org) {
-          setOrganization(org);
-        }
-      } catch (error) {
-        console.error("Error fetching organization:", error);
-      } finally {
-        setLoading(false);
+  const fetchOrganization = async () => {
+    try {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setOrganization(null);
+        return;
       }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("organization_id")
+        .eq("id", user.id)
+        .single();
+
+      if (!profile?.organization_id) {
+        setOrganization(null);
+        return;
+      }
+
+      const { data: org } = await supabase
+        .from("organizations")
+        .select("*")
+        .eq("id", profile.organization_id)
+        .single();
+
+      if (org) {
+        setOrganization(org);
+      }
+    } catch (error) {
+      console.error("Error fetching organization:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrganization();
+
+    const handleOrganizationUpdate = () => {
+      fetchOrganization();
     };
 
-    fetchOrganization();
+    window.addEventListener('organization-updated', handleOrganizationUpdate);
+
+    return () => {
+      window.removeEventListener('organization-updated', handleOrganizationUpdate);
+    };
   }, []);
 
-  return { organization, loading };
+  return { organization, loading, refresh: fetchOrganization };
 };

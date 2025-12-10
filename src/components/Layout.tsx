@@ -2,7 +2,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Home, Users, Settings, List, LogOut, FolderKanban, SearchCheck, Bot, Smartphone, CreditCard, Sparkles, FileText, MessageSquare, ChevronRight, Calendar, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { toast, useToast } from "@/hooks/use-toast";
 import { NavLink } from "@/components/NavLink";
 import { useOrganization } from "@/hooks/useOrganization";
 import { PlanModal } from "@/components/PlanModal";
@@ -276,6 +276,8 @@ function AppSidebar() {
 }
 
 export const Layout = ({ children }: { children: React.ReactNode }) => {
+  const { organization } = useOrganization();
+
   return (
     <SidebarProvider defaultOpen={true}>
       <div className="min-h-screen flex w-full bg-background">
@@ -283,7 +285,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
         <SidebarInset className="flex flex-col">
           {/* Header with trigger */}
-          <header className="h-14 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-40 flex items-center px-4">
+          <header className="h-14 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-40 flex items-center justify-between px-4">
             <SidebarTrigger />
           </header>
 

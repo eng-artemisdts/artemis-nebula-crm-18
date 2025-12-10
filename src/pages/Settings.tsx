@@ -140,32 +140,57 @@ const Settings = () => {
       const fileExt = logoFile.name.split('.').pop();
       const fileName = `${organization.id}/${Date.now()}.${fileExt}`;
 
-      const { error: uploadError } = await supabase.storage
+      console.log('Iniciando upload da logo:', fileName);
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('organization-logos')
         .upload(fileName, logoFile, {
           cacheControl: '3600',
           upsert: true
         });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Erro no upload:', uploadError);
+        throw new Error(`Erro ao fazer upload: ${uploadError.message}`);
+      }
+
+      console.log('Upload concluído:', uploadData);
 
       const { data: { publicUrl } } = supabase.storage
         .from('organization-logos')
         .getPublicUrl(fileName);
 
-      const { error: updateError } = await supabase
+      console.log('URL pública gerada:', publicUrl);
+
+      const { data: updateData, error: updateError } = await supabase
         .from("organizations")
         .update({ logo_url: publicUrl })
-        .eq("id", organization.id);
+        .eq("id", organization.id)
+        .select();
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('Erro ao atualizar organização:', updateError);
+        throw new Error(`Erro ao salvar logo: ${updateError.message}`);
+      }
+
+      if (!updateData || updateData.length === 0) {
+        throw new Error('Nenhuma organização foi atualizada');
+      }
+
+      console.log('Organização atualizada:', updateData);
 
       toast.success("Logo atualizada com sucesso!");
       setLogoFile(null);
-      window.location.reload(); // Refresh to show new logo
+      setLogoPreview(publicUrl);
+
+      window.dispatchEvent(new CustomEvent('organization-updated'));
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
     } catch (error: any) {
-      toast.error("Erro ao fazer upload da logo");
-      console.error(error);
+      console.error('Erro completo:', error);
+      toast.error(error.message || "Erro ao fazer upload da logo");
     } finally {
       setUploadingLogo(false);
     }
