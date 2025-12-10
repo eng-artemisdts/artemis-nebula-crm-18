@@ -33,6 +33,15 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const payload: any = await req.json();
+    const instanceName =
+      payload.instance ||
+      payload.instanceName ||
+      payload.data?.instance ||
+      payload.data?.instanceName ||
+      payload.session ||
+      payload.data?.session ||
+      payload.data?.id ||
+      payload.data?.name;
     console.log('Webhook payload:', JSON.stringify(payload, null, 2));
 
 
@@ -42,7 +51,7 @@ Deno.serve(async (req) => {
       console.log('Connection update event received', {
         event: payload.event,
         connectionState,
-        instance: payload.instance,
+        instance: instanceName,
         payloadKeys: Object.keys(payload),
         dataKeys: payload.data ? Object.keys(payload.data) : null
       });
@@ -95,12 +104,12 @@ Deno.serve(async (req) => {
           }
 
           if (cleanedPhone.length >= 10) {
-            console.log('Updating instance with phone number:', cleanedPhone, 'and JID:', whatsappJid, 'for instance:', payload.instance);
+            console.log('Updating instance with phone number:', cleanedPhone, 'and JID:', whatsappJid, 'for instance:', instanceName);
 
             const { data: existingInstance } = await supabase
               .from('whatsapp_instances')
               .select('id, instance_name')
-              .eq('instance_name', payload.instance)
+              .eq('instance_name', instanceName)
               .single();
 
             if (!existingInstance) {
@@ -172,7 +181,7 @@ Deno.serve(async (req) => {
             const { error: updateError } = await supabase
               .from('whatsapp_instances')
               .update(updateData)
-              .eq('instance_name', payload.instance);
+              .eq('instance_name', instanceName);
 
             if (updateError) {
               console.error('Error updating instance phone number:', updateError);
@@ -184,6 +193,37 @@ Deno.serve(async (req) => {
           }
         } else {
           console.warn('Could not extract phone number from connection update payload');
+          if (instanceName) {
+            const { error: statusOnlyError } = await supabase
+              .from('whatsapp_instances')
+              .update({
+                status: 'connected',
+                connected_at: new Date().toISOString(),
+                qr_code: null,
+              })
+              .eq('instance_name', instanceName);
+            if (statusOnlyError) {
+              console.error('Error updating status without phone:', statusOnlyError);
+            }
+          }
+        }
+      }
+
+      if (connectionState && connectionState !== 'open' && connectionState !== 'connected') {
+        if (instanceName) {
+          const { error: statusUpdateError } = await supabase
+            .from('whatsapp_instances')
+            .update({
+              status: connectionState === 'close' || connectionState === 'closed' ? 'disconnected' : connectionState,
+              phone_number: connectionState === 'close' || connectionState === 'closed' ? null : undefined,
+              whatsapp_jid: connectionState === 'close' || connectionState === 'closed' ? null : undefined,
+              connected_at: connectionState === 'close' || connectionState === 'closed' ? null : undefined,
+              qr_code: null,
+            })
+            .eq('instance_name', instanceName);
+          if (statusUpdateError) {
+            console.error('Error updating status for non-open state:', statusUpdateError);
+          }
         }
       }
 

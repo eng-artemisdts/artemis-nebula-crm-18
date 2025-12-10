@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { Home, Users, Settings, List, LogOut, FolderKanban, SearchCheck, Bot, Smartphone, CreditCard, Sparkles, FileText, MessageSquare, ChevronRight, Calendar } from "lucide-react";
+import { Home, Users, Settings, List, LogOut, FolderKanban, SearchCheck, Bot, Smartphone, CreditCard, Sparkles, FileText, MessageSquare, ChevronRight, Calendar, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -30,7 +30,12 @@ interface MenuItem {
   title: string;
   url?: string;
   icon: React.ComponentType<{ className?: string }>;
-  subItems?: { title: string; url: string; icon: React.ComponentType<{ className?: string }> }[];
+  subItems?: {
+    title: string;
+    url: string;
+    icon: React.ComponentType<{ className?: string }>;
+    comingSoon?: boolean;
+  }[];
 }
 
 interface MenuItemWithSubItemsProps {
@@ -72,10 +77,29 @@ const MenuItemWithSubItems = ({ item, location, isCollapsed }: MenuItemWithSubIt
                 <SidebarMenuSubButton
                   asChild
                   isActive={location.pathname === subItem.url}
+                  disabled={subItem.comingSoon}
+                  className={subItem.comingSoon ? "opacity-60 cursor-not-allowed" : undefined}
                 >
-                  <NavLink to={subItem.url}>
+                  <NavLink
+                    to={subItem.comingSoon ? "#" : subItem.url}
+                    onClick={(e) => {
+                      if (subItem.comingSoon) {
+                        e.preventDefault();
+                        toast({
+                          title: "Em breve",
+                          description: "O chat será liberado em breve.",
+                        });
+                      }
+                    }}
+                    className="flex items-center gap-2"
+                  >
                     <subItem.icon className="w-4 h-4 shrink-0" />
                     <span>{subItem.title}</span>
+                    {subItem.comingSoon && (
+                      <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                        Em breve
+                      </span>
+                    )}
                   </NavLink>
                 </SidebarMenuSubButton>
               </SidebarMenuSubItem>
@@ -111,6 +135,7 @@ const menuItems: MenuItem[] = [
     icon: MessageSquare,
     subItems: [
       { title: "Mensagem Padrão", url: "/message-configuration", icon: MessageSquare },
+      { title: "Chat", url: "/chat", icon: MessageCircle, comingSoon: true },
       { title: "Conectar WhatsApp", url: "/whatsapp", icon: Smartphone },
     ],
   },
