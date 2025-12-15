@@ -15,7 +15,21 @@ serve(async (req) => {
   }
 
   try {
+    if (!openAIApiKey) {
+      throw new Error('OPENAI_API_KEY não configurada');
+    }
+
     const { prompt } = await req.json();
+
+    if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
+      return new Response(
+        JSON.stringify({ error: 'Prompt é obrigatório' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
 
     console.log('Received prompt:', prompt);
 
@@ -26,11 +40,11 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-mini-2025-08-07',
+        model: 'gpt-4o-mini',
         messages: [
-          { 
-            role: 'system', 
-            content: 'Você é um assistente especializado em criar categorias de leads para negócios. Quando o usuário descrever um tipo de negócio ou necessidade, sugira de 3 a 5 categorias relevantes de leads.' 
+          {
+            role: 'system',
+            content: 'Você é um assistente especializado em criar categorias de leads para negócios. Quando o usuário descrever um tipo de negócio ou necessidade, sugira de 3 a 5 categorias relevantes de leads.'
           },
           { role: 'user', content: prompt }
         ],

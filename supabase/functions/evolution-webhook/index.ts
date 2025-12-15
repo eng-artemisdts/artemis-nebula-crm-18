@@ -276,6 +276,26 @@ Deno.serve(async (req) => {
       );
     }
 
+    const normalizePhoneNumber = (phone: string): string => {
+      const cleaned = phone.replace(/\D/g, '');
+
+      if (cleaned.startsWith('55')) {
+        return cleaned;
+      }
+
+      if (cleaned.length === 11 || cleaned.length === 10) {
+        return `55${cleaned}`;
+      }
+
+      if (cleaned.length > 11) {
+        return cleaned;
+      }
+
+      return `55${cleaned}`;
+    };
+
+    phoneNumber = normalizePhoneNumber(phoneNumber);
+
     const contactName = payload.data?.pushName || '';
 
     console.log('Processing message from:', phoneNumber, 'name:', contactName, 'remoteJid:', remoteJid, 'senderPn:', senderPn);
@@ -311,7 +331,7 @@ Deno.serve(async (req) => {
       throw findError;
     }
 
-    let leadId: string;
+    let leadId: string | undefined;
     let lead: any = null;
 
     if (existingLead) {
@@ -363,15 +383,17 @@ Deno.serve(async (req) => {
         throw insertError;
       }
 
-      if (newLead) {
-        leadId = newLead.id;
-        lead = newLead;
+      if (!newLead) {
+        throw new Error('Failed to create lead: no data returned');
       }
+
+      leadId = newLead.id;
+      lead = newLead;
 
       console.log('Lead created successfully');
     }
 
-    if (!lead && leadId) {
+    if (!lead && leadId !== undefined) {
       const { data: fetchedLead, error: fetchError } = await supabase
         .from('leads')
         .select('*')

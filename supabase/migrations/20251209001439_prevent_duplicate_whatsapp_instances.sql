@@ -11,3 +11,5 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_whatsapp_instances_unique_whatsapp_jid
 ON public.whatsapp_instances(whatsapp_jid) 
 WHERE whatsapp_jid IS NOT NULL;
 
+
+
