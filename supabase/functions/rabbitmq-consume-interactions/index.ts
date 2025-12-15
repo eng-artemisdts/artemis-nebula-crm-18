@@ -35,6 +35,23 @@ serve(async (req) => {
       throw new Error("RABBITMQ_URL não configurada");
     }
 
+    if (!RABBITMQ_URL.startsWith("amqp://") && !RABBITMQ_URL.startsWith("amqps://")) {
+      throw new Error(`RABBITMQ_URL inválida. Deve começar com amqp:// ou amqps://. URL recebida: ${RABBITMQ_URL.substring(0, 20)}...`);
+    }
+
+    try {
+      const urlObj = new URL(RABBITMQ_URL);
+      console.log(`URL parseada - Protocolo: ${urlObj.protocol}, Host: ${urlObj.hostname}, Port: ${urlObj.port || (urlObj.protocol === 'amqps:' ? '5671' : '5672')}, VHost: ${urlObj.pathname || '/'}`);
+    } catch (urlError) {
+      console.warn("Não foi possível fazer parse da URL:", urlError);
+    }
+
+    console.log("Conectando ao RabbitMQ...");
+    const maskedUrl = RABBITMQ_URL.replace(/:[^:@]+@/, ":****@");
+    console.log(`URL mascarada: ${maskedUrl}`);
+
+    let maskedUrlForError = maskedUrl;
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
@@ -51,9 +68,165 @@ serve(async (req) => {
       throw new Error("Evolution API credentials not configured");
     }
 
+    console.log("Importando biblioteca amqplib...");
     const amqplib = await import("https://esm.sh/amqplib@0.10.3");
-    connection = await amqplib.connect(RABBITMQ_URL);
-    channel = await connection.createChannel();
+    console.log("Biblioteca importada com sucesso");
+
+    const maxRetries = 2;
+    let lastError: any = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        if (attempt > 1) {
+          console.log(`Tentativa ${attempt} de ${maxRetries}...`);
+          await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+        }
+
+        console.log(`Iniciando conexão (tentativa ${attempt}/${maxRetries})...`);
+
+        const connectOptions = {
+          heartbeat: 60,
+          connection_timeout: 10000,
+        };
+
+        console.log("Opções de conexão:", JSON.stringify(connectOptions));
+
+        connection = await Promise.race([
+          (async () => {
+            try {
+              console.log("Chamando amqplib.connect...");
+              const conn = await amqplib.connect(RABBITMQ_URL, connectOptions);
+              console.log("amqplib.connect retornou");
+              return conn;
+            } catch (connectErr: any) {
+              console.error("Erro dentro de amqplib.connect:", {
+                message: connectErr?.message,
+                name: connectErr?.name,
+                code: connectErr?.code,
+                stack: connectErr?.stack?.substring(0, 500),
+              });
+              throw connectErr;
+            }
+          })(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Timeout ao conectar ao RabbitMQ (10s)")), 10000)
+          )
+        ]) as any;
+
+        if (!connection) {
+          throw new Error("Falha ao estabelecer conexão com RabbitMQ");
+        }
+
+        if (connection.closed) {
+          throw new Error("Conexão foi fechada imediatamente após estabelecimento");
+        }
+
+        console.log("Conexão com RabbitMQ estabelecida");
+
+        connection.on("error", (err: any) => {
+          console.error("Erro na conexão RabbitMQ:", err);
+        });
+
+        connection.on("close", () => {
+          console.log("Conexão RabbitMQ fechada");
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        if (connection.closed) {
+          throw new Error("Conexão foi fechada antes de criar o channel");
+        }
+
+        channel = await Promise.race([
+          connection.createChannel(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Timeout ao criar channel (5s)")), 5000)
+          )
+        ]) as any;
+
+        if (!channel) {
+          throw new Error("Falha ao criar channel no RabbitMQ");
+        }
+
+        console.log("Channel criado com sucesso");
+
+        channel.on("error", (err: any) => {
+          console.error("Erro no channel RabbitMQ:", err);
+        });
+
+        channel.on("close", () => {
+          console.log("Channel RabbitMQ fechado");
+        });
+
+        break;
+      } catch (connectError: any) {
+        lastError = connectError;
+        const errorMsg = connectError?.message || String(connectError);
+        const errorName = connectError?.name || "UnknownError";
+        const errorCode = connectError?.code || "NO_CODE";
+
+        console.error(`Erro na tentativa ${attempt}:`, {
+          name: errorName,
+          message: errorMsg,
+          code: errorCode,
+          stack: connectError?.stack?.substring(0, 1000),
+        });
+
+        if (connection) {
+          try {
+            await connection.close().catch(() => { });
+          } catch (e) {
+            // Ignora erros ao fechar conexão falha
+          }
+          connection = null;
+        }
+
+        if (attempt === maxRetries) {
+          const isConnectionCloseError =
+            errorMsg.includes("ConnectionClose") ||
+            errorMsg.includes("Expected ConnectionOpenOk") ||
+            errorName === "ConnectionCloseError" ||
+            errorCode === "ECONNREFUSED" ||
+            errorCode === "ENOTFOUND";
+
+          if (isConnectionCloseError) {
+            const urlObj = new URL(RABBITMQ_URL);
+            const vhost = urlObj.pathname || '/';
+
+            throw new Error(
+              `RabbitMQ rejeitou a conexão após ${maxRetries} tentativas.\n` +
+              `Detalhes do erro:\n` +
+              `- Tipo: ${errorName}\n` +
+              `- Código: ${errorCode}\n` +
+              `- Mensagem: ${errorMsg}\n\n` +
+              `Possíveis causas:\n` +
+              `1. Credenciais inválidas (usuário/senha na URL)\n` +
+              `2. Vhost "${vhost}" não existe ou sem permissões\n` +
+              `3. Servidor RabbitMQ indisponível (${urlObj.hostname})\n` +
+              `4. Firewall bloqueando conexão na porta ${urlObj.port || (urlObj.protocol === 'amqps:' ? '5671' : '5672')}\n` +
+              `5. URL malformada ou protocolo incorreto\n\n` +
+              `Verifique:\n` +
+              `- Se a URL está correta: ${maskedUrlForError}\n` +
+              `- Se o vhost existe e tem permissões\n` +
+              `- Se as credenciais estão corretas\n` +
+              `- Se o servidor RabbitMQ está acessível`
+            );
+          }
+
+          if (errorMsg.includes("Timeout")) {
+            throw new Error(
+              `Timeout ao conectar ao RabbitMQ após ${maxRetries} tentativas. ` +
+              `O servidor pode estar lento, inacessível ou sobrecarregado. ` +
+              `Erro: ${errorMsg}`
+            );
+          }
+
+          throw new Error(
+            `Erro ao conectar ao RabbitMQ após ${maxRetries} tentativas: ${errorMsg}`
+          );
+        }
+      }
+    }
 
     const queueName = "scheduled_interactions_queue";
     await channel.assertQueue(queueName, { durable: true });
@@ -207,10 +380,24 @@ Inicie a conversa com o lead ${message.leadName} de forma natural e amigável.`;
     }
 
     if (channel) {
-      await channel.close().catch((err: any) => console.error("Erro ao fechar channel:", err));
+      try {
+        if (!channel.closed) {
+          await channel.close();
+          console.log("Channel fechado com sucesso");
+        }
+      } catch (err: any) {
+        console.error("Erro ao fechar channel:", err);
+      }
     }
     if (connection) {
-      await connection.close().catch((err: any) => console.error("Erro ao fechar connection:", err));
+      try {
+        if (!connection.closed) {
+          await connection.close();
+          console.log("Conexão fechada com sucesso");
+        }
+      } catch (err: any) {
+        console.error("Erro ao fechar connection:", err);
+      }
     }
 
     if (messageCount === 0) {
@@ -238,26 +425,47 @@ Inicie a conversa com o lead ${message.leadName} de forma natural e amigável.`;
   } catch (error) {
     console.error("Erro em rabbitmq-consume-interactions:", error);
 
+    const errorDetails: any = {
+      message: error instanceof Error ? error.message : "Erro desconhecido",
+      stack: error instanceof Error ? error.stack : undefined,
+    };
+
     if (channel) {
       try {
-        await channel.close();
-      } catch (err) {
+        if (!channel.closed) {
+          await channel.close();
+        }
+      } catch (err: any) {
         console.error("Erro ao fechar channel no catch:", err);
+        errorDetails.channelCloseError = err?.message || String(err);
       }
     }
     if (connection) {
       try {
-        await connection.close();
-      } catch (err) {
+        if (!connection.closed) {
+          await connection.close();
+        }
+      } catch (err: any) {
         console.error("Erro ao fechar connection no catch:", err);
+        errorDetails.connectionCloseError = err?.message || String(err);
       }
     }
 
     const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
+
+    let finalErrorMessage = errorMessage;
+
+    if (errorMessage.includes("ConnectionClose") || errorMessage.includes("Expected ConnectionOpenOk")) {
+      finalErrorMessage = `RabbitMQ rejeitou a conexão. Possíveis causas: URL incorreta, credenciais inválidas, servidor inacessível ou firewall bloqueando. Detalhes: ${errorMessage}`;
+    } else if (errorMessage.includes("Timeout")) {
+      finalErrorMessage = `Timeout ao conectar ao RabbitMQ. O servidor pode estar lento ou inacessível. Detalhes: ${errorMessage}`;
+    }
+
     const errorResponse = {
-      error: errorMessage,
+      error: finalErrorMessage,
       success: false,
       processed: 0,
+      details: Deno.env.get("DENO_ENV") === "development" ? errorDetails : undefined,
     };
 
     return new Response(

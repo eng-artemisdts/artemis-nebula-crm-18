@@ -12,7 +12,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowLeft, Save, Trash2, DollarSign, ExternalLink, MessageCircle, AlertTriangle, Info, RefreshCw, CheckCircle } from "lucide-react";
 import { useOrganization } from "@/hooks/useOrganization";
-import { cleanPhoneNumber, formatPhoneDisplay } from "@/lib/utils";
+import { cleanPhoneNumber, formatPhoneDisplay, formatWhatsAppNumber } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -126,7 +126,7 @@ const LeadForm = () => {
   const handleSubmitWithoutValidation = async () => {
     setLoading(true);
     try {
-      const cleanedPhone = formData.contact_whatsapp ? cleanPhoneNumber(formData.contact_whatsapp) : null;
+      const cleanedPhone = formData.contact_whatsapp ? formatWhatsAppNumber(formData.contact_whatsapp) : null;
 
       // Continua sem validação do WhatsApp
       const remoteJid = null;
@@ -199,7 +199,7 @@ const LeadForm = () => {
         ? parseFloat(formData.payment_amount.replace(/\./g, "").replace(",", "."))
         : null;
 
-      const cleanedPhone = formData.contact_whatsapp ? cleanPhoneNumber(formData.contact_whatsapp) : null;
+      const cleanedPhone = formData.contact_whatsapp ? formatWhatsAppNumber(formData.contact_whatsapp) : null;
 
       // Get correct remote_jid from Evolution API if phone exists
       let remoteJid = null;

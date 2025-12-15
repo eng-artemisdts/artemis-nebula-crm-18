@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Search, MapPin, Plus, Loader2, X } from "lucide-react";
 import { useOrganization } from "@/hooks/useOrganization";
-import { cleanPhoneNumber } from "@/lib/utils";
+import { cleanPhoneNumber, formatWhatsAppNumber } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 
@@ -74,7 +74,7 @@ const LeadSearch = () => {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (selectedCategories.length === 0) {
       toast.error("Selecione pelo menos uma categoria");
       return;
@@ -99,11 +99,11 @@ const LeadSearch = () => {
       });
 
       if (error) throw error;
-      
+
       // Filtra apenas negócios que possuem telefone (WhatsApp)
       const businessesWithPhone = (data.businesses || []).filter((business: BusinessResult) => business.phone);
       setSearchResults(businessesWithPhone);
-      
+
       if (businessesWithPhone.length === 0) {
         toast.info("Nenhum negócio com WhatsApp encontrado");
       } else {
@@ -142,7 +142,7 @@ const LeadSearch = () => {
     const businessesToAdd = selectedBusinesses.map((index) => searchResults[index]);
     setLoading(true);
     setLoadingMessage("Validando números no WhatsApp...");
-    
+
     try {
       // Coletar todos os números para validação
       const phonesToCheck = businessesToAdd
@@ -185,13 +185,15 @@ const LeadSearch = () => {
             return null;
           }
 
+          const normalizedPhone = formatWhatsAppNumber(cleanedPhone);
+
           return {
             name: business.name,
             description: `Negócio encontrado via busca - ${business.address}`,
             category: business.category,
             status: "novo",
             contact_email: business.email || null,
-            contact_whatsapp: cleanedPhone,
+            contact_whatsapp: normalizedPhone,
             remote_jid: phoneToJidMap.get(cleanedPhone),
             source: "Busca Automática",
             whatsapp_verified: true,
@@ -209,7 +211,7 @@ const LeadSearch = () => {
 
       setLoadingMessage("Adicionando leads ao sistema...");
       const { error } = await supabase.from("leads").insert(leadsToInsert);
-      
+
       if (error) throw error;
 
       const invalidCount = businessesToAdd.length - leadsToInsert.length;
@@ -218,7 +220,7 @@ const LeadSearch = () => {
       } else {
         toast.success(`${leadsToInsert.length} lead(s) adicionado(s) com sucesso!`);
       }
-      
+
       setSelectedBusinesses([]);
     } catch (error: any) {
       toast.error("Erro ao adicionar leads");
@@ -232,7 +234,7 @@ const LeadSearch = () => {
   return (
     <Layout>
       {loading && <LoadingOverlay message={loadingMessage} />}
-      
+
       <ConfirmDialog
         open={showConfirmDialog}
         onOpenChange={setShowConfirmDialog}
@@ -403,11 +405,10 @@ const LeadSearch = () => {
               {searchResults.map((business, index) => (
                 <Card
                   key={index}
-                  className={`p-4 space-y-3 cursor-pointer transition-all ${
-                    selectedBusinesses.includes(index)
+                  className={`p-4 space-y-3 cursor-pointer transition-all ${selectedBusinesses.includes(index)
                       ? "border-primary bg-primary/5"
                       : "hover:border-accent"
-                  }`}
+                    }`}
                   onClick={() => handleBusinessToggle(index)}
                 >
                   <div className="flex items-start justify-between">

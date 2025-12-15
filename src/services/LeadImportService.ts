@@ -3,6 +3,7 @@ import { IFileParser } from "./parsers/IFileParser";
 import { CSVFileParser } from "./parsers/CSVFileParser";
 import { XLSXFileParser } from "./parsers/XLSXFileParser";
 import { LeadDataValidator, ValidatedLead, ValidationError } from "./validators/LeadDataValidator";
+import { formatWhatsAppNumber } from "@/lib/utils";
 
 export interface ImportResult {
   success: boolean;
@@ -76,7 +77,7 @@ export class LeadImportService {
       category: lead.category || null,
       status: lead.status,
       contact_email: lead.contact_email || null,
-      contact_whatsapp: lead.contact_whatsapp || null,
+      contact_whatsapp: lead.contact_whatsapp ? formatWhatsAppNumber(lead.contact_whatsapp) : null,
       source: lead.source || null,
       integration_start_time: lead.integration_start_time
         ? `${lead.integration_start_time}:00+00`
