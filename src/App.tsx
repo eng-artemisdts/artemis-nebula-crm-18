@@ -14,7 +14,8 @@ import CategoryManager from "./pages/CategoryManager";
 import StatusManager from "./pages/StatusManager";
 import LeadSearch from "./pages/LeadSearch";
 import AIConfiguration from "./pages/AIConfiguration";
-import AIInteraction from "./pages/AIInteraction";
+import Agents from "./pages/Agents";
+import AgentCreate from "./pages/AgentCreate";
 import Documents from "./pages/Documents";
 import WhatsAppConnect from "./pages/WhatsAppConnect";
 import Settings from "./pages/Settings";
@@ -97,7 +98,23 @@ const App = () => (
               path="/ai-interaction"
               element={
                 <ProtectedRoute>
-                  <AIInteraction />
+                  <Agents />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ai-interaction/create"
+              element={
+                <ProtectedRoute>
+                  <AgentCreate />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ai-interaction/edit/:id"
+              element={
+                <ProtectedRoute>
+                  <AgentCreate />
                 </ProtectedRoute>
               }
             />
