@@ -1,14 +1,18 @@
 import { supabase } from "@/integrations/supabase/client";
 import { IAgentData } from "./AgentDomain";
+import { ComponentRepository } from "../components/ComponentRepository";
 
 export interface IAgentRepository {
-  save(agent: IAgentData): Promise<string>;
-  update(id: string, agent: Partial<IAgentData>): Promise<void>;
+  save(agent: IAgentData, componentIds?: string[]): Promise<string>;
+  update(id: string, agent: Partial<IAgentData>, componentIds?: string[]): Promise<void>;
   findById(id: string): Promise<IAgentData | null>;
+  getAgentComponentIds(agentId: string): Promise<string[]>;
 }
 
 export class AgentRepository implements IAgentRepository {
-  async save(agent: IAgentData): Promise<string> {
+  private componentRepository = new ComponentRepository();
+
+  async save(agent: IAgentData, componentIds?: string[]): Promise<string> {
     const { data, error } = await supabase
       .from("ai_interaction_settings")
       .insert([agent])
@@ -19,10 +23,16 @@ export class AgentRepository implements IAgentRepository {
       throw new Error(`Erro ao salvar agente: ${error.message}`);
     }
 
-    return data.id;
+    const agentId = data.id;
+
+    if (componentIds && componentIds.length > 0) {
+      await this.componentRepository.enableForAgent(agentId, componentIds);
+    }
+
+    return agentId;
   }
 
-  async update(id: string, agent: Partial<IAgentData>): Promise<void> {
+  async update(id: string, agent: Partial<IAgentData>, componentIds?: string[]): Promise<void> {
     const { error } = await supabase
       .from("ai_interaction_settings")
       .update(agent)
@@ -30,6 +40,10 @@ export class AgentRepository implements IAgentRepository {
 
     if (error) {
       throw new Error(`Erro ao atualizar agente: ${error.message}`);
+    }
+
+    if (componentIds !== undefined) {
+      await this.componentRepository.enableForAgent(id, componentIds);
     }
   }
 
@@ -48,6 +62,11 @@ export class AgentRepository implements IAgentRepository {
     }
 
     return data;
+  }
+
+  async getAgentComponentIds(agentId: string): Promise<string[]> {
+    const components = await this.componentRepository.findEnabledForAgent(agentId);
+    return components.map((c) => c.id);
   }
 }
 

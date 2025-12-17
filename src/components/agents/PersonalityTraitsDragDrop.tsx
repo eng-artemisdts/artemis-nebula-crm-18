@@ -16,18 +16,31 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, X } from "lucide-react";
+import { GripVertical, X, Sparkles, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface PersonalityTraitsDragDropProps {
   traits: string[];
   availableTraits: string[];
   onTraitsChange: (traits: string[]) => void;
+  agentContext?: {
+    name?: string;
+    conversation_focus?: string;
+    main_objective?: string;
+  };
 }
 
-const SortableTrait = ({ trait, onRemove }: { trait: string; onRemove: () => void }) => {
+const SortableTrait = ({
+  trait,
+  onRemove,
+}: {
+  trait: string;
+  onRemove: () => void;
+}) => {
   const {
     attributes,
     listeners,
@@ -75,10 +88,17 @@ export const PersonalityTraitsDragDrop = ({
   traits,
   availableTraits,
   onTraitsChange,
+  agentContext,
 }: PersonalityTraitsDragDropProps) => {
   const [newTrait, setNewTrait] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -111,6 +131,77 @@ export const PersonalityTraitsDragDrop = ({
     }
   };
 
+  const handleGenerateTraits = async () => {
+    if (!agentContext) {
+      toast.error("Preencha as informações básicas do agente primeiro");
+      return;
+    }
+
+    const hasRequiredInfo =
+      (agentContext.conversation_focus?.trim() &&
+        agentContext.conversation_focus.trim().length > 0) ||
+      (agentContext.main_objective?.trim() &&
+        agentContext.main_objective.trim().length > 0) ||
+      (agentContext.name?.trim() && agentContext.name.trim().length > 0);
+
+    if (!hasRequiredInfo) {
+      toast.error("Preencha pelo menos o nome, foco ou objetivo do agente");
+      return;
+    }
+
+    if (isGenerating) return;
+
+    setIsGenerating(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "generate-personality-traits",
+        {
+          body: {
+            selectedTraits: traits,
+            agentContext: agentContext,
+          },
+        }
+      );
+
+      if (error) throw error;
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      const generatedTraits = data.traits || [];
+      const normalizedGenerated = generatedTraits.map((t: string) =>
+        t.toLowerCase().trim()
+      );
+      const normalizedCurrent = traits.map((t: string) =>
+        t.toLowerCase().trim()
+      );
+
+      const newTraits = generatedTraits.filter(
+        (trait: string, index: number) =>
+          !normalizedCurrent.includes(normalizedGenerated[index])
+      );
+
+      if (newTraits.length === 0) {
+        toast.info("Todos os traços gerados já estão selecionados");
+        return;
+      }
+
+      onTraitsChange([...traits, ...newTraits]);
+      toast.success(
+        `${newTraits.length} novo(s) traço(s) gerado(s) e adicionado(s)!`
+      );
+    } catch (error: any) {
+      console.error("Error generating traits:", error);
+      toast.error(
+        "Erro ao gerar traços: " + (error.message || "Erro desconhecido")
+      );
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const unusedTraits = availableTraits.filter((t) => !traits.includes(t));
 
   return (
@@ -138,6 +229,38 @@ export const PersonalityTraitsDragDrop = ({
           </div>
         </SortableContext>
       </DndContext>
+
+      <div className="flex items-center justify-between pt-2 border-t">
+        <div className="flex-1">
+          {agentContext && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleGenerateTraits}
+              disabled={isGenerating}
+              className="flex items-center gap-2"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Gerando...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  Gerar Traços com IA
+                </>
+              )}
+            </Button>
+          )}
+        </div>
+        {agentContext && (
+          <p className="text-xs text-muted-foreground">
+            Baseado nas informações do agente
+          </p>
+        )}
+      </div>
 
       {unusedTraits.length > 0 && (
         <div className="space-y-2">
@@ -176,6 +299,3 @@ export const PersonalityTraitsDragDrop = ({
     </div>
   );
 };
-
-
-

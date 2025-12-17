@@ -16,7 +16,9 @@ import LeadSearch from "./pages/LeadSearch";
 import AIConfiguration from "./pages/AIConfiguration";
 import Agents from "./pages/Agents";
 import AgentCreate from "./pages/AgentCreate";
+import { ComponentConfiguration } from "./pages/ComponentConfiguration";
 import Documents from "./pages/Documents";
+import AIContextDocuments from "./pages/AIContextDocuments";
 import WhatsAppConnect from "./pages/WhatsAppConnect";
 import Settings from "./pages/Settings";
 import MessageConfiguration from "./pages/MessageConfiguration";
@@ -25,6 +27,7 @@ import ScheduleInteractions from "./pages/ScheduleInteractions";
 import NotFound from "./pages/NotFound";
 import ChatComingSoon from "./pages/ChatComingSoon";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { AbilitiesConfiguration } from "./pages/AbilitiesConfiguration";
 
 const queryClient = new QueryClient();
 
@@ -123,6 +126,30 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <AIConfiguration />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/abilities"
+              element={
+                <ProtectedRoute>
+                  <AbilitiesConfiguration />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ai-context-documents"
+              element={
+                <ProtectedRoute>
+                  <AIContextDocuments />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/components/:id/configure"
+              element={
+                <ProtectedRoute>
+                  <ComponentConfiguration />
                 </ProtectedRoute>
               }
             />

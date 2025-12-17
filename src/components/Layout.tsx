@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { Home, Users, Settings, List, LogOut, FolderKanban, SearchCheck, Bot, Smartphone, CreditCard, Sparkles, FileText, MessageSquare, ChevronRight, Calendar, MessageCircle } from "lucide-react";
+import { Home, Users, Settings, List, LogOut, FolderKanban, SearchCheck, Bot, Smartphone, CreditCard, Sparkles, FileText, MessageSquare, ChevronRight, Calendar, MessageCircle, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast, useToast } from "@/hooks/use-toast";
@@ -128,6 +128,8 @@ const menuItems: MenuItem[] = [
     subItems: [
       { title: "Configurar IA Padrão", url: "/ai-configuration", icon: Sparkles },
       { title: "Interações com IA", url: "/ai-interaction", icon: Bot },
+      { title: "Habilidades e Integrações", url: "/abilities", icon: Bot },
+      { title: "Documentação e Contexto", url: "/ai-context-documents", icon: Brain },
     ],
   },
   {

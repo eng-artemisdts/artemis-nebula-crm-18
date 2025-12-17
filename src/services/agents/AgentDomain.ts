@@ -1,6 +1,7 @@
 export interface IAgentData {
   id?: string;
   name: string;
+  nickname: string | null;
   agent_description: string | null;
   conversation_focus: string;
   priority: string;

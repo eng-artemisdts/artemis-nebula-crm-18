@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -25,9 +25,12 @@ import { PersonalityTraitsDragDrop } from "@/components/agents/PersonalityTraits
 import { VisualLevelSelector } from "@/components/agents/VisualLevelSelector";
 import { AgentPreview } from "@/components/agents/AgentPreview";
 import { StepNavigation } from "@/components/agents/StepNavigation";
-import { Save, ArrowLeft, Sparkles } from "lucide-react";
-import { IconSelector } from "@/components/agents/IconSelector";
-import { ColorPicker } from "@/components/agents/ColorPicker";
+import { ComponentsDragDrop } from "@/components/agents/ComponentsDragDrop";
+import { Save, ArrowLeft, Sparkles, Wand2, Loader2 } from "lucide-react";
+import { Combobox } from "@/components/ui/combobox";
+import { supabase } from "@/integrations/supabase/client";
+import { ComponentRepository } from "@/services/components/ComponentRepository";
+import { IComponentData } from "@/services/components/ComponentDomain";
 
 const AVAILABLE_TRAITS = [
   "empático",
@@ -51,15 +54,59 @@ const AVAILABLE_TRAITS = [
   "objetivo",
 ];
 
+const CONVERSATION_FOCUS_OPTIONS = [
+  "Vendas de produtos",
+  "Vendas de serviços",
+  "Vendas de soluções de automação",
+  "Atendimento ao cliente",
+  "Suporte técnico",
+  "Onboarding de clientes",
+  "Qualificação de leads",
+  "Agendamento de reuniões",
+  "Follow-up de oportunidades",
+  "Recuperação de clientes",
+  "Upsell e cross-sell",
+  "Coleta de feedback",
+  "Educação sobre produtos",
+  "Resolução de problemas",
+  "Consultoria comercial",
+];
+
+const MAIN_OBJECTIVE_OPTIONS = [
+  "Identificar necessidades e agendar reunião comercial",
+  "Qualificar leads e entender o perfil do cliente",
+  "Apresentar produtos e serviços disponíveis",
+  "Resolver dúvidas e objeções do cliente",
+  "Agendar demonstração ou reunião",
+  "Coletar informações de contato e preferências",
+  "Fazer follow-up de oportunidades em aberto",
+  "Oferecer suporte técnico e resolver problemas",
+  "Onboardar novos clientes e explicar processos",
+  "Recuperar clientes inativos",
+  "Coletar feedback sobre produtos ou serviços",
+  "Educar clientes sobre funcionalidades",
+  "Fechar vendas e processar pedidos",
+  "Manter relacionamento e fidelização",
+];
+
 const AgentCreate = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { organization } = useOrganization();
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [generatingDescription, setGeneratingDescription] = useState(false);
+  const [selectedComponentIds, setSelectedComponentIds] = useState<string[]>(
+    []
+  );
+  const [availableComponentIds, setAvailableComponentIds] = useState<string[]>(
+    []
+  );
+  const [components, setComponents] = useState<IComponentData[]>([]);
   const [agent, setAgent] = useState<Agent>(
     new Agent({
       name: "",
+      nickname: null,
       agent_description: null,
       conversation_focus: "",
       priority: "medium",
@@ -81,15 +128,11 @@ const AgentCreate = () => {
     })
   );
 
-  const repository = new AgentRepository();
+  const repository = useMemo(() => new AgentRepository(), []);
+  const componentRepository = useMemo(() => new ComponentRepository(), []);
 
   const steps = [
     { id: "basic", label: "Básico", description: "Informações principais" },
-    {
-      id: "visual",
-      label: "Visual",
-      description: "Personalização visual",
-    },
     {
       id: "personality",
       label: "Personalidade",
@@ -100,36 +143,79 @@ const AgentCreate = () => {
       label: "Avançado",
       description: "Configurações detalhadas",
     },
+    {
+      id: "components",
+      label: "Habilidades",
+      description: "Componentes e capacidades do agente",
+    },
     { id: "review", label: "Revisão", description: "Confirme e salve" },
   ];
+
+  const loadAgent = useCallback(
+    async (agentId: string) => {
+      setLoading(true);
+      try {
+        const data = await repository.findById(agentId);
+        if (data) {
+          setAgent(new Agent(data));
+          setCurrentStep(0);
+
+          const componentIds = await repository.getAgentComponentIds(agentId);
+          setSelectedComponentIds(componentIds);
+        }
+      } catch (error) {
+        toast.error("Erro ao carregar agente");
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [repository]
+  );
+
+  const loadAvailableComponents = useCallback(async () => {
+    if (!organization?.id) return;
+
+    try {
+      const allComponents = await componentRepository.findAll();
+      setComponents(allComponents);
+
+      const availableComponents =
+        await componentRepository.findAvailableForOrganization(organization.id);
+      const availableIds = availableComponents.map((c) => c.id);
+      setAvailableComponentIds(availableIds);
+
+      if (availableIds.length === 0 && allComponents.length > 0) {
+        const allIds = allComponents.map((c) => c.id);
+        setAvailableComponentIds(allIds);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar componentes disponíveis:", error);
+      const allComponents = await componentRepository.findAll();
+      setComponents(allComponents);
+      const allIds = allComponents.map((c) => c.id);
+      setAvailableComponentIds(allIds);
+    }
+  }, [componentRepository, organization?.id]);
 
   useEffect(() => {
     if (id) {
       loadAgent(id);
     }
-  }, [id]);
+  }, [id, loadAgent]);
 
-  const loadAgent = async (agentId: string) => {
-    setLoading(true);
-    try {
-      const data = await repository.findById(agentId);
-      if (data) {
-        setAgent(new Agent(data));
-        setCurrentStep(0);
-      }
-    } catch (error) {
-      toast.error("Erro ao carregar agente");
-      console.error(error);
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (organization?.id) {
+      loadAvailableComponents();
     }
-  };
+  }, [organization?.id, loadAvailableComponents]);
 
   const handleTemplateSelect = (
     template: ReturnType<typeof AgentTemplateService.getTemplates>[0]
   ) => {
     const newAgent = new Agent({
       name: "",
+      nickname: null,
       agent_description: null,
       conversation_focus: "",
       priority: "medium",
@@ -167,6 +253,52 @@ const AgentCreate = () => {
     handleFieldChange("personality_traits", traits);
   };
 
+  const generateDescription = async () => {
+    if (
+      !agentData.name &&
+      !agentData.conversation_focus &&
+      !agentData.main_objective
+    ) {
+      toast.error(
+        "Preencha pelo menos o nome do agente para gerar a descrição"
+      );
+      return;
+    }
+
+    setGeneratingDescription(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "generate-agent-description",
+        {
+          body: {
+            name: agentData.name || "",
+            conversation_focus: agentData.conversation_focus || "",
+            main_objective: agentData.main_objective || "",
+          },
+        }
+      );
+
+      if (error) throw error;
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      const generatedDescription = data.description || "";
+      if (generatedDescription) {
+        handleFieldChange("agent_description", generatedDescription);
+        toast.success("Descrição gerada com sucesso!");
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Erro desconhecido";
+      console.error("Error generating description:", error);
+      toast.error("Erro ao gerar descrição: " + errorMessage);
+    } finally {
+      setGeneratingDescription(false);
+    }
+  };
+
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
@@ -200,16 +332,18 @@ const AgentCreate = () => {
       };
 
       if (id) {
-        await repository.update(id, dataToSave);
+        await repository.update(id, dataToSave, selectedComponentIds);
         toast.success("Agente atualizado com sucesso!");
       } else {
-        await repository.save(dataToSave);
+        await repository.save(dataToSave, selectedComponentIds);
         toast.success("Agente criado com sucesso!");
       }
 
       navigate("/ai-interaction");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao salvar agente");
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Erro ao salvar agente";
+      toast.error(errorMessage);
       console.error(error);
     } finally {
       setLoading(false);
@@ -263,20 +397,64 @@ const AgentCreate = () => {
                     </h3>
 
                     <div className="space-y-4 mb-6">
-                      <div className="space-y-2">
-                        <Label htmlFor="name">Nome do Agente *</Label>
-                        <Input
-                          id="name"
-                          value={agentData.name}
-                          onChange={(e) =>
-                            handleFieldChange("name", e.target.value)
-                          }
-                          placeholder="Ex: Vendedor Consultivo"
-                        />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="name">Nome do Agente *</Label>
+                          <Input
+                            id="name"
+                            value={agentData.name}
+                            onChange={(e) =>
+                              handleFieldChange("name", e.target.value)
+                            }
+                            placeholder="Ex: Vendedor Consultivo"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="nickname">Apelido (Opcional)</Label>
+                            <span className="text-[10px] text-muted-foreground">
+                              Usado quando o agente se apresenta
+                            </span>
+                          </div>
+                          <Input
+                            id="nickname"
+                            value={agentData.nickname || ""}
+                            onChange={(e) =>
+                              handleFieldChange(
+                                "nickname",
+                                e.target.value || null
+                              )
+                            }
+                            placeholder="Ex: Dom, Assistente Comercial"
+                          />
+                        </div>
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="description">Descrição</Label>
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="description">Descrição</Label>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={generateDescription}
+                            disabled={generatingDescription || !agentData.name}
+                            className="h-7 text-xs"
+                          >
+                            {generatingDescription ? (
+                              <>
+                                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                Gerando...
+                              </>
+                            ) : (
+                              <>
+                                <Wand2 className="w-3 h-3 mr-1" />
+                                Gerar com IA
+                              </>
+                            )}
+                          </Button>
+                        </div>
                         <Textarea
                           id="description"
                           value={agentData.agent_description || ""}
@@ -286,7 +464,7 @@ const AgentCreate = () => {
                               e.target.value || null
                             )
                           }
-                          placeholder="Breve descrição do agente..."
+                          placeholder="Breve descrição do agente... (opcional - pode ser gerada automaticamente)"
                           rows={2}
                         />
                       </div>
@@ -295,16 +473,15 @@ const AgentCreate = () => {
                         <Label htmlFor="conversation_focus">
                           Foco da Conversa *
                         </Label>
-                        <Input
-                          id="conversation_focus"
+                        <Combobox
+                          options={CONVERSATION_FOCUS_OPTIONS}
                           value={agentData.conversation_focus}
-                          onChange={(e) =>
-                            handleFieldChange(
-                              "conversation_focus",
-                              e.target.value
-                            )
+                          onChange={(value) =>
+                            handleFieldChange("conversation_focus", value)
                           }
-                          placeholder="Ex: vendas de soluções de automação"
+                          placeholder="Selecione ou digite o foco da conversa..."
+                          searchPlaceholder="Buscar foco..."
+                          allowCustom={true}
                         />
                       </div>
 
@@ -312,14 +489,15 @@ const AgentCreate = () => {
                         <Label htmlFor="main_objective">
                           Objetivo Principal *
                         </Label>
-                        <Textarea
-                          id="main_objective"
+                        <Combobox
+                          options={MAIN_OBJECTIVE_OPTIONS}
                           value={agentData.main_objective}
-                          onChange={(e) =>
-                            handleFieldChange("main_objective", e.target.value)
+                          onChange={(value) =>
+                            handleFieldChange("main_objective", value)
                           }
-                          placeholder="Ex: Identificar necessidades e agendar reunião comercial"
-                          rows={3}
+                          placeholder="Selecione ou digite o objetivo principal..."
+                          searchPlaceholder="Buscar objetivo..."
+                          allowCustom={true}
                         />
                       </div>
 
@@ -440,37 +618,27 @@ const AgentCreate = () => {
                 </div>
               )}
 
-              {currentStep === 1 && (
+              {currentStep === 3 && (
                 <div className="space-y-6">
                   <div>
                     <h3 className="text-xl font-semibold mb-4">
-                      Personalização Visual
+                      Habilidades e Componentes
                     </h3>
-                    <div className="space-y-6">
-                      <div className="space-y-2">
-                        <Label>Ícone do Agente</Label>
-                        <IconSelector
-                          value={agentData.agent_avatar_url}
-                          onChange={(value) =>
-                            handleFieldChange("agent_avatar_url", value)
-                          }
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <ColorPicker
-                          value={agentData.agent_color}
-                          onChange={(value) =>
-                            handleFieldChange("agent_color", value)
-                          }
-                        />
-                      </div>
-                    </div>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Defina quais componentes e habilidades este agente poderá
+                      utilizar e a prioridade de cada um.
+                    </p>
+                    <ComponentsDragDrop
+                      components={components}
+                      selectedComponentIds={selectedComponentIds}
+                      availableComponentIds={availableComponentIds}
+                      onSelectionChange={setSelectedComponentIds}
+                    />
                   </div>
                 </div>
               )}
 
-              {currentStep === 2 && (
+              {currentStep === 1 && (
                 <div className="space-y-6">
                   <div>
                     <h3 className="text-xl font-semibold mb-4">
@@ -483,6 +651,11 @@ const AgentCreate = () => {
                           traits={agentData.personality_traits}
                           availableTraits={AVAILABLE_TRAITS}
                           onTraitsChange={handleTraitsChange}
+                          agentContext={{
+                            name: agentData.name,
+                            conversation_focus: agentData.conversation_focus,
+                            main_objective: agentData.main_objective,
+                          }}
                         />
                       </div>
 
@@ -571,7 +744,7 @@ const AgentCreate = () => {
                 </div>
               )}
 
-              {currentStep === 3 && (
+              {currentStep === 2 && (
                 <div className="space-y-6">
                   <div>
                     <h3 className="text-xl font-semibold mb-4">
