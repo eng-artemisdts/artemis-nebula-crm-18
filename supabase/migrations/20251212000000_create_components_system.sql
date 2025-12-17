@@ -137,3 +137,4 @@ COMMENT ON TABLE public.components IS 'Available components/capabilities that ag
 COMMENT ON TABLE public.agent_components IS 'Junction table linking agents to their enabled components';
 COMMENT ON TABLE public.organization_components IS 'Controls which components are available to each organization';
 
+

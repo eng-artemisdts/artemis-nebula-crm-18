@@ -41,3 +41,4 @@ export interface IComponentRepository {
   enableForOrganization(organizationId: string, componentIds: string[]): Promise<void>;
 }
 
+

@@ -9,8 +9,17 @@ import { Switch } from "@/components/ui/switch";
 import { useOrganization } from "@/hooks/useOrganization";
 import { ComponentRepository } from "@/services/components/ComponentRepository";
 import { IComponentData } from "@/services/components/ComponentDomain";
+import { ComponentConfigService } from "@/services/components/ComponentConfig";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   Bot,
   MessageCircle,
@@ -24,6 +33,9 @@ import {
   PlugZap,
   AlertCircle,
   CheckCircle2,
+  Target,
+  Info,
+  RefreshCw,
 } from "lucide-react";
 
 type AbilityStatus = "inactive" | "active_unconfigured" | "active_configured";
@@ -32,6 +44,7 @@ interface AbilityViewModel {
   component: IComponentData;
   enabled: boolean;
   status: AbilityStatus;
+  requiresConfig: boolean;
 }
 
 interface AbilityVisualInfo {
@@ -43,24 +56,21 @@ const getAbilityVisualInfo = (identifier: string): AbilityVisualInfo => {
   if (identifier === "email_sender") {
     return {
       icon: <Mail className="w-5 h-5" />,
-      hint:
-        "Envio e agendamento de emails. Recomenda-se configurar usando Outlook ou Gmail.",
+      hint: "Envio e agendamento de emails. Recomenda-se configurar usando Outlook ou Gmail.",
     };
   }
 
   if (identifier === "meeting_scheduler") {
     return {
       icon: <Calendar className="w-5 h-5" />,
-      hint:
-        "Agendamento de reuniões e compromissos. Pode ser integrado ao calendário do Outlook ou Google.",
+      hint: "Agendamento de reuniões e compromissos. Pode ser integrado ao calendário do Outlook ou Google.",
     };
   }
 
   if (identifier === "whatsapp_integration") {
     return {
       icon: <MessageCircle className="w-5 h-5" />,
-      hint:
-        "Integração com WhatsApp para envio e recebimento de mensagens via instância conectada.",
+      hint: "Integração com WhatsApp para envio e recebimento de mensagens via instância conectada.",
     };
   }
 
@@ -96,6 +106,20 @@ const getAbilityVisualInfo = (identifier: string): AbilityVisualInfo => {
     return {
       icon: <BarChart2 className="w-5 h-5" />,
       hint: "Geração de relatórios sobre desempenho, interações e conversões.",
+    };
+  }
+
+  if (identifier === "bant_analysis") {
+    return {
+      icon: <Target className="w-5 h-5" />,
+      hint: "Análise BANT para qualificação de leads: Budget (Orçamento), Authority (Autoridade), Need (Necessidade) e Timeline (Prazo).",
+    };
+  }
+
+  if (identifier === "auto_lead_status_update") {
+    return {
+      icon: <RefreshCw className="w-5 h-5" />,
+      hint: "Atualização automática de status do lead baseada no contexto da conversa e nos status definidos no painel.",
     };
   }
 
@@ -182,7 +206,7 @@ export const AbilitiesConfiguration = () => {
       toast.error(
         error?.message || "Erro ao carregar habilidades e configurações"
       );
-      // eslint-disable-next-line no-console
+
       console.error(error);
     } finally {
       setLoading(false);
@@ -219,7 +243,7 @@ export const AbilitiesConfiguration = () => {
       toast.error(
         error?.message || "Erro ao salvar habilidades da organização"
       );
-      // eslint-disable-next-line no-console
+
       console.error(error);
     } finally {
       setSaving(false);
@@ -227,8 +251,21 @@ export const AbilitiesConfiguration = () => {
   };
 
   const handleConfigureAbility = (component: IComponentData) => {
-    if (component.identifier === "whatsapp_integration") {
-      navigate("/whatsapp");
+    const configType = ComponentConfigService.getConfigType(
+      component.identifier
+    );
+
+    if (configType === "custom") {
+      const customPath = ComponentConfigService.getCustomConfigPath(
+        component.identifier
+      );
+      if (customPath) {
+        navigate(customPath);
+        return;
+      }
+    }
+
+    if (!ComponentConfigService.requiresConfiguration(component.identifier)) {
       return;
     }
 
@@ -238,6 +275,9 @@ export const AbilitiesConfiguration = () => {
   const abilities: AbilityViewModel[] = useMemo(() => {
     return components.map((component) => {
       const enabled = enabledComponentIds.includes(component.id);
+      const requiresConfig = ComponentConfigService.requiresConfiguration(
+        component.identifier
+      );
       let status: AbilityStatus = "inactive";
 
       if (enabled) {
@@ -245,15 +285,11 @@ export const AbilitiesConfiguration = () => {
           status = hasConnectedWhatsAppInstance
             ? "active_configured"
             : "active_unconfigured";
-        } else if (
-          component.identifier === "email_sender" ||
-          component.identifier === "meeting_scheduler"
-        ) {
+        } else if (requiresConfig) {
           const isConfigured = configuredComponentIds.has(component.id);
           status = isConfigured ? "active_configured" : "active_unconfigured";
         } else {
-          const isConfigured = configuredComponentIds.has(component.id);
-          status = isConfigured ? "active_configured" : "active_unconfigured";
+          status = "active_configured";
         }
       }
 
@@ -261,6 +297,7 @@ export const AbilitiesConfiguration = () => {
         component,
         enabled,
         status,
+        requiresConfig,
       };
     });
   }, [
@@ -270,17 +307,20 @@ export const AbilitiesConfiguration = () => {
     hasConnectedWhatsAppInstance,
   ]);
 
-  const getStatusBadge = (status: AbilityStatus) => {
+  const getStatusBadge = (status: AbilityStatus, requiresConfig: boolean) => {
     if (status === "active_configured") {
-      return (
-        <Badge className="bg-emerald-600 text-white flex items-center gap-1 text-[11px] px-2 py-0.5">
-          <CheckCircle2 className="w-3 h-3" />
-          Configurada
-        </Badge>
-      );
+      if (requiresConfig) {
+        return (
+          <Badge className="bg-emerald-600 text-white flex items-center gap-1 text-[11px] px-2 py-0.5">
+            <CheckCircle2 className="w-3 h-3" />
+            Configurada
+          </Badge>
+        );
+      }
+      return null;
     }
 
-    if (status === "active_unconfigured") {
+    if (status === "active_unconfigured" && requiresConfig) {
       return (
         <Badge className="bg-amber-500/15 text-amber-500 border border-amber-500/40 text-[11px] px-2 py-0.5 flex items-center gap-1">
           <AlertCircle className="w-3 h-3" />
@@ -289,14 +329,18 @@ export const AbilitiesConfiguration = () => {
       );
     }
 
-    return (
-      <Badge
-        variant="outline"
-        className="text-xs px-2 py-0.5 border-dashed text-muted-foreground"
-      >
-        Desativada
-      </Badge>
-    );
+    if (status === "inactive") {
+      return (
+        <Badge
+          variant="outline"
+          className="text-xs px-2 py-0.5 border-dashed text-muted-foreground"
+        >
+          Desativada
+        </Badge>
+      );
+    }
+
+    return null;
   };
 
   if (!organization) {
@@ -320,9 +364,7 @@ export const AbilitiesConfiguration = () => {
               <PlugZap className="w-6 h-6" />
             </div>
             <div className="space-y-1">
-              <h1 className="text-3xl font-bold">
-                Habilidades e Integrações
-              </h1>
+              <h1 className="text-3xl font-bold">Habilidades e Integrações</h1>
               <p className="text-sm text-muted-foreground">
                 Ative e personalize as capacidades padrão do seu agente, como
                 WhatsApp, email e agenda.
@@ -330,7 +372,10 @@ export const AbilitiesConfiguration = () => {
             </div>
           </div>
           <div className="flex gap-3">
-            <Badge variant="outline" className="hidden md:inline-flex items-center gap-1 text-xs">
+            <Badge
+              variant="outline"
+              className="hidden md:inline-flex items-center gap-1 text-xs"
+            >
               <Bot className="w-3 h-3" />
               {abilities.length} habilidade(s) disponível(is)
             </Badge>
@@ -354,9 +399,8 @@ export const AbilitiesConfiguration = () => {
                   Biblioteca de habilidades
                 </p>
                 <p className="text-xs text-muted-foreground max-w-xl">
-                  Use os controles para ligar ou desligar habilidades. Cada
-                  card mostra o status de configuração e um atalho para
-                  detalhes.
+                  Use os controles para ligar ou desligar habilidades. Cada card
+                  mostra o status de configuração e um atalho para detalhes.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -378,7 +422,8 @@ export const AbilitiesConfiguration = () => {
                     type="button"
                     className="group flex flex-col gap-3 rounded-2xl border border-border/40 bg-card/40 px-4 py-3 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:bg-primary/5 hover:shadow-md"
                     onClick={() =>
-                      ability.enabled && handleConfigureAbility(ability.component)
+                      ability.enabled &&
+                      handleConfigureAbility(ability.component)
                     }
                   >
                     <div className="flex items-start gap-3">
@@ -386,25 +431,144 @@ export const AbilitiesConfiguration = () => {
                         {visualInfo.icon}
                       </div>
                       <div className="flex-1 min-w-0 space-y-1">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="space-y-0.5">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0 space-y-0.5 pr-2">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-sm font-semibold">
+                              <span className="text-sm font-semibold break-words">
                                 {ability.component.name}
                               </span>
                               <Badge
                                 variant="outline"
-                                className="text-[10px] uppercase tracking-wide"
+                                className="text-[10px] uppercase tracking-wide flex-shrink-0"
                               >
-                                {ability.component.identifier.replace(/_/g, " ")}
+                                {ability.component.identifier.replace(
+                                  /_/g,
+                                  " "
+                                )}
                               </Badge>
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-5 w-5 p-0 hover:bg-primary/10 flex-shrink-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                    }}
+                                  >
+                                    <Info className="w-3.5 h-3.5 text-muted-foreground hover:text-primary" />
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                                  <DialogHeader>
+                                    <DialogTitle className="text-2xl flex items-center gap-3">
+                                      {visualInfo.icon}
+                                      {ability.component.name}
+                                    </DialogTitle>
+                                    <DialogDescription className="text-base">
+                                      {ComponentConfigService.getDetailedInfo(
+                                        ability.component.identifier
+                                      )?.description ||
+                                        ability.component.description}
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  {(() => {
+                                    const detailedInfo =
+                                      ComponentConfigService.getDetailedInfo(
+                                        ability.component.identifier
+                                      );
+                                    if (!detailedInfo) return null;
+
+                                    return (
+                                      <div className="space-y-6 mt-4">
+                                        {detailedInfo.features.length > 0 && (
+                                          <div>
+                                            <h4 className="font-semibold mb-3 text-sm">
+                                              Funcionalidades
+                                            </h4>
+                                            <ul className="space-y-2">
+                                              {detailedInfo.features.map(
+                                                (feature, index) => (
+                                                  <li
+                                                    key={index}
+                                                    className="flex items-start gap-2 text-sm text-muted-foreground"
+                                                  >
+                                                    <span className="text-primary mt-1.5">
+                                                      •
+                                                    </span>
+                                                    <span>{feature}</span>
+                                                  </li>
+                                                )
+                                              )}
+                                            </ul>
+                                          </div>
+                                        )}
+
+                                        {detailedInfo.useCases.length > 0 && (
+                                          <div>
+                                            <h4 className="font-semibold mb-3 text-sm">
+                                              Casos de Uso
+                                            </h4>
+                                            <ul className="space-y-2">
+                                              {detailedInfo.useCases.map(
+                                                (useCase, index) => (
+                                                  <li
+                                                    key={index}
+                                                    className="flex items-start gap-2 text-sm text-muted-foreground"
+                                                  >
+                                                    <span className="text-primary mt-1.5">
+                                                      •
+                                                    </span>
+                                                    <span>{useCase}</span>
+                                                  </li>
+                                                )
+                                              )}
+                                            </ul>
+                                          </div>
+                                        )}
+
+                                        {detailedInfo.requirements &&
+                                          detailedInfo.requirements.length >
+                                            0 && (
+                                            <div>
+                                              <h4 className="font-semibold mb-3 text-sm">
+                                                Requisitos
+                                              </h4>
+                                              <ul className="space-y-2">
+                                                {detailedInfo.requirements.map(
+                                                  (requirement, index) => (
+                                                    <li
+                                                      key={index}
+                                                      className="flex items-start gap-2 text-sm text-muted-foreground"
+                                                    >
+                                                      <span className="text-primary mt-1.5">
+                                                        •
+                                                      </span>
+                                                      <span>{requirement}</span>
+                                                    </li>
+                                                  )
+                                                )}
+                                              </ul>
+                                            </div>
+                                          )}
+                                      </div>
+                                    );
+                                  })()}
+                                </DialogContent>
+                              </Dialog>
                             </div>
                             <p className="text-[11px] text-muted-foreground line-clamp-2">
                               {ability.component.description}
                             </p>
                           </div>
-                          <div className="flex flex-col items-end gap-1">
-                            {getStatusBadge(ability.status)}
+                          <div className="flex flex-col items-end gap-1 min-w-[110px] flex-shrink-0">
+                            <div className="min-h-[20px] flex items-center justify-end w-full">
+                              {getStatusBadge(
+                                ability.status,
+                                ability.requiresConfig
+                              )}
+                            </div>
                             <Switch
                               id={`ability-${ability.component.id}`}
                               checked={ability.enabled}
@@ -421,21 +585,27 @@ export const AbilitiesConfiguration = () => {
                       </div>
                     </div>
                     <div className="flex items-center justify-between gap-3 rounded-xl border border-dashed border-border/40 bg-background/40 px-3 py-2 text-[11px] text-muted-foreground">
-                      <p className="line-clamp-2">{visualInfo.hint}</p>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={!ability.enabled}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          handleConfigureAbility(ability.component);
-                        }}
-                        className="h-7 rounded-full px-3 text-[11px] gap-1.5 group-hover:border-primary/60"
-                      >
-                        <Settings className="w-3 h-3" />
-                        Configurar
-                      </Button>
+                      <p className="line-clamp-2 flex-1">{visualInfo.hint}</p>
+                      {ComponentConfigService.requiresConfiguration(
+                        ability.component.identifier
+                      ) ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={!ability.enabled}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleConfigureAbility(ability.component);
+                          }}
+                          className="h-7 rounded-full px-3 text-[11px] gap-1.5 group-hover:border-primary/60 flex-shrink-0"
+                        >
+                          <Settings className="w-3 h-3" />
+                          Configurar
+                        </Button>
+                      ) : (
+                        <div className="w-[80px] flex-shrink-0" />
+                      )}
                     </div>
                   </button>
                 );
@@ -470,8 +640,8 @@ export const AbilitiesConfiguration = () => {
               </div>
               <p className="text-xs text-muted-foreground">
                 Para considerar a habilidade de WhatsApp como{" "}
-                <span className="font-semibold">configurada</span>, é
-                necessário ter ao menos uma instância criada e conectada.
+                <span className="font-semibold">configurada</span>, é necessário
+                ter ao menos uma instância criada e conectada.
               </p>
               <Button
                 type="button"
@@ -491,7 +661,9 @@ export const AbilitiesConfiguration = () => {
                   <Mail className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold">Envio e agendamento de emails</p>
+                  <p className="text-sm font-semibold">
+                    Envio e agendamento de emails
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     Configure utilizando Outlook ou Gmail.
                   </p>
@@ -540,5 +712,3 @@ export const AbilitiesConfiguration = () => {
     </Layout>
   );
 };
-
-

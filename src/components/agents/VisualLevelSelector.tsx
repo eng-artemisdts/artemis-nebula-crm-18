@@ -1,6 +1,13 @@
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Info } from "lucide-react";
 
 interface VisualLevelSelectorProps {
   label: string;
@@ -8,6 +15,7 @@ interface VisualLevelSelectorProps {
   onChange: (value: string) => void;
   options: { value: string; label: string; emoji?: string; description?: string }[];
   className?: string;
+  tooltip?: string;
 }
 
 export const VisualLevelSelector = ({
@@ -16,6 +24,7 @@ export const VisualLevelSelector = ({
   onChange,
   options,
   className,
+  tooltip,
 }: VisualLevelSelectorProps) => {
   const currentIndex = options.findIndex((opt) => opt.value === value);
   const sliderValue = currentIndex >= 0 ? currentIndex : 0;
@@ -29,7 +38,21 @@ export const VisualLevelSelector = ({
 
   return (
     <div className={className}>
-      <Label className="text-base font-semibold mb-4 block">{label}</Label>
+      <div className="flex items-center gap-2 mb-4">
+        <Label className="text-base font-semibold">{label}</Label>
+        {tooltip && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p className="text-sm">{tooltip}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </div>
       <Card className="p-4 space-y-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm text-muted-foreground">Nível atual:</span>

@@ -30,6 +30,8 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  Target,
+  RefreshCw,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -46,6 +48,7 @@ import {
 } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 import { IComponentData } from "@/services/components/ComponentDomain";
+import { ComponentConfigService } from "@/services/components/ComponentConfig";
 import { useNavigate } from "react-router-dom";
 
 interface ComponentsDragDropProps {
@@ -115,6 +118,18 @@ const getComponentVisualInfo = (identifier: string): ComponentVisualInfo => {
         icon: <BarChart2 className="w-5 h-5" />,
         hint: "Geração de relatórios de desempenho.",
         color: "text-indigo-500",
+      };
+    case "bant_analysis":
+      return {
+        icon: <Target className="w-5 h-5" />,
+        hint: "Análise BANT para qualificação de leads (Budget, Authority, Need, Timeline).",
+        color: "text-amber-500",
+      };
+    case "auto_lead_status_update":
+      return {
+        icon: <RefreshCw className="w-5 h-5" />,
+        hint: "Atualização automática de status do lead baseada no contexto da conversa.",
+        color: "text-violet-500",
       };
     default:
       return {
@@ -272,7 +287,10 @@ export const ComponentsDragDrop = ({
     onSelectionChange(selectedComponentIds.filter((id) => id !== componentId));
   };
 
-  const handleConfigureComponent = (componentId: string, identifier: string) => {
+  const handleConfigureComponent = (
+    componentId: string,
+    identifier: string
+  ) => {
     navigate(`/components/${componentId}/configure`, {
       state: { componentId, identifier },
     });
@@ -406,7 +424,9 @@ export const ComponentsDragDrop = ({
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2">
-                            <div className={cn("flex-shrink-0", visualInfo.color)}>
+                            <div
+                              className={cn("flex-shrink-0", visualInfo.color)}
+                            >
                               {visualInfo.icon}
                             </div>
                             <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -417,7 +437,8 @@ export const ComponentsDragDrop = ({
                             variant={statusVariant}
                             className={cn(
                               "text-[10px] px-2 py-0 flex-shrink-0",
-                              isSelected && "bg-primary text-primary-foreground",
+                              isSelected &&
+                                "bg-primary text-primary-foreground",
                               !isAvailable && "border-dashed"
                             )}
                           >
@@ -449,25 +470,31 @@ export const ComponentsDragDrop = ({
                         )}
                       </button>
 
-                      {isSelected && (
-                        <div className="px-4 pb-3 pt-0 border-t border-border/50">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full text-xs"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleConfigureComponent(
-                                component.id,
-                                component.identifier
-                              );
-                            }}
-                          >
-                            <Settings className="w-3 h-3 mr-2" />
-                            Configurar Componente
-                          </Button>
-                        </div>
-                      )}
+                      {isSelected &&
+                        ComponentConfigService.requiresConfiguration(
+                          component.identifier
+                        ) &&
+                        ComponentConfigService.getConfigType(
+                          component.identifier
+                        ) !== "custom" && (
+                          <div className="px-4 pb-3 pt-0 border-t border-border/50">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleConfigureComponent(
+                                  component.id,
+                                  component.identifier
+                                );
+                              }}
+                            >
+                              <Settings className="w-3 h-3 mr-2" />
+                              Configurar Componente
+                            </Button>
+                          </div>
+                        )}
                     </div>
                   );
                 }
@@ -493,41 +520,36 @@ export const ComponentsDragDrop = ({
                       if (currentPage > 1) setCurrentPage(currentPage - 1);
                     }}
                     className={
-                      currentPage === 1
-                        ? "pointer-events-none opacity-50"
-                        : ""
+                      currentPage === 1 ? "pointer-events-none opacity-50" : ""
                     }
                   />
                 </PaginationItem>
-                {Array.from(
-                  { length: Math.min(5, totalPages) },
-                  (_, i) => {
-                    let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-                    return (
-                      <PaginationItem key={pageNum}>
-                        <PaginationLink
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setCurrentPage(pageNum);
-                          }}
-                          isActive={currentPage === pageNum}
-                        >
-                          {pageNum}
-                        </PaginationLink>
-                      </PaginationItem>
-                    );
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
                   }
-                )}
+                  return (
+                    <PaginationItem key={pageNum}>
+                      <PaginationLink
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setCurrentPage(pageNum);
+                        }}
+                        isActive={currentPage === pageNum}
+                      >
+                        {pageNum}
+                      </PaginationLink>
+                    </PaginationItem>
+                  );
+                })}
                 <PaginationItem>
                   <PaginationNext
                     href="#"

@@ -2,18 +2,33 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Save, Eye, EyeOff, AlertCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Mail,
+  Calendar,
+  AlertCircle,
+  ExternalLink,
+  Loader2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ComponentRepository } from "@/services/components/ComponentRepository";
 import { IComponentData } from "@/services/components/ComponentDomain";
+import { ComponentConfigService } from "@/services/components/ComponentConfig";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 
 interface ComponentConfig {
-  [key: string]: string;
+  [key: string]: any;
+}
+
+interface ConnectionStatus {
+  connected: boolean;
+  provider?: string;
+  email?: string;
+  accountName?: string;
 }
 
 export const ComponentConfiguration = () => {
@@ -21,9 +36,11 @@ export const ComponentConfiguration = () => {
   const navigate = useNavigate();
   const [component, setComponent] = useState<IComponentData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [connecting, setConnecting] = useState(false);
   const [config, setConfig] = useState<ComponentConfig>({});
-  const [hiddenFields, setHiddenFields] = useState<Set<string>>(new Set());
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>({
+    connected: false,
+  });
   const componentRepository = new ComponentRepository();
 
   useEffect(() => {
@@ -67,127 +84,130 @@ export const ComponentConfiguration = () => {
 
       if (data?.config) {
         setConfig(data.config);
-        const sensitiveFields = getSensitiveFields();
-        sensitiveFields.forEach((field) => {
-          setHiddenFields((prev) => new Set(prev).add(field));
-        });
+        updateConnectionStatus(data.config);
       }
     } catch (error) {
       console.error("Erro ao carregar configuração:", error);
     }
   };
 
-  const getSensitiveFields = (): string[] => {
-    if (!component) return [];
-    const identifier = component.identifier;
-    
-    const sensitiveFieldsMap: Record<string, string[]> = {
-      email_sender: ["api_key", "api_secret", "smtp_password"],
-      whatsapp_integration: ["api_key", "api_secret", "webhook_secret"],
-      meeting_scheduler: ["api_key", "api_secret", "calendar_token"],
-      crm_query: ["api_key", "api_secret"],
-      proposal_creator: ["api_key", "api_secret"],
-      auto_followup: ["api_key", "api_secret"],
-      sentiment_analysis: ["api_key", "api_secret"],
-      report_generator: ["api_key", "api_secret"],
+  const updateConnectionStatus = (configData: ComponentConfig) => {
+    if (!component) return;
+
+    const status: ConnectionStatus = {
+      connected: false,
     };
 
-    return sensitiveFieldsMap[identifier] || ["api_key", "api_secret"];
+    switch (component.identifier) {
+      case "email_sender":
+        if (configData.oauth_provider && configData.oauth_token) {
+          status.connected = true;
+          status.provider = configData.oauth_provider;
+          status.email = configData.connected_email;
+          status.accountName = configData.account_name;
+        }
+        break;
+      case "meeting_scheduler":
+        if (configData.oauth_provider && configData.oauth_token) {
+          status.connected = true;
+          status.provider = configData.oauth_provider;
+          status.email = configData.connected_email;
+          status.accountName = configData.account_name;
+        }
+        break;
+      default:
+        if (configData.connected) {
+          status.connected = true;
+          status.provider = configData.provider;
+        }
+    }
+
+    setConnectionStatus(status);
   };
 
-  const getDefaultFields = (): Array<{ key: string; label: string; type: string }> => {
-    if (!component) return [];
-    const identifier = component.identifier;
+  const handleOAuthConnect = async (provider: string) => {
+    if (!id || !component) return;
 
-    const fieldsMap: Record<string, Array<{ key: string; label: string; type: string }>> = {
-      email_sender: [
-        { key: "smtp_host", label: "SMTP Host", type: "text" },
-        { key: "smtp_port", label: "SMTP Porta", type: "number" },
-        { key: "smtp_user", label: "Usuário SMTP", type: "text" },
-        { key: "smtp_password", label: "Senha SMTP", type: "password" },
-        { key: "from_email", label: "Email Remetente", type: "email" },
-        { key: "from_name", label: "Nome Remetente", type: "text" },
-      ],
-      whatsapp_integration: [
-        { key: "api_key", label: "API Key", type: "password" },
-        { key: "api_secret", label: "API Secret", type: "password" },
-        { key: "webhook_url", label: "Webhook URL", type: "url" },
-        { key: "webhook_secret", label: "Webhook Secret", type: "password" },
-        { key: "instance_id", label: "Instance ID", type: "text" },
-      ],
-      meeting_scheduler: [
-        { key: "api_key", label: "API Key", type: "password" },
-        { key: "api_secret", label: "API Secret", type: "password" },
-        { key: "calendar_id", label: "Calendar ID", type: "text" },
-        { key: "calendar_token", label: "Calendar Token", type: "password" },
-        { key: "timezone", label: "Timezone", type: "text" },
-      ],
-      crm_query: [
-        { key: "api_key", label: "API Key", type: "password" },
-        { key: "api_secret", label: "API Secret", type: "password" },
-        { key: "base_url", label: "Base URL", type: "url" },
-      ],
-      proposal_creator: [
-        { key: "api_key", label: "API Key", type: "password" },
-        { key: "api_secret", label: "API Secret", type: "password" },
-        { key: "template_path", label: "Caminho dos Templates", type: "text" },
-      ],
-      auto_followup: [
-        { key: "api_key", label: "API Key", type: "password" },
-        { key: "api_secret", label: "API Secret", type: "password" },
-        { key: "interval_days", label: "Intervalo (dias)", type: "number" },
-      ],
-      sentiment_analysis: [
-        { key: "api_key", label: "API Key", type: "password" },
-        { key: "api_secret", label: "API Secret", type: "password" },
-        { key: "model", label: "Modelo", type: "text" },
-      ],
-      report_generator: [
-        { key: "api_key", label: "API Key", type: "password" },
-        { key: "api_secret", label: "API Secret", type: "password" },
-        { key: "storage_path", label: "Caminho de Armazenamento", type: "text" },
-      ],
-    };
-
-    return fieldsMap[identifier] || [
-      { key: "api_key", label: "API Key", type: "password" },
-      { key: "api_secret", label: "API Secret", type: "password" },
-    ];
-  };
-
-  const handleSave = async () => {
-    if (!id) return;
-    setSaving(true);
+    setConnecting(true);
     try {
-      const { error } = await supabase
-        .from("component_configurations")
-        .upsert({
-          component_id: id,
-          config,
-          updated_at: new Date().toISOString(),
-        });
+      const { data, error } = await supabase.functions.invoke(
+        `oauth-connect-${component.identifier}`,
+        {
+          body: {
+            component_id: id,
+            provider,
+          },
+        }
+      );
 
       if (error) throw error;
 
-      toast.success("Configuração salva com sucesso!");
-      navigate(-1);
+      if (data?.auth_url) {
+        window.location.href = data.auth_url;
+      } else {
+        toast.error("Erro ao iniciar conexão OAuth");
+      }
     } catch (error: any) {
-      toast.error(error.message || "Erro ao salvar configuração");
+      toast.error(
+        error.message || "Erro ao conectar. Tente novamente mais tarde."
+      );
       console.error(error);
     } finally {
-      setSaving(false);
+      setConnecting(false);
     }
   };
 
-  const toggleFieldVisibility = (fieldKey: string) => {
-    setHiddenFields((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(fieldKey)) {
-        newSet.delete(fieldKey);
-      } else {
-        newSet.add(fieldKey);
-      }
-      return newSet;
+  const handleDisconnect = async () => {
+    if (!id) return;
+
+    try {
+      const { error } = await supabase
+        .from("component_configurations")
+        .update({
+          config: {
+            ...config,
+            oauth_provider: null,
+            oauth_token: null,
+            connected_email: null,
+            account_name: null,
+            connected: false,
+          },
+          updated_at: new Date().toISOString(),
+        })
+        .eq("component_id", id);
+
+      if (error) throw error;
+
+      setConnectionStatus({ connected: false });
+      setConfig({});
+      toast.success("Desconectado com sucesso!");
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao desconectar");
+      console.error(error);
+    }
+  };
+
+  const getConnectionOptions = () => {
+    if (!component) return [];
+
+    const oauthProviders = ComponentConfigService.getOAuthProviders(
+      component.identifier
+    );
+
+    return oauthProviders.map((provider) => {
+      const icon =
+        component.identifier === "email_sender" ? (
+          <Mail className="w-5 h-5" />
+        ) : (
+          <Calendar className="w-5 h-5" />
+        );
+
+      return {
+        provider: provider.provider,
+        name: provider.name,
+        icon,
+        description: provider.description,
+      };
     });
   };
 
@@ -205,18 +225,51 @@ export const ComponentConfiguration = () => {
     return null;
   }
 
-  const defaultFields = getDefaultFields();
+  const connectionOptions = getConnectionOptions();
+  const needsConfiguration = connectionOptions.length > 0;
+
+  if (!needsConfiguration) {
+    return (
+      <Layout>
+        <div className="space-y-6 animate-in fade-in-50 duration-500">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Voltar
+              </Button>
+              <div>
+                <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                  Configurar Componente
+                </h1>
+                <p className="text-muted-foreground mt-2 text-lg">
+                  {component.name}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <Card className="p-6">
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Componente sem configuração necessária</AlertTitle>
+              <AlertDescription>
+                Este componente não requer configuração adicional. Ele está
+                pronto para uso.
+              </AlertDescription>
+            </Alert>
+          </Card>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
       <div className="space-y-6 animate-in fade-in-50 duration-500">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate(-1)}
-            >
+            <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               Voltar
             </Button>
@@ -242,79 +295,101 @@ export const ComponentConfiguration = () => {
               </p>
             </div>
 
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Atenção</AlertTitle>
-              <AlertDescription>
-                As informações de chaves e secrets são sensíveis. Certifique-se
-                de manter essas informações seguras e não compartilhá-las.
-              </AlertDescription>
-            </Alert>
+            {connectionStatus.connected ? (
+              <div className="space-y-4">
+                <Alert className="border-green-500/50 bg-green-500/10">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <AlertTitle className="text-green-700 dark:text-green-400">
+                    Conectado com sucesso!
+                  </AlertTitle>
+                  <AlertDescription className="text-green-600 dark:text-green-300">
+                    {connectionStatus.accountName && (
+                      <div className="mt-2 space-y-1">
+                        <p>
+                          <strong>Conta:</strong> {connectionStatus.accountName}
+                        </p>
+                        {connectionStatus.email && (
+                          <p>
+                            <strong>Email:</strong> {connectionStatus.email}
+                          </p>
+                        )}
+                        {connectionStatus.provider && (
+                          <p>
+                            <strong>Provedor:</strong>{" "}
+                            {connectionStatus.provider
+                              .replace("_", " ")
+                              .replace(/\b\w/g, (l) => l.toUpperCase())}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </AlertDescription>
+                </Alert>
 
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Configurações</h3>
-              {defaultFields.map((field) => {
-                const isPassword = field.type === "password";
-                const isHidden = hiddenFields.has(field.key);
+                <Button
+                  variant="outline"
+                  onClick={handleDisconnect}
+                  className="w-full"
+                >
+                  Desconectar
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Conecte sua conta</AlertTitle>
+                  <AlertDescription>
+                    Para usar este componente, você precisa conectar sua conta.
+                    Clique no botão abaixo para iniciar o processo de conexão.
+                  </AlertDescription>
+                </Alert>
 
-                return (
-                  <div key={field.key} className="space-y-2">
-                    <Label htmlFor={field.key}>{field.label}</Label>
-                    <div className="relative">
-                      <Input
-                        id={field.key}
-                        type={isPassword && isHidden ? "password" : "text"}
-                        value={config[field.key] || ""}
-                        onChange={(e) =>
-                          setConfig({ ...config, [field.key]: e.target.value })
-                        }
-                        placeholder={`Digite ${field.label.toLowerCase()}`}
-                        className={isPassword ? "pr-10" : ""}
-                      />
-                      {isPassword && (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {connectionOptions.map((option) => (
+                    <Card
+                      key={option.provider}
+                      className="p-4 border-2 hover:border-primary/50 transition-all"
+                    >
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                            {option.icon}
+                          </div>
+                          <div>
+                            <h4 className="font-semibold">{option.name}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {option.description}
+                            </p>
+                          </div>
+                        </div>
                         <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="absolute right-0 top-0 h-full px-3"
-                          onClick={() => toggleFieldVisibility(field.key)}
+                          onClick={() => handleOAuthConnect(option.provider)}
+                          disabled={connecting}
+                          className="w-full"
+                          variant="outline"
                         >
-                          {isHidden ? (
-                            <EyeOff className="w-4 h-4" />
+                          {connecting ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Conectando...
+                            </>
                           ) : (
-                            <Eye className="w-4 h-4" />
+                            <>
+                              <ExternalLink className="w-4 h-4 mr-2" />
+                              Conectar com {option.name}
+                            </>
                           )}
                         </Button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="flex gap-2 pt-4 border-t">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigate(-1)}
-                className="flex-1"
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="button"
-                onClick={handleSave}
-                disabled={saving}
-                className="flex-1"
-              >
-                <Save className="w-4 h-4 mr-2" />
-                {saving ? "Salvando..." : "Salvar Configuração"}
-              </Button>
-            </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </Card>
       </div>
     </Layout>
   );
 };
-

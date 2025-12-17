@@ -26,11 +26,17 @@ import { VisualLevelSelector } from "@/components/agents/VisualLevelSelector";
 import { AgentPreview } from "@/components/agents/AgentPreview";
 import { StepNavigation } from "@/components/agents/StepNavigation";
 import { ComponentsDragDrop } from "@/components/agents/ComponentsDragDrop";
-import { Save, ArrowLeft, Sparkles, Wand2, Loader2 } from "lucide-react";
+import { Save, ArrowLeft, Sparkles, Wand2, Loader2, Info } from "lucide-react";
 import { Combobox } from "@/components/ui/combobox";
 import { supabase } from "@/integrations/supabase/client";
 import { ComponentRepository } from "@/services/components/ComponentRepository";
 import { IComponentData } from "@/services/components/ComponentDomain";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const AVAILABLE_TRAITS = [
   "empático",
@@ -89,6 +95,32 @@ const MAIN_OBJECTIVE_OPTIONS = [
   "Manter relacionamento e fidelização",
 ];
 
+const LabelWithTooltip = ({
+  htmlFor,
+  children,
+  tooltip,
+}: {
+  htmlFor?: string;
+  children: React.ReactNode;
+  tooltip: string;
+}) => {
+  return (
+    <div className="flex items-center gap-2">
+      <Label htmlFor={htmlFor}>{children}</Label>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs">
+            <p className="text-sm">{tooltip}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </div>
+  );
+};
+
 const AgentCreate = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -103,6 +135,17 @@ const AgentCreate = () => {
     []
   );
   const [components, setComponents] = useState<IComponentData[]>([]);
+  const [whatsappInstances, setWhatsappInstances] = useState<
+    Array<{
+      id: string;
+      instance_name: string;
+      phone_number: string | null;
+      status: string;
+    }>
+  >([]);
+  const [selectedWhatsappInstanceId, setSelectedWhatsappInstanceId] = useState<
+    string | null
+  >(null);
   const [agent, setAgent] = useState<Agent>(
     new Agent({
       name: "",
@@ -173,6 +216,19 @@ const AgentCreate = () => {
     [repository]
   );
 
+  const whatsappComponent = useMemo(() => {
+    return components.find((c) => c.identifier === "whatsapp_integration");
+  }, [components]);
+
+  const hasWhatsappSelected = useMemo(() => {
+    if (!whatsappComponent) return false;
+    return selectedComponentIds.includes(whatsappComponent.id);
+  }, [selectedComponentIds, whatsappComponent]);
+
+  const shouldShowWhatsappInstanceSelector = useMemo(() => {
+    return hasWhatsappSelected && whatsappInstances.length > 1;
+  }, [hasWhatsappSelected, whatsappInstances.length]);
+
   const loadAvailableComponents = useCallback(async () => {
     if (!organization?.id) return;
 
@@ -198,6 +254,66 @@ const AgentCreate = () => {
     }
   }, [componentRepository, organization?.id]);
 
+  const loadWhatsappInstances = useCallback(async () => {
+    if (!organization?.id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("whatsapp_instances")
+        .select("id, instance_name, phone_number, status")
+        .eq("organization_id", organization.id)
+        .eq("status", "connected")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      setWhatsappInstances(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar instâncias WhatsApp:", error);
+      setWhatsappInstances([]);
+    }
+  }, [organization?.id]);
+
+  const loadAgentComponentConfig = useCallback(
+    async (agentId: string) => {
+      if (!organization?.id) return;
+
+      try {
+        const whatsappComponent = components.find(
+          (c) => c.identifier === "whatsapp_integration"
+        );
+
+        if (!whatsappComponent) return;
+
+        const session = await supabase.auth.getSession();
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+        const response = await fetch(
+          `${supabaseUrl}/rest/v1/agent_component_configurations?agent_id=eq.${agentId}&component_id=eq.${whatsappComponent.id}&select=config`,
+          {
+            headers: {
+              apikey: supabaseKey,
+              Authorization: `Bearer ${
+                session.data.session?.access_token || ""
+              }`,
+            },
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data[0]?.config?.whatsapp_instance_id) {
+            setSelectedWhatsappInstanceId(data[0].config.whatsapp_instance_id);
+          }
+        }
+      } catch (error) {
+        console.error("Erro ao carregar configuração do componente:", error);
+      }
+    },
+    [components, organization?.id]
+  );
+
   useEffect(() => {
     if (id) {
       loadAgent(id);
@@ -207,8 +323,15 @@ const AgentCreate = () => {
   useEffect(() => {
     if (organization?.id) {
       loadAvailableComponents();
+      loadWhatsappInstances();
     }
-  }, [organization?.id, loadAvailableComponents]);
+  }, [organization?.id, loadAvailableComponents, loadWhatsappInstances]);
+
+  useEffect(() => {
+    if (id && components.length > 0) {
+      loadAgentComponentConfig(id);
+    }
+  }, [id, components, loadAgentComponentConfig]);
 
   const handleTemplateSelect = (
     template: ReturnType<typeof AgentTemplateService.getTemplates>[0]
@@ -311,6 +434,106 @@ const AgentCreate = () => {
     }
   };
 
+  const saveAgentComponentConfig = async (agentId: string) => {
+    if (!whatsappComponent || !hasWhatsappSelected) return;
+
+    if (shouldShowWhatsappInstanceSelector && !selectedWhatsappInstanceId) {
+      toast.error(
+        "Selecione uma instância WhatsApp para o agente ou remova a habilidade WhatsApp"
+      );
+      throw new Error("Instância WhatsApp não selecionada");
+    }
+
+    if (shouldShowWhatsappInstanceSelector && selectedWhatsappInstanceId) {
+      const session = await supabase.auth.getSession();
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      const response = await fetch(
+        `${supabaseUrl}/rest/v1/agent_component_configurations`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: supabaseKey,
+            Authorization: `Bearer ${session.data.session?.access_token || ""}`,
+            Prefer: "resolution=merge-duplicates",
+          },
+          body: JSON.stringify({
+            agent_id: agentId,
+            component_id: whatsappComponent.id,
+            config: {
+              whatsapp_instance_id: selectedWhatsappInstanceId,
+            },
+            updated_at: new Date().toISOString(),
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          `Erro ao salvar configuração do componente: ${
+            errorData.message || response.statusText
+          }`
+        );
+      }
+    } else if (hasWhatsappSelected && !shouldShowWhatsappInstanceSelector) {
+      if (whatsappInstances.length === 1) {
+        const session = await supabase.auth.getSession();
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+        const response = await fetch(
+          `${supabaseUrl}/rest/v1/agent_component_configurations`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: supabaseKey,
+              Authorization: `Bearer ${
+                session.data.session?.access_token || ""
+              }`,
+              Prefer: "resolution=merge-duplicates",
+            },
+            body: JSON.stringify({
+              agent_id: agentId,
+              component_id: whatsappComponent.id,
+              config: {
+                whatsapp_instance_id: whatsappInstances[0].id,
+              },
+              updated_at: new Date().toISOString(),
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(
+            `Erro ao salvar configuração do componente: ${
+              errorData.message || response.statusText
+            }`
+          );
+        }
+      }
+    } else if (!hasWhatsappSelected && whatsappComponent) {
+      const session = await supabase.auth.getSession();
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      await fetch(
+        `${supabaseUrl}/rest/v1/agent_component_configurations?agent_id=eq.${agentId}&component_id=eq.${whatsappComponent.id}`,
+        {
+          method: "DELETE",
+          headers: {
+            apikey: supabaseKey,
+            Authorization: `Bearer ${session.data.session?.access_token || ""}`,
+          },
+        }
+      );
+    }
+  };
+
   const handleSave = async () => {
     const validation = agent.validate();
     if (!validation.isValid) {
@@ -331,13 +554,17 @@ const AgentCreate = () => {
         organization_id: organization.id,
       };
 
+      let agentId: string;
       if (id) {
         await repository.update(id, dataToSave, selectedComponentIds);
+        agentId = id;
         toast.success("Agente atualizado com sucesso!");
       } else {
-        await repository.save(dataToSave, selectedComponentIds);
+        agentId = await repository.save(dataToSave, selectedComponentIds);
         toast.success("Agente criado com sucesso!");
       }
+
+      await saveAgentComponentConfig(agentId);
 
       navigate("/ai-interaction");
     } catch (error) {
@@ -399,7 +626,12 @@ const AgentCreate = () => {
                     <div className="space-y-4 mb-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="name">Nome do Agente *</Label>
+                          <LabelWithTooltip
+                            htmlFor="name"
+                            tooltip="Nome identificador do agente. Este será o nome principal usado para referenciar o agente no sistema e nas conversas."
+                          >
+                            Nome do Agente *
+                          </LabelWithTooltip>
                           <Input
                             id="name"
                             value={agentData.name}
@@ -412,7 +644,12 @@ const AgentCreate = () => {
 
                         <div className="space-y-1">
                           <div className="flex items-center justify-between">
-                            <Label htmlFor="nickname">Apelido (Opcional)</Label>
+                            <LabelWithTooltip
+                              htmlFor="nickname"
+                              tooltip="Apelido usado quando o agente se apresenta ao cliente. Se não preenchido, o nome do agente será usado. Exemplo: 'Olá, eu sou o Dom, seu assistente comercial'."
+                            >
+                              Apelido (Opcional)
+                            </LabelWithTooltip>
                             <span className="text-[10px] text-muted-foreground">
                               Usado quando o agente se apresenta
                             </span>
@@ -433,7 +670,12 @@ const AgentCreate = () => {
 
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <Label htmlFor="description">Descrição</Label>
+                          <LabelWithTooltip
+                            htmlFor="description"
+                            tooltip="Descrição detalhada do agente que será usada para contextualizar sua personalidade, função e comportamento. Pode ser gerada automaticamente pela IA com base no nome, foco e objetivo do agente."
+                          >
+                            Descrição
+                          </LabelWithTooltip>
                           <Button
                             type="button"
                             variant="ghost"
@@ -470,9 +712,12 @@ const AgentCreate = () => {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="conversation_focus">
+                        <LabelWithTooltip
+                          htmlFor="conversation_focus"
+                          tooltip="Define o tema principal das conversas que o agente terá. Isso ajuda a direcionar o contexto e o tipo de interação esperada. Você pode selecionar uma opção pré-definida ou criar um foco personalizado."
+                        >
                           Foco da Conversa *
-                        </Label>
+                        </LabelWithTooltip>
                         <Combobox
                           options={CONVERSATION_FOCUS_OPTIONS}
                           value={agentData.conversation_focus}
@@ -486,9 +731,12 @@ const AgentCreate = () => {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="main_objective">
+                        <LabelWithTooltip
+                          htmlFor="main_objective"
+                          tooltip="O objetivo principal que o agente deve alcançar em cada conversa. Este é o resultado desejado que guiará o comportamento e as estratégias do agente durante as interações."
+                        >
                           Objetivo Principal *
-                        </Label>
+                        </LabelWithTooltip>
                         <Combobox
                           options={MAIN_OBJECTIVE_OPTIONS}
                           value={agentData.main_objective}
@@ -503,7 +751,12 @@ const AgentCreate = () => {
 
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="priority">Prioridade</Label>
+                          <LabelWithTooltip
+                            htmlFor="priority"
+                            tooltip="Define a prioridade de processamento das mensagens deste agente. Agentes com prioridade alta terão preferência no processamento quando houver múltiplas conversas simultâneas."
+                          >
+                            Prioridade
+                          </LabelWithTooltip>
                           <Select
                             value={agentData.priority}
                             onValueChange={(value) =>
@@ -522,7 +775,12 @@ const AgentCreate = () => {
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="tone">Tom de Voz</Label>
+                          <LabelWithTooltip
+                            htmlFor="tone"
+                            tooltip="Define o tom geral de comunicação do agente. O tom influencia como o agente se expressa e se relaciona com os clientes, desde formal e profissional até amigável e empático."
+                          >
+                            Tom de Voz
+                          </LabelWithTooltip>
                           <Select
                             value={agentData.tone}
                             onValueChange={(value) =>
@@ -550,9 +808,12 @@ const AgentCreate = () => {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="rejection_action">
+                        <LabelWithTooltip
+                          htmlFor="rejection_action"
+                          tooltip="Define como o agente deve reagir quando um lead rejeitar uma proposta ou oferta. Isso ajuda a manter a relação profissional e pode abrir oportunidades futuras."
+                        >
                           Ação quando Lead Rejeitar
-                        </Label>
+                        </LabelWithTooltip>
                         <Select
                           value={agentData.rejection_action}
                           onValueChange={(value) =>
@@ -621,9 +882,29 @@ const AgentCreate = () => {
               {currentStep === 3 && (
                 <div className="space-y-6">
                   <div>
-                    <h3 className="text-xl font-semibold mb-4">
-                      Habilidades e Componentes
-                    </h3>
+                    <div className="flex items-center gap-2 mb-4">
+                      <h3 className="text-xl font-semibold">
+                        Habilidades e Componentes
+                      </h3>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <p className="text-sm">
+                              Componentes são habilidades específicas que o
+                              agente pode usar durante as conversas, como
+                              consultar documentos, fazer cálculos, buscar
+                              informações, etc. Selecione e ordene por
+                              prioridade arrastando e soltando. A ordem define
+                              qual componente será usado primeiro quando
+                              múltiplos forem aplicáveis.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
                     <p className="text-sm text-muted-foreground mb-4">
                       Defina quais componentes e habilidades este agente poderá
                       utilizar e a prioridade de cada um.
@@ -635,6 +916,92 @@ const AgentCreate = () => {
                       onSelectionChange={setSelectedComponentIds}
                     />
                   </div>
+
+                  {shouldShowWhatsappInstanceSelector && (
+                    <Card className="p-6 border-primary/20 bg-primary/5">
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                          <LabelWithTooltip tooltip="Selecione qual instância WhatsApp este agente deve usar. Se você tem múltiplas instâncias conectadas, cada agente pode usar uma instância diferente.">
+                            Instância WhatsApp para este Agente
+                          </LabelWithTooltip>
+                        </div>
+                        <Select
+                          value={selectedWhatsappInstanceId || ""}
+                          onValueChange={setSelectedWhatsappInstanceId}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione uma instância WhatsApp..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {whatsappInstances.map((instance) => (
+                              <SelectItem key={instance.id} value={instance.id}>
+                                <div className="flex flex-col">
+                                  <span className="font-medium">
+                                    {instance.instance_name}
+                                  </span>
+                                  {instance.phone_number && (
+                                    <span className="text-xs text-muted-foreground">
+                                      {instance.phone_number}
+                                    </span>
+                                  )}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {!selectedWhatsappInstanceId && (
+                          <p className="text-sm text-destructive">
+                            Você deve selecionar uma instância WhatsApp para
+                            este agente.
+                          </p>
+                        )}
+                      </div>
+                    </Card>
+                  )}
+
+                  {hasWhatsappSelected && whatsappInstances.length === 0 && (
+                    <Card className="p-6 border-yellow-500/20 bg-yellow-500/5">
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400">
+                          Nenhuma instância WhatsApp conectada
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Para usar a habilidade WhatsApp, você precisa ter pelo
+                          menos uma instância conectada.{" "}
+                          <Button
+                            variant="link"
+                            className="h-auto p-0 text-xs"
+                            onClick={() => navigate("/whatsapp")}
+                          >
+                            Conectar instância WhatsApp
+                          </Button>
+                        </p>
+                      </div>
+                    </Card>
+                  )}
+
+                  {hasWhatsappSelected && whatsappInstances.length === 1 && (
+                    <Card className="p-6 border-muted">
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">
+                          Instância WhatsApp selecionada automaticamente
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Como você tem apenas uma instância conectada, ela será
+                          usada automaticamente:{" "}
+                          <span className="font-medium">
+                            {whatsappInstances[0].instance_name}
+                          </span>
+                          {whatsappInstances[0].phone_number && (
+                            <span className="text-muted-foreground">
+                              {" "}
+                              ({whatsappInstances[0].phone_number})
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </Card>
+                  )}
                 </div>
               )}
 
@@ -646,7 +1013,25 @@ const AgentCreate = () => {
                     </h3>
                     <div className="space-y-6">
                       <div className="space-y-2">
-                        <Label>Traços de Personalidade</Label>
+                        <div className="flex items-center gap-2">
+                          <Label>Traços de Personalidade</Label>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p className="text-sm">
+                                  Selecione os traços de personalidade que
+                                  melhor descrevem como o agente deve se
+                                  comportar. Você pode arrastar e soltar para
+                                  ordenar por prioridade. A IA pode sugerir
+                                  traços baseados no contexto do agente.
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
                         <PersonalityTraitsDragDrop
                           traits={agentData.personality_traits}
                           availableTraits={AVAILABLE_TRAITS}
@@ -665,6 +1050,7 @@ const AgentCreate = () => {
                         onChange={(value) =>
                           handleFieldChange("communication_style", value)
                         }
+                        tooltip="Define a abordagem geral de comunicação do agente. Direto foca em objetividade, Consultivo em entender necessidades, Suportivo em empatia, e Equilibrado combina diferentes estilos conforme a situação."
                         options={[
                           {
                             value: "direct",
@@ -699,6 +1085,7 @@ const AgentCreate = () => {
                         onChange={(value) =>
                           handleFieldChange("expertise_level", value)
                         }
+                        tooltip="Define o nível de conhecimento técnico e profundo que o agente demonstra. Níveis mais altos permitem respostas mais detalhadas e técnicas, enquanto níveis mais baixos mantêm a simplicidade."
                         options={[
                           {
                             value: "beginner",
@@ -733,6 +1120,7 @@ const AgentCreate = () => {
                         onChange={(value) =>
                           handleFieldChange("response_length", value)
                         }
+                        tooltip="Controla o tamanho médio das respostas do agente. Respostas curtas são mais diretas, médias oferecem contexto adequado, e longas fornecem explicações detalhadas e completas."
                         options={[
                           { value: "short", label: "Curta", emoji: "📝" },
                           { value: "medium", label: "Média", emoji: "📄" },
@@ -757,6 +1145,7 @@ const AgentCreate = () => {
                         onChange={(value) =>
                           handleFieldChange("empathy_level", value)
                         }
+                        tooltip="Define o quanto o agente demonstra compreensão e sensibilidade às emoções e necessidades do cliente. Níveis mais altos resultam em respostas mais calorosas e acolhedoras."
                         options={[
                           { value: "low", label: "Baixa", emoji: "😐" },
                           { value: "moderate", label: "Moderada", emoji: "🙂" },
@@ -770,6 +1159,7 @@ const AgentCreate = () => {
                         onChange={(value) =>
                           handleFieldChange("formality_level", value)
                         }
+                        tooltip="Controla o grau de formalidade na linguagem. Casual usa linguagem mais descontraída, Profissional mantém um tom equilibrado, e Formal utiliza linguagem mais cerimoniosa e respeitosa."
                         options={[
                           { value: "casual", label: "Casual", emoji: "👕" },
                           {
@@ -787,6 +1177,7 @@ const AgentCreate = () => {
                         onChange={(value) =>
                           handleFieldChange("humor_level", value)
                         }
+                        tooltip="Define se e como o agente usa humor nas conversas. Pode tornar as interações mais leves e agradáveis, mas deve ser usado com cuidado dependendo do contexto e tipo de cliente."
                         options={[
                           { value: "none", label: "Nenhum", emoji: "😐" },
                           { value: "subtle", label: "Sutil", emoji: "😊" },
@@ -801,6 +1192,7 @@ const AgentCreate = () => {
                         onChange={(value) =>
                           handleFieldChange("proactivity_level", value)
                         }
+                        tooltip="Define o quanto o agente toma iniciativa nas conversas. Agentes proativos fazem perguntas, sugerem próximos passos e conduzem a conversa, enquanto passivos respondem principalmente às solicitações do cliente."
                         options={[
                           { value: "passive", label: "Passivo", emoji: "⏸️" },
                           { value: "moderate", label: "Moderado", emoji: "▶️" },
@@ -809,9 +1201,12 @@ const AgentCreate = () => {
                       />
 
                       <div className="space-y-2">
-                        <Label htmlFor="closing_instructions">
+                        <LabelWithTooltip
+                          htmlFor="closing_instructions"
+                          tooltip="Instruções específicas sobre como o agente deve finalizar a conversa quando não conseguir fechar uma venda ou atingir o objetivo principal. Útil para manter uma experiência positiva mesmo em situações de rejeição."
+                        >
                           Instruções de Fechamento (Opcional)
-                        </Label>
+                        </LabelWithTooltip>
                         <Textarea
                           id="closing_instructions"
                           value={agentData.closing_instructions || ""}
@@ -827,9 +1222,12 @@ const AgentCreate = () => {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="additional_instructions">
+                        <LabelWithTooltip
+                          htmlFor="additional_instructions"
+                          tooltip="Instruções adicionais específicas que o agente deve seguir durante as conversas. Use este campo para regras de negócio, políticas específicas, ou comportamentos particulares que não são cobertos pelos outros campos."
+                        >
                           Instruções Adicionais (Opcional)
-                        </Label>
+                        </LabelWithTooltip>
                         <Textarea
                           id="additional_instructions"
                           value={agentData.additional_instructions || ""}

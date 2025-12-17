@@ -94,3 +94,4 @@ EXECUTE FUNCTION public.update_updated_at_column();
 COMMENT ON TABLE public.component_configurations IS 'Stores configuration data (API keys, secrets, etc.) for each component';
 COMMENT ON COLUMN public.component_configurations.config IS 'JSON object containing component-specific configuration settings';
 
+
