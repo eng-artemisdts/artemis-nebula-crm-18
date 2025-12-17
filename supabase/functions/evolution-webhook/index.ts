@@ -502,7 +502,6 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (settings?.n8n_webhook_url) {
-        console.log('Calling n8n webhook:', settings.n8n_webhook_url);
         fetch(settings.n8n_webhook_url, {
           method: 'POST',
           headers: {

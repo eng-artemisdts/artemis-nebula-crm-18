@@ -1,5 +1,23 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { Home, Users, Settings, List, LogOut, FolderKanban, SearchCheck, Bot, Smartphone, CreditCard, Sparkles, FileText, MessageSquare, ChevronRight, Calendar, MessageCircle } from "lucide-react";
+import {
+  Home,
+  Users,
+  Settings,
+  List,
+  LogOut,
+  FolderKanban,
+  SearchCheck,
+  Bot,
+  Smartphone,
+  CreditCard,
+  Sparkles,
+  FileText,
+  MessageSquare,
+  ChevronRight,
+  Calendar,
+  MessageCircle,
+  Brain,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast, useToast } from "@/hooks/use-toast";
@@ -23,8 +41,13 @@ import {
   SidebarInset,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import logo from "@/assets/logo.png";
+import Aurora from "@/components/reactbits/Aurora";
 
 interface MenuItem {
   title: string;
@@ -44,10 +67,14 @@ interface MenuItemWithSubItemsProps {
   isCollapsed: boolean;
 }
 
-const MenuItemWithSubItems = ({ item, location, isCollapsed }: MenuItemWithSubItemsProps) => {
-  const isCategoryActive = item.subItems?.some(
-    (subItem) => location.pathname === subItem.url
-  ) || false;
+const MenuItemWithSubItems = ({
+  item,
+  location,
+  isCollapsed,
+}: MenuItemWithSubItemsProps) => {
+  const isCategoryActive =
+    item.subItems?.some((subItem) => location.pathname === subItem.url) ||
+    false;
   const [isOpen, setIsOpen] = useState(isCategoryActive);
 
   return (
@@ -66,7 +93,11 @@ const MenuItemWithSubItems = ({ item, location, isCollapsed }: MenuItemWithSubIt
             <item.icon className="w-5 h-5 shrink-0" />
             {!isCollapsed && <span className="font-medium">{item.title}</span>}
             {!isCollapsed && (
-              <ChevronRight className={`ml-auto w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
+              <ChevronRight
+                className={`ml-auto w-4 h-4 transition-transform duration-200 ${
+                  isOpen ? "rotate-90" : ""
+                }`}
+              />
             )}
           </SidebarMenuButton>
         </CollapsibleTrigger>
@@ -78,7 +109,11 @@ const MenuItemWithSubItems = ({ item, location, isCollapsed }: MenuItemWithSubIt
                   asChild
                   isActive={location.pathname === subItem.url}
                   disabled={subItem.comingSoon}
-                  className={subItem.comingSoon ? "opacity-60 cursor-not-allowed" : undefined}
+                  className={
+                    subItem.comingSoon
+                      ? "opacity-60 cursor-not-allowed"
+                      : undefined
+                  }
                 >
                   <NavLink
                     to={subItem.comingSoon ? "#" : subItem.url}
@@ -119,22 +154,40 @@ const menuItems: MenuItem[] = [
     subItems: [
       { title: "Todos os Leads", url: "/leads", icon: List },
       { title: "Buscar Leads", url: "/lead-search", icon: SearchCheck },
-      { title: "Agendar Interações", url: "/schedule-interactions", icon: Calendar },
+      {
+        title: "Agendar Interações",
+        url: "/schedule-interactions",
+        icon: Calendar,
+      },
     ],
   },
   {
     title: "Inteligência Artificial",
     icon: Bot,
     subItems: [
-      { title: "Configurar IA Padrão", url: "/ai-configuration", icon: Sparkles },
+      {
+        title: "Configurar IA Padrão",
+        url: "/ai-configuration",
+        icon: Sparkles,
+      },
       { title: "Interações com IA", url: "/ai-interaction", icon: Bot },
+      { title: "Habilidades e Integrações", url: "/abilities", icon: Bot },
+      {
+        title: "Documentação e Contexto",
+        url: "/ai-context-documents",
+        icon: Brain,
+      },
     ],
   },
   {
     title: "Mensagens",
     icon: MessageSquare,
     subItems: [
-      { title: "Mensagem Padrão", url: "/message-configuration", icon: MessageSquare },
+      {
+        title: "Mensagem Padrão",
+        url: "/message-configuration",
+        icon: MessageSquare,
+      },
       { title: "Chat", url: "/chat", icon: MessageCircle, comingSoon: true },
       { title: "Conectar WhatsApp", url: "/whatsapp", icon: Smartphone },
     ],
@@ -144,7 +197,11 @@ const menuItems: MenuItem[] = [
     icon: FolderKanban,
     subItems: [
       { title: "Categorias", url: "/categories", icon: Users },
-      { title: "Gerenciar Categorias", url: "/category-manager", icon: FolderKanban },
+      {
+        title: "Gerenciar Categorias",
+        url: "/category-manager",
+        icon: FolderKanban,
+      },
       { title: "Gerenciar Status", url: "/status-manager", icon: List },
     ],
   },
@@ -185,22 +242,31 @@ function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarContent>
         {/* Logo */}
-        <div className={`border-b border-border bg-gradient-to-br from-primary/5 to-accent/5 transition-all ${isCollapsed ? 'p-2' : 'p-8'}`}>
+        <div
+          className={`border-b border-border bg-gradient-to-br from-primary/5 to-accent/5 transition-all ${
+            isCollapsed ? "p-2" : "p-8"
+          }`}
+        >
           <NavLink to="/dashboard" className="block group">
             <div className="relative flex items-center justify-center">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-accent/30 blur-2xl opacity-50 group-hover:opacity-100 transition-opacity duration-500"></div>
               <img
                 src={displayLogo}
                 alt={displayCompanyName || "Logo"}
-                className={`relative z-10 transition-all duration-500 group-hover:scale-105 drop-shadow-2xl object-contain ${isCollapsed ? 'w-10 h-10' : 'w-[200px] h-[200px]'
-                  }`}
+                className={`relative z-10 transition-all duration-500 group-hover:scale-105 drop-shadow-2xl object-contain ${
+                  isCollapsed ? "w-10 h-10" : "w-[200px] h-[200px]"
+                }`}
               />
             </div>
           </NavLink>
           {!isCollapsed && !organizationLoading && displayCompanyName && (
             <div className="mt-4 text-center">
-              <p className="text-sm font-semibold text-foreground">{displayCompanyName}</p>
-              <p className="text-xs text-muted-foreground capitalize">{displayPlan}</p>
+              <p className="text-sm font-semibold text-foreground">
+                {displayCompanyName}
+              </p>
+              <p className="text-xs text-muted-foreground capitalize">
+                {displayPlan}
+              </p>
             </div>
           )}
           {!isCollapsed && organizationLoading && (
@@ -236,7 +302,9 @@ function AppSidebar() {
                     >
                       <NavLink to={item.url || "#"}>
                         <item.icon className="w-5 h-5 shrink-0" />
-                        {!isCollapsed && <span className="font-medium">{item.title}</span>}
+                        {!isCollapsed && (
+                          <span className="font-medium">{item.title}</span>
+                        )}
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -248,28 +316,35 @@ function AppSidebar() {
 
         {/* Plan Section */}
         <div className="mt-auto p-4 border-t border-border space-y-3">
-          {!isCollapsed && !organizationLoading && organization?.plan === "free" && (
-            <div className="bg-gradient-to-br from-primary/10 to-accent/10 p-3 rounded-lg border border-primary/20">
-              <div className="flex items-center gap-2 mb-2">
-                <CreditCard className="h-4 w-4 text-primary" />
-                <span className="text-xs font-semibold text-muted-foreground">Plano Atual</span>
+          {!isCollapsed &&
+            !organizationLoading &&
+            organization?.plan === "free" && (
+              <div className="bg-gradient-to-br from-primary/10 to-accent/10 p-3 rounded-lg border border-primary/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <CreditCard className="h-4 w-4 text-primary" />
+                  <span className="text-xs font-semibold text-muted-foreground">
+                    Plano Atual
+                  </span>
+                </div>
+                <p className="text-sm font-bold text-foreground capitalize mb-3">
+                  {displayPlan}
+                </p>
+                <Button
+                  size="sm"
+                  className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+                  onClick={() => setIsPlanModalOpen(true)}
+                >
+                  Upgrade para Premium
+                </Button>
               </div>
-              <p className="text-sm font-bold text-foreground capitalize mb-3">{displayPlan}</p>
-              <Button
-                size="sm"
-                className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
-                onClick={() => setIsPlanModalOpen(true)}
-              >
-                Upgrade para Premium
-              </Button>
-            </div>
-          )}
+            )}
 
           {/* Logout Button */}
           <Button
             variant="ghost"
-            className={`w-full gap-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 ${isCollapsed ? 'justify-center px-2' : 'justify-start'
-              }`}
+            className={`w-full gap-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 ${
+              isCollapsed ? "justify-center px-2" : "justify-start"
+            }`}
             onClick={handleLogout}
           >
             <LogOut className="h-5 w-5 shrink-0" />
@@ -291,14 +366,32 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       <div className="min-h-screen flex w-full bg-background">
         <AppSidebar />
 
-        <SidebarInset className="flex flex-col">
+        <SidebarInset className="flex flex-col relative !bg-transparent">
+          {/* Aurora Background */}
+          <div
+            className="absolute inset-0 pointer-events-none overflow-hidden"
+            style={{ zIndex: 1 }}
+          >
+            <Aurora
+              colorStops={["#3A29FF", "#FF94B4", "#FF3232"]}
+              blend={0.5}
+              amplitude={1.0}
+              speed={0.5}
+            />
+          </div>
+
           {/* Header with trigger */}
           <header className="h-14 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-40 flex items-center justify-between px-4">
             <SidebarTrigger />
           </header>
 
           {/* Main Content */}
-          <main className="flex-1 p-8 overflow-auto">{children}</main>
+          <main
+            className="flex-1 p-8 overflow-auto relative"
+            style={{ zIndex: 10 }}
+          >
+            {children}
+          </main>
         </SidebarInset>
       </div>
     </SidebarProvider>

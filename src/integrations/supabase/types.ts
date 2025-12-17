@@ -17,43 +17,74 @@ export type Database = {
       ai_interaction_settings: {
         Row: {
           additional_instructions: string | null
+          agent_avatar_url: string | null
+          agent_color: string
+          agent_description: string | null
           closing_instructions: string | null
+          communication_style: string
           conversation_focus: string
           created_at: string
+          empathy_level: string
+          expertise_level: string
+          formality_level: string
+          humor_level: string
           id: string
           main_objective: string
           name: string
           organization_id: string | null
+          personality_traits: string[] | null
           priority: string
+          proactivity_level: string
           rejection_action: string
+          response_length: string
           tone: string
           updated_at: string
         }
         Insert: {
           additional_instructions?: string | null
+          agent_avatar_url?: string | null
+          agent_color?: string
+          agent_description?: string | null
           closing_instructions?: string | null
+          communication_style?: string
           conversation_focus: string
-          created_at?: string
+          empathy_level?: string
+          expertise_level?: string
+          formality_level?: string
+          humor_level?: string
           id?: string
           main_objective: string
           name: string
           organization_id?: string | null
+          personality_traits?: string[] | null
           priority?: string
+          proactivity_level?: string
           rejection_action?: string
+          response_length?: string
           tone?: string
           updated_at?: string
         }
         Update: {
           additional_instructions?: string | null
+          agent_avatar_url?: string | null
+          agent_color?: string
+          agent_description?: string | null
           closing_instructions?: string | null
+          communication_style?: string
           conversation_focus?: string
-          created_at?: string
+          empathy_level?: string
+          expertise_level?: string
+          formality_level?: string
+          humor_level?: string
           id?: string
           main_objective?: string
           name?: string
           organization_id?: string | null
+          personality_traits?: string[] | null
           priority?: string
+          proactivity_level?: string
           rejection_action?: string
+          response_length?: string
           tone?: string
           updated_at?: string
         }
