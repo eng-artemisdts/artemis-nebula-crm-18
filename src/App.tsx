@@ -28,6 +28,9 @@ import NotFound from "./pages/NotFound";
 import ChatComingSoon from "./pages/ChatComingSoon";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AbilitiesConfiguration } from "./pages/AbilitiesConfiguration";
+import { OAuthCallback } from "./pages/OAuthCallback";
+import { Calendar } from "./pages/Calendar";
+import Playground from "./pages/Playground";
 
 const queryClient = new QueryClient();
 
@@ -202,6 +205,14 @@ const App = () => (
               }
             />
             <Route
+              path="/calendar"
+              element={
+                <ProtectedRoute>
+                  <Calendar />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/chat"
               element={
                 <ProtectedRoute>
@@ -209,6 +220,15 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/playground"
+              element={
+                <ProtectedRoute>
+                  <Playground />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/oauth/callback" element={<OAuthCallback />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

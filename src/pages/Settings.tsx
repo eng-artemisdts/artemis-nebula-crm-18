@@ -4,12 +4,30 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Save, Settings as SettingsIcon, Building2, Upload, CreditCard, Bot, Moon, Sun, Monitor } from "lucide-react";
+import {
+  Save,
+  Settings as SettingsIcon,
+  Building2,
+  Upload,
+  CreditCard,
+  Bot,
+  Moon,
+  Sun,
+  Monitor,
+  Trash2,
+} from "lucide-react";
 import { useOrganization } from "@/hooks/useOrganization";
 import { PlanModal } from "@/components/PlanModal";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useTheme } from "next-themes";
 
 const Settings = () => {
@@ -36,6 +54,7 @@ const Settings = () => {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
+  const [isDeleteLogoDialogOpen, setIsDeleteLogoDialogOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -63,7 +82,8 @@ const Settings = () => {
       if (data) {
         setSettings({
           id: data.id,
-          default_integration_start_time: data.default_integration_start_time?.slice(0, 5) || "09:00",
+          default_integration_start_time:
+            data.default_integration_start_time?.slice(0, 5) || "09:00",
           n8n_webhook_url: data.n8n_webhook_url || "",
           default_ai_interaction_id: data.default_ai_interaction_id || "",
         });
@@ -137,30 +157,30 @@ const Settings = () => {
     setUploadingLogo(true);
 
     try {
-      const fileExt = logoFile.name.split('.').pop();
+      const fileExt = logoFile.name.split(".").pop();
       const fileName = `${organization.id}/${Date.now()}.${fileExt}`;
 
-      console.log('Iniciando upload da logo:', fileName);
+      console.log("Iniciando upload da logo:", fileName);
 
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('organization-logos')
+        .from("organization-logos")
         .upload(fileName, logoFile, {
-          cacheControl: '3600',
-          upsert: true
+          cacheControl: "3600",
+          upsert: true,
         });
 
       if (uploadError) {
-        console.error('Erro no upload:', uploadError);
+        console.error("Erro no upload:", uploadError);
         throw new Error(`Erro ao fazer upload: ${uploadError.message}`);
       }
 
-      console.log('Upload concluído:', uploadData);
+      console.log("Upload concluído:", uploadData);
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('organization-logos')
-        .getPublicUrl(fileName);
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("organization-logos").getPublicUrl(fileName);
 
-      console.log('URL pública gerada:', publicUrl);
+      console.log("URL pública gerada:", publicUrl);
 
       const { data: updateData, error: updateError } = await supabase
         .from("organizations")
@@ -169,28 +189,82 @@ const Settings = () => {
         .select();
 
       if (updateError) {
-        console.error('Erro ao atualizar organização:', updateError);
+        console.error("Erro ao atualizar organização:", updateError);
         throw new Error(`Erro ao salvar logo: ${updateError.message}`);
       }
 
       if (!updateData || updateData.length === 0) {
-        throw new Error('Nenhuma organização foi atualizada');
+        throw new Error("Nenhuma organização foi atualizada");
       }
 
-      console.log('Organização atualizada:', updateData);
+      console.log("Organização atualizada:", updateData);
 
       toast.success("Logo atualizada com sucesso!");
       setLogoFile(null);
       setLogoPreview(publicUrl);
 
-      window.dispatchEvent(new CustomEvent('organization-updated'));
+      window.dispatchEvent(new CustomEvent("organization-updated"));
 
       setTimeout(() => {
         window.location.reload();
       }, 1500);
     } catch (error: any) {
-      console.error('Erro completo:', error);
+      console.error("Erro completo:", error);
       toast.error(error.message || "Erro ao fazer upload da logo");
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleLogoDelete = async () => {
+    if (!organization || !logoPreview) return;
+    setUploadingLogo(true);
+
+    try {
+      const { data: files, error: listError } = await supabase.storage
+        .from("organization-logos")
+        .list(organization.id);
+
+      if (listError) {
+        console.error("Erro ao listar arquivos:", listError);
+      } else if (files && files.length > 0) {
+        const filePaths = files.map(
+          (file) => `${organization.id}/${file.name}`
+        );
+
+        const { error: deleteError } = await supabase.storage
+          .from("organization-logos")
+          .remove(filePaths);
+
+        if (deleteError) {
+          console.error("Erro ao deletar arquivos:", deleteError);
+          throw new Error(`Erro ao deletar logo: ${deleteError.message}`);
+        }
+      }
+
+      const { error: updateError } = await supabase
+        .from("organizations")
+        .update({ logo_url: null })
+        .eq("id", organization.id);
+
+      if (updateError) {
+        console.error("Erro ao atualizar organização:", updateError);
+        throw new Error(`Erro ao remover logo: ${updateError.message}`);
+      }
+
+      toast.success("Logo excluída com sucesso!");
+      setLogoPreview(null);
+      setLogoFile(null);
+      setIsDeleteLogoDialogOpen(false);
+
+      window.dispatchEvent(new CustomEvent("organization-updated"));
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    } catch (error: any) {
+      console.error("Erro completo:", error);
+      toast.error(error.message || "Erro ao excluir a logo");
     } finally {
       setUploadingLogo(false);
     }
@@ -205,7 +279,9 @@ const Settings = () => {
           </div>
           <div>
             <h1 className="text-3xl font-bold">Configurações</h1>
-            <p className="text-muted-foreground">Gerencie as configurações globais do sistema</p>
+            <p className="text-muted-foreground">
+              Gerencie as configurações globais do sistema
+            </p>
           </div>
         </div>
 
@@ -221,12 +297,25 @@ const Settings = () => {
 
             <div className="space-y-2">
               <Label htmlFor="theme">Tema da Aplicação</Label>
-              <Select value={mounted ? currentTheme : "dark"} onValueChange={(value) => mounted && setTheme(value)}>
-                <SelectTrigger id="theme" className="w-full" disabled={!mounted}>
+              <Select
+                value={mounted ? currentTheme : "dark"}
+                onValueChange={(value) => mounted && setTheme(value)}
+              >
+                <SelectTrigger
+                  id="theme"
+                  className="w-full"
+                  disabled={!mounted}
+                >
                   <div className="flex items-center gap-2 flex-1">
-                    {currentTheme === "light" && <Sun className="w-4 h-4 shrink-0" />}
-                    {currentTheme === "dark" && <Moon className="w-4 h-4 shrink-0" />}
-                    {currentTheme === "system" && <Monitor className="w-4 h-4 shrink-0" />}
+                    {currentTheme === "light" && (
+                      <Sun className="w-4 h-4 shrink-0" />
+                    )}
+                    {currentTheme === "dark" && (
+                      <Moon className="w-4 h-4 shrink-0" />
+                    )}
+                    {currentTheme === "system" && (
+                      <Monitor className="w-4 h-4 shrink-0" />
+                    )}
                     <span>
                       {currentTheme === "light" && "Claro"}
                       {currentTheme === "dark" && "Escuro"}
@@ -259,7 +348,8 @@ const Settings = () => {
                 )}
               </Select>
               <p className="text-xs text-muted-foreground">
-                Escolha entre tema claro, escuro ou seguir a preferência do sistema
+                Escolha entre tema claro, escuro ou seguir a preferência do
+                sistema
               </p>
             </div>
           </Card>
@@ -306,11 +396,25 @@ const Settings = () => {
                 <Label htmlFor="company_logo">Logo da Empresa</Label>
                 <div className="flex items-center gap-4">
                   {logoPreview && (
-                    <img
-                      src={logoPreview}
-                      alt="Logo preview"
-                      className="w-20 h-20 object-contain rounded-lg border border-border"
-                    />
+                    <div className="relative">
+                      <img
+                        src={logoPreview}
+                        alt="Logo preview"
+                        className="w-20 h-20 object-contain rounded-lg border border-border"
+                      />
+                      {!logoFile && (
+                        <Button
+                          type="button"
+                          onClick={() => setIsDeleteLogoDialogOpen(true)}
+                          disabled={uploadingLogo}
+                          size="sm"
+                          variant="destructive"
+                          className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      )}
+                    </div>
                   )}
                   <div className="flex-1">
                     <Input
@@ -344,7 +448,10 @@ const Settings = () => {
                   id="company_name"
                   value={companyInfo.company_name}
                   onChange={(e) =>
-                    setCompanyInfo({ ...companyInfo, company_name: e.target.value })
+                    setCompanyInfo({
+                      ...companyInfo,
+                      company_name: e.target.value,
+                    })
                   }
                 />
               </div>
@@ -414,7 +521,9 @@ const Settings = () => {
           <form onSubmit={handleSave} className="space-y-6">
             <Card className="p-6 space-y-4">
               <div>
-                <h3 className="text-lg font-semibold mb-4">Configurações Gerais</h3>
+                <h3 className="text-lg font-semibold mb-4">
+                  Configurações Gerais
+                </h3>
 
                 <div className="space-y-4">
                   <div className="space-y-2">
@@ -433,7 +542,8 @@ const Settings = () => {
                       }
                     />
                     <p className="text-xs text-muted-foreground">
-                      Horário padrão usado para novos leads (pode ser alterado individualmente)
+                      Horário padrão usado para novos leads (pode ser alterado
+                      individualmente)
                     </p>
                   </div>
 
@@ -466,14 +576,27 @@ const Settings = () => {
                   Dicas de Integração
                 </h3>
                 <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                  <li>Configure o webhook do n8n para receber informações dos leads</li>
-                  <li>Use o horário de integração para agendar automações diárias</li>
-                  <li>O horário pode ser personalizado para cada lead individualmente</li>
+                  <li>
+                    Configure o webhook do n8n para receber informações dos
+                    leads
+                  </li>
+                  <li>
+                    Use o horário de integração para agendar automações diárias
+                  </li>
+                  <li>
+                    O horário pode ser personalizado para cada lead
+                    individualmente
+                  </li>
                 </ul>
               </div>
             </Card>
 
-            <Button type="submit" disabled={loading} size="lg" className="w-full gap-2">
+            <Button
+              type="submit"
+              disabled={loading}
+              size="lg"
+              className="w-full gap-2"
+            >
               <Save className="w-4 h-4" />
               Salvar Configurações
             </Button>
@@ -482,6 +605,17 @@ const Settings = () => {
       </div>
 
       <PlanModal open={isPlanModalOpen} onOpenChange={setIsPlanModalOpen} />
+
+      <ConfirmDialog
+        open={isDeleteLogoDialogOpen}
+        onOpenChange={setIsDeleteLogoDialogOpen}
+        onConfirm={handleLogoDelete}
+        title="Excluir Logo"
+        description="Tem certeza que deseja excluir a logo da empresa? Esta ação não pode ser desfeita."
+        confirmText="Excluir"
+        cancelText="Cancelar"
+        variant="destructive"
+      />
     </Layout>
   );
 };

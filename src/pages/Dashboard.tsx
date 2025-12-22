@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { MessagePreviewDialog } from "@/components/MessagePreviewDialog";
-import { Users, DollarSign, TrendingUp, Target, Plus, Clock, Mail, MessageSquare, AlertCircle, Search, X, LayoutGrid, Table2, Send } from "lucide-react";
+import { Users, DollarSign, TrendingUp, Target, Plus, Clock, Mail, MessageSquare, AlertCircle, Search, X, LayoutGrid, Table2, Send, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -1081,7 +1081,14 @@ Se quiser saber mais, é só acessar:
             </div>
           )}
 
-          {viewMode === "kanban" ? (
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="flex flex-col items-center gap-4">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">Carregando funil de vendas...</p>
+              </div>
+            </div>
+          ) : viewMode === "kanban" ? (
             <DndContext
               sensors={sensors}
               onDragStart={handleDragStart}
@@ -1139,9 +1146,9 @@ Se quiser saber mais, é só acessar:
                   </div>
                 </div>
               )}
-              <div className="border rounded-lg overflow-hidden">
+              <div className="border rounded-lg overflow-hidden bg-card/50 backdrop-blur-sm">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="bg-muted/30">
                     <TableRow>
                       <TableHead className="w-12">
                         <Checkbox

@@ -95,3 +95,10 @@ COMMENT ON TABLE public.component_configurations IS 'Stores configuration data (
 COMMENT ON COLUMN public.component_configurations.config IS 'JSON object containing component-specific configuration settings';
 
 
+
+
+
+
+
+
+
