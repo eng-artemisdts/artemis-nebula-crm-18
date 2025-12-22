@@ -422,6 +422,8 @@ Deno.serve(async (req) => {
 
     let aiConfig = null;
     let aiInteractionId: string | null = null;
+    let agentComponents: any[] = [];
+    let agentComponentConfigurations: any[] = [];
 
     if (lead) {
       if (lead.ai_interaction_id) {
@@ -448,6 +450,60 @@ Deno.serve(async (req) => {
 
         if (!aiError && aiInteraction) {
           aiConfig = aiInteraction;
+          console.log('AI config loaded with all fields:', {
+            id: aiInteraction.id,
+            name: aiInteraction.name,
+            hasPersonalityTraits: !!aiInteraction.personality_traits,
+            communicationStyle: aiInteraction.communication_style,
+            expertiseLevel: aiInteraction.expertise_level,
+            agentColor: aiInteraction.agent_color,
+            agentDescription: aiInteraction.agent_description,
+            empathyLevel: aiInteraction.empathy_level,
+            formalityLevel: aiInteraction.formality_level,
+            humorLevel: aiInteraction.humor_level,
+            proactivityLevel: aiInteraction.proactivity_level,
+            responseLength: aiInteraction.response_length,
+          });
+
+          const { data: components, error: componentsError } = await supabase
+            .from('agent_components')
+            .select(`
+              id,
+              agent_id,
+              component_id,
+              created_at,
+              components(*)
+            `)
+            .eq('agent_id', aiInteractionId);
+
+          if (!componentsError && components) {
+            agentComponents = components;
+            console.log('Agent components loaded:', components.length);
+          } else if (componentsError) {
+            console.error('Error loading agent components:', componentsError);
+          }
+
+          const { data: configurations, error: configsError } = await supabase
+            .from('agent_component_configurations')
+            .select(`
+              id,
+              agent_id,
+              component_id,
+              config,
+              created_at,
+              updated_at,
+              components(*)
+            `)
+            .eq('agent_id', aiInteractionId);
+
+          if (!configsError && configurations) {
+            agentComponentConfigurations = configurations;
+            console.log('Agent component configurations loaded:', configurations.length);
+          } else if (configsError) {
+            console.error('Error loading agent component configurations:', configsError);
+          }
+        } else if (aiError) {
+          console.error('Error loading AI config:', aiError);
         }
       }
     }
@@ -482,6 +538,8 @@ Deno.serve(async (req) => {
       lead: lead || null,
       organization: organization || null,
       ai_config: aiConfig,
+      agent_components: agentComponents,
+      agent_component_configurations: agentComponentConfigurations,
       lead_statuses: leadStatuses,
       messageType: messageType,
       conversation: conversation,
@@ -513,6 +571,8 @@ Deno.serve(async (req) => {
             lead: lead,
             organization: organization,
             ai_config: aiConfig,
+            agent_components: agentComponents,
+            agent_component_configurations: agentComponentConfigurations,
             lead_statuses: leadStatuses,
             message: payload.data?.message,
             messageType: messageType,

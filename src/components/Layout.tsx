@@ -17,6 +17,7 @@ import {
   Calendar,
   MessageCircle,
   Brain,
+  Play,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -176,6 +177,11 @@ const menuItems: MenuItem[] = [
         title: "Documentação e Contexto",
         url: "/ai-context-documents",
         icon: Brain,
+      },
+      {
+        title: "Playground",
+        url: "/playground",
+        icon: Play,
       },
     ],
   },
