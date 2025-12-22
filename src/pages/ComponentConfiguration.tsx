@@ -46,9 +46,14 @@ export const ComponentConfiguration = () => {
   useEffect(() => {
     if (id) {
       loadComponent();
-      loadConfiguration();
     }
   }, [id]);
+
+  useEffect(() => {
+    if (id && component) {
+      loadConfiguration();
+    }
+  }, [id, component]);
 
   const loadComponent = async () => {
     if (!id) return;
@@ -76,15 +81,19 @@ export const ComponentConfiguration = () => {
         .from("component_configurations")
         .select("*")
         .eq("component_id", id)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== "PGRST116") {
-        throw error;
+      if (error) {
+        console.error("Erro ao carregar configuração:", error);
+        return;
       }
 
       if (data?.config) {
         setConfig(data.config);
         updateConnectionStatus(data.config);
+      } else {
+        setConfig({});
+        setConnectionStatus({ connected: false });
       }
     } catch (error) {
       console.error("Erro ao carregar configuração:", error);
@@ -92,11 +101,18 @@ export const ComponentConfiguration = () => {
   };
 
   const updateConnectionStatus = (configData: ComponentConfig) => {
-    if (!component) return;
+    if (!component) {
+      return;
+    }
 
     const status: ConnectionStatus = {
       connected: false,
     };
+
+    if (!configData || Object.keys(configData).length === 0) {
+      setConnectionStatus(status);
+      return;
+    }
 
     switch (component.identifier) {
       case "email_sender":
@@ -116,43 +132,91 @@ export const ComponentConfiguration = () => {
         }
         break;
       default:
-        if (configData.connected) {
+        if (
+          configData.connected ||
+          (configData.oauth_provider && configData.oauth_token)
+        ) {
           status.connected = true;
-          status.provider = configData.provider;
+          status.provider = configData.oauth_provider || configData.provider;
+          status.email = configData.connected_email;
+          status.accountName = configData.account_name;
         }
     }
 
     setConnectionStatus(status);
   };
 
+  useEffect(() => {
+    if (component && Object.keys(config).length > 0) {
+      updateConnectionStatus(config);
+    }
+  }, [component]);
+
   const handleOAuthConnect = async (provider: string) => {
     if (!id || !component) return;
 
     setConnecting(true);
     try {
-      const { data, error } = await supabase.functions.invoke(
-        `oauth-connect-${component.identifier}`,
-        {
-          body: {
-            component_id: id,
-            provider,
-          },
-        }
-      );
+      const frontendUrl = window.location.origin;
+      const { data, error } = await supabase.functions.invoke("oauth-connect", {
+        body: {
+          component_id: id,
+          provider,
+          frontend_url: frontendUrl,
+        },
+      });
 
       if (error) throw error;
 
       if (data?.auth_url) {
-        window.location.href = data.auth_url;
+        const popup = window.open(
+          data.auth_url,
+          "oauth-connect",
+          "width=600,height=700,scrollbars=yes,resizable=yes"
+        );
+
+        if (!popup) {
+          toast.error("Por favor, permita pop-ups para este site");
+          setConnecting(false);
+          return;
+        }
+
+        const messageHandler = (event: MessageEvent) => {
+          if (event.data?.type === "oauth-success") {
+            clearInterval(checkPopup);
+            if (popup && !popup.closed) {
+              popup.close();
+            }
+            window.removeEventListener("message", messageHandler);
+            setConnecting(false);
+            setTimeout(async () => {
+              await loadConfiguration();
+              toast.success("Conexão realizada com sucesso!");
+            }, 1000);
+          }
+        };
+
+        window.addEventListener("message", messageHandler);
+
+        const checkPopup = setInterval(() => {
+          if (popup.closed) {
+            clearInterval(checkPopup);
+            window.removeEventListener("message", messageHandler);
+            setConnecting(false);
+            setTimeout(async () => {
+              await loadConfiguration();
+            }, 1000);
+          }
+        }, 1000);
       } else {
         toast.error("Erro ao iniciar conexão OAuth");
+        setConnecting(false);
       }
     } catch (error: any) {
       toast.error(
         error.message || "Erro ao conectar. Tente novamente mais tarde."
       );
       console.error(error);
-    } finally {
       setConnecting(false);
     }
   };

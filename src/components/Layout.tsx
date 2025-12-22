@@ -47,7 +47,6 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import logo from "@/assets/logo.png";
-import Aurora from "@/components/reactbits/Aurora";
 
 interface MenuItem {
   title: string;
@@ -148,6 +147,7 @@ const MenuItemWithSubItems = ({
 
 const menuItems: MenuItem[] = [
   { title: "Painel", url: "/dashboard", icon: Home },
+  { title: "Calendário", url: "/calendar", icon: Calendar },
   {
     title: "Leads",
     icon: List,
@@ -362,23 +362,25 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const { organization, loading: organizationLoading } = useOrganization();
 
   return (
-    <SidebarProvider defaultOpen={true}>
+    <SidebarProvider defaultOpen={false}>
       <div className="min-h-screen flex w-full bg-background">
         <AppSidebar />
 
         <SidebarInset className="flex flex-col relative !bg-transparent">
-          {/* Aurora Background */}
-          <div
-            className="absolute inset-0 pointer-events-none overflow-hidden"
-            style={{ zIndex: 1 }}
-          >
-            <Aurora
-              colorStops={["#3A29FF", "#FF94B4", "#FF3232"]}
-              blend={0.5}
-              amplitude={1.0}
-              speed={0.5}
-            />
-          </div>
+          {/* Animated background elements */}
+          <div className="absolute inset-0 bg-gradient-to-br from-cosmic-glow/25 via-primary/12 via-background via-60% to-cosmic-accent/25" style={{ zIndex: 1 }} />
+          
+          {/* Gradient waves */}
+          <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-cosmic-glow/15 to-transparent blur-2xl pointer-events-none" style={{ zIndex: 1 }} />
+          <div className="absolute bottom-0 right-0 w-full h-1/2 bg-gradient-to-t from-cosmic-accent/15 to-transparent blur-2xl pointer-events-none" style={{ zIndex: 1 }} />
+          
+          {/* Diagonal gradient accents */}
+          <div className="absolute top-0 left-0 w-1/3 h-full bg-gradient-to-r from-primary/10 via-transparent to-transparent blur-xl pointer-events-none animate-pulse" style={{ zIndex: 1 }} />
+          <div className="absolute bottom-0 right-0 w-1/3 h-full bg-gradient-to-l from-cosmic-accent/10 via-transparent to-transparent blur-xl pointer-events-none animate-pulse" style={{ zIndex: 1, animationDelay: "1.5s" }} />
+          
+          {/* Subtle corner accents */}
+          <div className="absolute top-0 right-0 w-[600px] h-[400px] bg-gradient-to-bl from-cosmic-glow/8 via-transparent to-transparent rounded-bl-[100px] blur-3xl pointer-events-none" style={{ zIndex: 1 }} />
+          <div className="absolute bottom-0 left-0 w-[500px] h-[350px] bg-gradient-to-tr from-cosmic-accent/8 via-transparent to-transparent rounded-tr-[100px] blur-3xl pointer-events-none animate-glow-pulse" style={{ zIndex: 1 }} />
 
           {/* Header with trigger */}
           <header className="h-14 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-40 flex items-center justify-between px-4">
