@@ -464,6 +464,7 @@ Deno.serve(async (req) => {
             proactivityLevel: aiInteraction.proactivity_level,
             responseLength: aiInteraction.response_length,
           });
+          console.log('Full AI config object:', JSON.stringify(aiConfig, null, 2));
 
           const { data: components, error: componentsError } = await supabase
             .from('agent_components')

@@ -187,9 +187,7 @@ const Playground = () => {
   const [agentComponents, setAgentComponents] = useState<AgentComponent[]>([]);
   const [agentComponentConfigurations, setAgentComponentConfigurations] =
     useState<AgentComponentConfiguration[]>([]);
-  const [mockLeadId] = useState(
-    () => `lead-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-  );
+  const [playgroundLeadId, setPlaygroundLeadId] = useState<string | null>(null);
   const componentRepository = useMemo(() => new ComponentRepository(), []);
 
   const sensors = useSensors(
@@ -249,9 +247,105 @@ const Playground = () => {
     }
   }, [organization?.id, componentRepository]);
 
+  const createOrGetPlaygroundLead = useCallback(async () => {
+    if (!organization?.id) return;
+
+    try {
+      const testPhoneNumber = "553189572307";
+      const testRemoteJid = `${testPhoneNumber}@s.whatsapp.net`;
+      const testLeadName = `[PLAYGROUND] Lead de Teste - ${
+        organization.name || "Organização"
+      }`;
+
+      const { data: existingTestLead, error: findError } = await supabase
+        .from("leads")
+        .select("id")
+        .eq("contact_whatsapp", testPhoneNumber)
+        .eq("organization_id", organization.id)
+        .eq("source", "playground")
+        .like("name", "[PLAYGROUND]%")
+        .maybeSingle();
+
+      if (findError && findError.code !== "PGRST116") {
+        console.error("Erro ao buscar lead de teste:", findError);
+        return;
+      }
+
+      if (existingTestLead) {
+        setPlaygroundLeadId(existingTestLead.id);
+
+        const { error: updateError } = await supabase
+          .from("leads")
+          .update({
+            name: testLeadName,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingTestLead.id);
+
+        if (updateError) {
+          console.error("Erro ao atualizar lead de teste:", updateError);
+        }
+        return;
+      }
+
+      const { data: newLead, error: createError } = await supabase
+        .from("leads")
+        .insert({
+          name: testLeadName,
+          contact_whatsapp: testPhoneNumber,
+          status: "conversation_started",
+          organization_id: organization.id,
+          whatsapp_verified: true,
+          source: "playground",
+          remote_jid: testRemoteJid,
+        })
+        .select("id")
+        .single();
+
+      if (createError) {
+        console.error("Erro ao criar lead de teste:", createError);
+        toast.error("Erro ao criar lead de teste no playground");
+        return;
+      }
+
+      if (newLead) {
+        setPlaygroundLeadId(newLead.id);
+      }
+    } catch (error) {
+      console.error("Erro ao criar/buscar lead de teste:", error);
+    }
+  }, [organization?.id, organization?.name]);
+
+  const cleanupOldTestLeads = useCallback(async () => {
+    if (!organization?.id) return;
+
+    try {
+      const oneDayAgo = new Date();
+      oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+
+      const { error } = await supabase
+        .from("leads")
+        .delete()
+        .eq("organization_id", organization.id)
+        .eq("source", "playground")
+        .like("name", "[PLAYGROUND]%")
+        .lt("created_at", oneDayAgo.toISOString());
+
+      if (error) {
+        console.error("Erro ao limpar leads de teste antigos:", error);
+      }
+    } catch (error) {
+      console.error("Erro ao limpar leads de teste:", error);
+    }
+  }, [organization?.id]);
+
   useEffect(() => {
     fetchAgents();
-  }, [fetchAgents]);
+    createOrGetPlaygroundLead();
+    return () => {
+      cleanupOldTestLeads();
+    };
+  }, [fetchAgents, createOrGetPlaygroundLead, cleanupOldTestLeads]);
 
   const fetchAgentComponents = useCallback(
     async (agentId: string) => {
@@ -418,31 +512,67 @@ const Playground = () => {
       timestamp: new Date(),
     };
 
+    if (!playgroundLeadId) {
+      toast.error("Lead de teste não está disponível. Aguarde um momento...");
+      return;
+    }
+
     setMessages((prev) => [...prev, userMessage]);
     setInputMessage("");
     setSending(true);
 
     try {
+      const { data: testLead, error: leadError } = await supabase
+        .from("leads")
+        .select("*")
+        .eq("id", playgroundLeadId)
+        .single();
+
+      if (leadError || !testLead) {
+        toast.error("Erro ao buscar lead de teste. Recriando...");
+        await createOrGetPlaygroundLead();
+        setSending(false);
+        return;
+      }
+
+      const { data: updatedLead, error: updateError } = await supabase
+        .from("leads")
+        .update({
+          ai_interaction_id: selectedAgent.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", playgroundLeadId)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error("Erro ao atualizar lead de teste:", updateError);
+      }
+
+      const leadToUse = updatedLead || testLead;
+
       const mockLead = {
-        id: mockLeadId,
-        name: "Lead de Teste",
-        description: null,
-        category: null,
-        status: "conversation_started",
-        contact_email: null,
-        contact_whatsapp: "553189572307",
-        source: "playground",
-        integration_start_time: null,
-        payment_link_url: null,
-        payment_stripe_id: null,
-        payment_status: "nao_criado",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        payment_amount: null,
-        paid_at: null,
-        whatsapp_verified: true,
+        id: leadToUse.id,
+        name: leadToUse.name || "Lead de Teste",
+        description: leadToUse.description,
+        category: leadToUse.category,
+        status: leadToUse.status || "conversation_started",
+        contact_email: leadToUse.contact_email,
+        contact_whatsapp: leadToUse.contact_whatsapp,
+        source: leadToUse.source || "playground",
+        integration_start_time: leadToUse.integration_start_time,
+        payment_link_url: leadToUse.payment_link_url,
+        payment_stripe_id: leadToUse.payment_stripe_id,
+        payment_status: leadToUse.payment_status || "nao_criado",
+        created_at: leadToUse.created_at || new Date().toISOString(),
+        updated_at: leadToUse.updated_at || new Date().toISOString(),
+        payment_amount: leadToUse.payment_amount,
+        paid_at: leadToUse.paid_at,
+        whatsapp_verified: leadToUse.whatsapp_verified ?? true,
         ai_interaction_id: selectedAgent.id,
-        remote_jid: "553189572307@s.whatsapp.net",
+        remote_jid:
+          leadToUse.remote_jid ||
+          `${leadToUse.contact_whatsapp}@s.whatsapp.net`,
         organization_id: organization.id,
       };
 
@@ -571,6 +701,17 @@ const Playground = () => {
           updated_at: selectedAgent.updated_at,
           closing_instructions: selectedAgent.closing_instructions,
           organization_id: organization.id,
+          personality_traits: selectedAgent.personality_traits,
+          communication_style: selectedAgent.communication_style,
+          expertise_level: selectedAgent.expertise_level,
+          response_length: selectedAgent.response_length,
+          empathy_level: selectedAgent.empathy_level,
+          formality_level: selectedAgent.formality_level,
+          humor_level: selectedAgent.humor_level,
+          proactivity_level: selectedAgent.proactivity_level,
+          agent_description: selectedAgent.agent_description,
+          agent_avatar_url: selectedAgent.agent_avatar_url,
+          agent_color: selectedAgent.agent_color,
         },
         agent_components: currentAgentComponents,
         agent_component_configurations: currentAgentComponentConfigurations,
@@ -693,8 +834,23 @@ const Playground = () => {
     }
   };
 
-  const clearChat = () => {
+  const clearChat = async () => {
     setMessages([]);
+
+    if (playgroundLeadId && organization?.id) {
+      try {
+        await supabase
+          .from("leads")
+          .update({
+            status: "conversation_started",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", playgroundLeadId);
+      } catch (error) {
+        console.error("Erro ao resetar lead de teste:", error);
+      }
+    }
+
     toast.success("Chat limpo");
   };
 

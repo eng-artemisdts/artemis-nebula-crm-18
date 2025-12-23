@@ -57,6 +57,17 @@ export interface IYgdrasilChatRequest {
     updated_at: string;
     closing_instructions: string | null;
     organization_id: string;
+    personality_traits?: string[] | null;
+    communication_style?: string;
+    expertise_level?: string;
+    response_length?: string;
+    empathy_level?: string;
+    formality_level?: string;
+    humor_level?: string;
+    proactivity_level?: string;
+    agent_description?: string | null;
+    agent_avatar_url?: string | null;
+    agent_color?: string;
   };
   agent_components?: Array<{
     id: string;
