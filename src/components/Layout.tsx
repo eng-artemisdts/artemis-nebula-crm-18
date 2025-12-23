@@ -72,10 +72,17 @@ const MenuItemWithSubItems = ({
   location,
   isCollapsed,
 }: MenuItemWithSubItemsProps) => {
+  const { setOpen } = useSidebar();
   const isCategoryActive =
     item.subItems?.some((subItem) => location.pathname === subItem.url) ||
     false;
   const [isOpen, setIsOpen] = useState(isCategoryActive);
+
+  const handleClick = () => {
+    if (isCollapsed) {
+      setOpen(true);
+    }
+  };
 
   return (
     <Collapsible
@@ -89,6 +96,7 @@ const MenuItemWithSubItems = ({
           <SidebarMenuButton
             isActive={isCategoryActive}
             tooltip={isCollapsed ? item.title : undefined}
+            onClick={handleClick}
           >
             <item.icon className="w-5 h-5 shrink-0" />
             {!isCollapsed && <span className="font-medium">{item.title}</span>}
@@ -108,7 +116,6 @@ const MenuItemWithSubItems = ({
                 <SidebarMenuSubButton
                   asChild
                   isActive={location.pathname === subItem.url}
-                  disabled={subItem.comingSoon}
                   className={
                     subItem.comingSoon
                       ? "opacity-60 cursor-not-allowed"
@@ -118,6 +125,9 @@ const MenuItemWithSubItems = ({
                   <NavLink
                     to={subItem.comingSoon ? "#" : subItem.url}
                     onClick={(e) => {
+                      if (isCollapsed) {
+                        setOpen(true);
+                      }
                       if (subItem.comingSoon) {
                         e.preventDefault();
                         toast({
@@ -171,7 +181,7 @@ const menuItems: MenuItem[] = [
         url: "/ai-configuration",
         icon: Sparkles,
       },
-      { title: "Interações com IA", url: "/ai-interaction", icon: Bot },
+      { title: "Agentes de IA", url: "/ai-interaction", icon: Bot },
       { title: "Habilidades e Integrações", url: "/abilities", icon: Bot },
       {
         title: "Documentação e Contexto",
@@ -215,7 +225,7 @@ const menuItems: MenuItem[] = [
 ];
 
 function AppSidebar() {
-  const { state, open } = useSidebar();
+  const { state, open, setOpen } = useSidebar();
   const navigate = useNavigate();
   const { toast } = useToast();
   const location = useLocation();
@@ -306,7 +316,14 @@ function AppSidebar() {
                       isActive={location.pathname === item.url}
                       tooltip={isCollapsed ? item.title : undefined}
                     >
-                      <NavLink to={item.url || "#"}>
+                      <NavLink
+                        to={item.url || "#"}
+                        onClick={() => {
+                          if (isCollapsed) {
+                            setOpen(true);
+                          }
+                        }}
+                      >
                         <item.icon className="w-5 h-5 shrink-0" />
                         {!isCollapsed && (
                           <span className="font-medium">{item.title}</span>
@@ -366,6 +383,8 @@ function AppSidebar() {
 
 export const Layout = ({ children }: { children: React.ReactNode }) => {
   const { organization, loading: organizationLoading } = useOrganization();
+  const appVersion =
+    (import.meta.env.VITE_APP_VERSION as string | undefined) ?? "1.0.0";
 
   return (
     <SidebarProvider defaultOpen={false}>
@@ -374,19 +393,40 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
         <SidebarInset className="flex flex-col relative !bg-transparent">
           {/* Animated background elements */}
-          <div className="absolute inset-0 bg-gradient-to-br from-cosmic-glow/25 via-primary/12 via-background via-60% to-cosmic-accent/25" style={{ zIndex: 1 }} />
-          
+          <div
+            className="absolute inset-0 bg-gradient-to-br from-cosmic-glow/25 via-primary/12 via-background via-60% to-cosmic-accent/25"
+            style={{ zIndex: 1 }}
+          />
+
           {/* Gradient waves */}
-          <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-cosmic-glow/15 to-transparent blur-2xl pointer-events-none" style={{ zIndex: 1 }} />
-          <div className="absolute bottom-0 right-0 w-full h-1/2 bg-gradient-to-t from-cosmic-accent/15 to-transparent blur-2xl pointer-events-none" style={{ zIndex: 1 }} />
-          
+          <div
+            className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-cosmic-glow/15 to-transparent blur-2xl pointer-events-none"
+            style={{ zIndex: 1 }}
+          />
+          <div
+            className="absolute bottom-0 right-0 w-full h-1/2 bg-gradient-to-t from-cosmic-accent/15 to-transparent blur-2xl pointer-events-none"
+            style={{ zIndex: 1 }}
+          />
+
           {/* Diagonal gradient accents */}
-          <div className="absolute top-0 left-0 w-1/3 h-full bg-gradient-to-r from-primary/10 via-transparent to-transparent blur-xl pointer-events-none animate-pulse" style={{ zIndex: 1 }} />
-          <div className="absolute bottom-0 right-0 w-1/3 h-full bg-gradient-to-l from-cosmic-accent/10 via-transparent to-transparent blur-xl pointer-events-none animate-pulse" style={{ zIndex: 1, animationDelay: "1.5s" }} />
-          
+          <div
+            className="absolute top-0 left-0 w-1/3 h-full bg-gradient-to-r from-primary/10 via-transparent to-transparent blur-xl pointer-events-none animate-pulse"
+            style={{ zIndex: 1 }}
+          />
+          <div
+            className="absolute bottom-0 right-0 w-1/3 h-full bg-gradient-to-l from-cosmic-accent/10 via-transparent to-transparent blur-xl pointer-events-none animate-pulse"
+            style={{ zIndex: 1, animationDelay: "1.5s" }}
+          />
+
           {/* Subtle corner accents */}
-          <div className="absolute top-0 right-0 w-[600px] h-[400px] bg-gradient-to-bl from-cosmic-glow/8 via-transparent to-transparent rounded-bl-[100px] blur-3xl pointer-events-none" style={{ zIndex: 1 }} />
-          <div className="absolute bottom-0 left-0 w-[500px] h-[350px] bg-gradient-to-tr from-cosmic-accent/8 via-transparent to-transparent rounded-tr-[100px] blur-3xl pointer-events-none animate-glow-pulse" style={{ zIndex: 1 }} />
+          <div
+            className="absolute top-0 right-0 w-[600px] h-[400px] bg-gradient-to-bl from-cosmic-glow/8 via-transparent to-transparent rounded-bl-[100px] blur-3xl pointer-events-none"
+            style={{ zIndex: 1 }}
+          />
+          <div
+            className="absolute bottom-0 left-0 w-[500px] h-[350px] bg-gradient-to-tr from-cosmic-accent/8 via-transparent to-transparent rounded-tr-[100px] blur-3xl pointer-events-none animate-glow-pulse"
+            style={{ zIndex: 1 }}
+          />
 
           {/* Header with trigger */}
           <header className="h-14 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-40 flex items-center justify-between px-4">
@@ -400,6 +440,13 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
           >
             {children}
           </main>
+
+          <div
+            className="absolute bottom-2 right-4 text-[10px] text-muted-foreground/60 select-none"
+            style={{ zIndex: 10 }}
+          >
+            v{appVersion}
+          </div>
         </SidebarInset>
       </div>
     </SidebarProvider>
