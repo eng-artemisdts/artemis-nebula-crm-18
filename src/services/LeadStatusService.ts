@@ -273,7 +273,8 @@ export class LeadStatusService {
       .from("leads")
       .select("*", { count: "exact", head: true })
       .eq("organization_id", organizationId)
-      .eq("status", statusKey);
+      .eq("status", statusKey)
+      .or("is_test.is.null,is_test.eq.false");
 
     if (error) {
       throw new Error(`Erro ao contar leads: ${error.message}`);

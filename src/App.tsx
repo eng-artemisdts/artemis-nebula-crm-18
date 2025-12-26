@@ -13,7 +13,6 @@ import Categories from "./pages/Categories";
 import CategoryManager from "./pages/CategoryManager";
 import StatusManager from "./pages/StatusManager";
 import LeadSearch from "./pages/LeadSearch";
-import AIConfiguration from "./pages/AIConfiguration";
 import Agents from "./pages/Agents";
 import AgentCreate from "./pages/AgentCreate";
 import { ComponentConfiguration } from "./pages/ComponentConfiguration";
@@ -121,14 +120,6 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <AgentCreate />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/ai-configuration"
-              element={
-                <ProtectedRoute>
-                  <AIConfiguration />
                 </ProtectedRoute>
               }
             />

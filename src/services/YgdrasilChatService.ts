@@ -47,6 +47,7 @@ export interface IYgdrasilChatRequest {
   ai_config: {
     id: string;
     name: string;
+    nickname?: string | null;
     conversation_focus: string;
     priority: string;
     rejection_action: string;
@@ -68,6 +69,8 @@ export interface IYgdrasilChatRequest {
     agent_description?: string | null;
     agent_avatar_url?: string | null;
     agent_color?: string;
+    should_introduce_itself?: boolean;
+    memory_amount?: string;
   };
   agent_components?: Array<{
     id: string;

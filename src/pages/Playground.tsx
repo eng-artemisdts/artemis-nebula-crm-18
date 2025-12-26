@@ -13,6 +13,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useOrganization } from "@/hooks/useOrganization";
@@ -33,6 +43,8 @@ import {
   Sparkles,
   GripVertical,
   X,
+  User,
+  Plus,
 } from "lucide-react";
 import {
   DndContext,
@@ -187,7 +199,16 @@ const Playground = () => {
   const [agentComponents, setAgentComponents] = useState<AgentComponent[]>([]);
   const [agentComponentConfigurations, setAgentComponentConfigurations] =
     useState<AgentComponentConfiguration[]>([]);
-  const [playgroundLeadId, setPlaygroundLeadId] = useState<string | null>(null);
+  const [availableLeads, setAvailableLeads] = useState<any[]>([]);
+  const [selectedLead, setSelectedLead] = useState<any | null>(null);
+  const [isCreatingLead, setIsCreatingLead] = useState(false);
+  const [newLeadData, setNewLeadData] = useState({
+    name: "",
+    contact_whatsapp: "",
+    contact_email: "",
+    description: "",
+  });
+  const [isLeadDialogOpen, setIsLeadDialogOpen] = useState(false);
   const componentRepository = useMemo(() => new ComponentRepository(), []);
 
   const sensors = useSensors(
@@ -207,6 +228,17 @@ const Playground = () => {
         .select("*")
         .eq("organization_id", organization.id)
         .order("created_at", { ascending: false });
+      
+      console.log("Agentes carregados do banco:", {
+        count: data?.length || 0,
+        agents: data?.map(a => ({
+          id: a.id,
+          name: a.name,
+          personality_traits: a.personality_traits,
+          personality_traits_type: typeof a.personality_traits,
+          personality_traits_is_array: Array.isArray(a.personality_traits),
+        })),
+      });
 
       if (error) {
         toast.error("Erro ao carregar agentes");
@@ -222,18 +254,45 @@ const Playground = () => {
             );
             return {
               ...agent,
+              nickname:
+                (agent as { nickname?: string | null }).nickname ?? null,
+              should_introduce_itself:
+                (agent as { should_introduce_itself?: boolean })
+                  .should_introduce_itself ?? true,
+              memory_amount:
+                (agent as { memory_amount?: string }).memory_amount ?? "20",
+              personality_traits: Array.isArray(agent.personality_traits)
+                ? agent.personality_traits
+                : agent.personality_traits
+                ? [agent.personality_traits]
+                : [],
               components: components.map((c) => ({
                 id: c.id,
                 name: c.name,
                 identifier: c.identifier,
               })),
-            };
+            } as AgentWithComponents;
           } catch (error) {
             console.error(
               `Erro ao buscar componentes do agente ${agent.id}:`,
               error
             );
-            return { ...agent, components: [] };
+            return {
+              ...agent,
+              nickname:
+                (agent as { nickname?: string | null }).nickname ?? null,
+              should_introduce_itself:
+                (agent as { should_introduce_itself?: boolean })
+                  .should_introduce_itself ?? true,
+              memory_amount:
+                (agent as { memory_amount?: string }).memory_amount ?? "20",
+              personality_traits: Array.isArray(agent.personality_traits)
+                ? agent.personality_traits
+                : agent.personality_traits
+                ? [agent.personality_traits]
+                : [],
+              components: [],
+            } as AgentWithComponents;
           }
         })
       );
@@ -247,172 +306,244 @@ const Playground = () => {
     }
   }, [organization?.id, componentRepository]);
 
-  const createOrGetPlaygroundLead = useCallback(async () => {
+  const fetchLeads = useCallback(async () => {
     if (!organization?.id) return;
 
     try {
-      const testPhoneNumber = "553189572307";
-      const testRemoteJid = `${testPhoneNumber}@s.whatsapp.net`;
-      const testLeadName = `[PLAYGROUND] Lead de Teste - ${
-        organization.name || "Organização"
-      }`;
-
-      const { data: existingTestLead, error: findError } = await supabase
+      const { data, error } = await supabase
         .from("leads")
-        .select("id")
-        .eq("contact_whatsapp", testPhoneNumber)
+        .select("*")
         .eq("organization_id", organization.id)
-        .eq("source", "playground")
-        .like("name", "[PLAYGROUND]%")
-        .maybeSingle();
-
-      if (findError && findError.code !== "PGRST116") {
-        console.error("Erro ao buscar lead de teste:", findError);
-        return;
-      }
-
-      if (existingTestLead) {
-        setPlaygroundLeadId(existingTestLead.id);
-
-        const { error: updateError } = await supabase
-          .from("leads")
-          .update({
-            name: testLeadName,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", existingTestLead.id);
-
-        if (updateError) {
-          console.error("Erro ao atualizar lead de teste:", updateError);
-        }
-        return;
-      }
-
-      const { data: newLead, error: createError } = await supabase
-        .from("leads")
-        .insert({
-          name: testLeadName,
-          contact_whatsapp: testPhoneNumber,
-          status: "conversation_started",
-          organization_id: organization.id,
-          whatsapp_verified: true,
-          source: "playground",
-          remote_jid: testRemoteJid,
-        })
-        .select("id")
-        .single();
-
-      if (createError) {
-        console.error("Erro ao criar lead de teste:", createError);
-        toast.error("Erro ao criar lead de teste no playground");
-        return;
-      }
-
-      if (newLead) {
-        setPlaygroundLeadId(newLead.id);
-      }
-    } catch (error) {
-      console.error("Erro ao criar/buscar lead de teste:", error);
-    }
-  }, [organization?.id, organization?.name]);
-
-  const cleanupOldTestLeads = useCallback(async () => {
-    if (!organization?.id) return;
-
-    try {
-      const oneDayAgo = new Date();
-      oneDayAgo.setDate(oneDayAgo.getDate() - 1);
-
-      const { error } = await supabase
-        .from("leads")
-        .delete()
-        .eq("organization_id", organization.id)
-        .eq("source", "playground")
-        .like("name", "[PLAYGROUND]%")
-        .lt("created_at", oneDayAgo.toISOString());
+        .eq("is_test", true)
+        .order("created_at", { ascending: false })
+        .limit(50);
 
       if (error) {
-        console.error("Erro ao limpar leads de teste antigos:", error);
+        console.error("Erro ao buscar leads:", error);
+        return;
       }
+
+      setAvailableLeads(data || []);
+      
+      setSelectedLead((current) => {
+        if (current && data?.some((l) => l.id === current.id)) {
+          return current;
+        }
+        return data && data.length > 0 ? data[0] : null;
+      });
     } catch (error) {
-      console.error("Erro ao limpar leads de teste:", error);
+      console.error("Erro ao buscar leads:", error);
     }
   }, [organization?.id]);
 
+  const createMockLead = useCallback(() => {
+    if (!organization?.id) return null;
+
+    if (selectedLead) {
+      const testPhoneNumber = selectedLead.contact_whatsapp || "553189572307";
+      const testRemoteJid = testPhoneNumber.includes("@")
+        ? testPhoneNumber
+        : `${testPhoneNumber}@s.whatsapp.net`;
+
+      return {
+        id: selectedLead.id || `playground-${Date.now()}`,
+        name: selectedLead.name || `Lead de Teste`,
+        description: selectedLead.description || null,
+        category: selectedLead.category || null,
+        status: selectedLead.status || "conversation_started",
+        contact_email: selectedLead.contact_email || null,
+        contact_whatsapp: testPhoneNumber.replace("@s.whatsapp.net", ""),
+        source: selectedLead.source || "playground",
+        integration_start_time: selectedLead.integration_start_time || null,
+        payment_link_url: selectedLead.payment_link_url || null,
+        payment_stripe_id: selectedLead.payment_stripe_id || null,
+        payment_status: selectedLead.payment_status || "nao_criado",
+        created_at: selectedLead.created_at || new Date().toISOString(),
+        updated_at: selectedLead.updated_at || new Date().toISOString(),
+        payment_amount: selectedLead.payment_amount || null,
+        paid_at: selectedLead.paid_at || null,
+        whatsapp_verified: selectedLead.whatsapp_verified ?? true,
+        ai_interaction_id: selectedAgent?.id || selectedLead.ai_interaction_id || null,
+        remote_jid: testRemoteJid,
+        organization_id: organization.id,
+      };
+    }
+
+    const testPhoneNumber = "553189572307";
+    const testRemoteJid = `${testPhoneNumber}@s.whatsapp.net`;
+    const now = new Date().toISOString();
+
+    return {
+      id: `playground-${Date.now()}`,
+      name: `Lead de Teste - ${organization.name || "Organização"}`,
+      description: null,
+      category: null,
+      status: "conversation_started",
+      contact_email: null,
+      contact_whatsapp: testPhoneNumber,
+      source: "playground",
+      integration_start_time: null,
+      payment_link_url: null,
+      payment_stripe_id: null,
+      payment_status: "nao_criado",
+      created_at: now,
+      updated_at: now,
+      payment_amount: null,
+      paid_at: null,
+      whatsapp_verified: true,
+      ai_interaction_id: selectedAgent?.id || null,
+      remote_jid: testRemoteJid,
+      organization_id: organization.id,
+    };
+  }, [organization?.id, organization?.name, selectedAgent?.id, selectedLead]);
+
+  const createQuickLead = async () => {
+    if (!organization?.id) {
+      toast.error("Organização não encontrada");
+      return;
+    }
+
+    setIsCreatingLead(true);
+    try {
+      const timestamp = Date.now();
+      const phoneNumber = `553189572${String(timestamp).slice(-4)}`;
+      const remoteJid = `${phoneNumber}@s.whatsapp.net`;
+
+      const { data, error } = await supabase
+        .from("leads")
+        .insert({
+          name: `Lead de Teste ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`,
+          description: "Lead criado automaticamente para testes no playground",
+          contact_email: null,
+          contact_whatsapp: phoneNumber,
+          remote_jid: remoteJid,
+          status: "conversation_started",
+          source: "playground",
+          organization_id: organization.id,
+          whatsapp_verified: true,
+          is_test: true,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast.success("Lead de teste criado automaticamente!");
+      setSelectedLead(data);
+      setAvailableLeads((prev) => [data, ...prev]);
+    } catch (error: any) {
+      console.error("Erro ao criar lead:", error);
+      toast.error(error.message || "Erro ao criar lead de teste");
+    } finally {
+      setIsCreatingLead(false);
+    }
+  };
+
+  const handleCreateLead = async () => {
+    if (!organization?.id || !newLeadData.name.trim()) {
+      toast.error("Nome do lead é obrigatório");
+      return;
+    }
+
+    setIsCreatingLead(true);
+    try {
+      const phoneNumber = newLeadData.contact_whatsapp || "553189572307";
+      const remoteJid = phoneNumber.includes("@")
+        ? phoneNumber
+        : `${phoneNumber}@s.whatsapp.net`;
+
+      const { data, error } = await supabase
+        .from("leads")
+        .insert({
+          name: newLeadData.name,
+          description: newLeadData.description || null,
+          contact_email: newLeadData.contact_email || null,
+          contact_whatsapp: phoneNumber.replace("@s.whatsapp.net", ""),
+          remote_jid: remoteJid,
+          status: "conversation_started",
+          source: "playground",
+          organization_id: organization.id,
+          whatsapp_verified: true,
+          is_test: true,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast.success("Lead fictício criado com sucesso!");
+      setSelectedLead(data);
+      setAvailableLeads((prev) => [data, ...prev]);
+      setNewLeadData({
+        name: "",
+        contact_whatsapp: "",
+        contact_email: "",
+        description: "",
+      });
+      setIsLeadDialogOpen(false);
+    } catch (error: any) {
+      console.error("Erro ao criar lead:", error);
+      toast.error(error.message || "Erro ao criar lead fictício");
+    } finally {
+      setIsCreatingLead(false);
+    }
+  };
+
   useEffect(() => {
     fetchAgents();
-    createOrGetPlaygroundLead();
-    return () => {
-      cleanupOldTestLeads();
-    };
-  }, [fetchAgents, createOrGetPlaygroundLead, cleanupOldTestLeads]);
+    fetchLeads();
+  }, [fetchAgents, fetchLeads]);
 
   const fetchAgentComponents = useCallback(
     async (agentId: string) => {
       if (!organization?.id) return;
 
       try {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        const { data: componentsData, error: componentsError } = await supabase
+          .from("agent_components")
+          .select("id,agent_id,component_id,created_at,components(id,name,description,identifier,created_at,updated_at)")
+          .eq("agent_id", agentId);
 
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        const accessToken = session?.access_token || supabaseKey;
-
-        const componentsResponse = await fetch(
-          `${supabaseUrl}/rest/v1/agent_components?agent_id=eq.${agentId}&select=id,agent_id,component_id,created_at,components(id,name,description,identifier,created_at,updated_at)`,
-          {
-            headers: {
-              apikey: supabaseKey,
-              Authorization: `Bearer ${accessToken}`,
-              "Content-Type": "application/json",
-              "accept-profile": "public",
-            },
-          }
-        );
-
-        if (componentsResponse.ok) {
-          const componentsData = await componentsResponse.json();
-          console.log("Agent components loaded:", componentsData);
-          setAgentComponents((componentsData || []) as AgentComponent[]);
+        if (componentsError) {
+          console.error("Error loading agent components:", {
+            agentId,
+            error: componentsError,
+          });
+          setAgentComponents([]);
         } else {
-          const errorText = await componentsResponse.text();
-          console.error(
-            "Error loading agent components:",
-            componentsResponse.status,
-            errorText
-          );
+          console.log("Agent components loaded:", {
+            agentId,
+            count: componentsData?.length || 0,
+            data: componentsData,
+          });
+          setAgentComponents((componentsData || []) as AgentComponent[]);
         }
 
-        const configsResponse = await fetch(
-          `${supabaseUrl}/rest/v1/agent_component_configurations?agent_id=eq.${agentId}&select=id,agent_id,component_id,config,created_at,updated_at,components(id,name,description,identifier)`,
-          {
-            headers: {
-              apikey: supabaseKey,
-              Authorization: `Bearer ${accessToken}`,
-              "Content-Type": "application/json",
-              "accept-profile": "public",
-            },
-          }
-        );
+        const { data: configsData, error: configsError } = await supabase
+          .from("agent_component_configurations")
+          .select("id,agent_id,component_id,config,created_at,updated_at,components(id,name,description,identifier)")
+          .eq("agent_id", agentId);
 
-        if (configsResponse.ok) {
-          const configsData = await configsResponse.json();
-          console.log("Agent component configurations loaded:", configsData);
+        if (configsError) {
+          console.error("Error loading agent component configurations:", {
+            agentId,
+            error: configsError,
+          });
+          setAgentComponentConfigurations([]);
+        } else {
+          console.log("Agent component configurations loaded:", {
+            agentId,
+            count: configsData?.length || 0,
+            data: configsData,
+          });
           setAgentComponentConfigurations(
             (configsData || []) as AgentComponentConfiguration[]
-          );
-        } else {
-          const errorText = await configsResponse.text();
-          console.error(
-            "Error loading agent component configurations:",
-            configsResponse.status,
-            errorText
           );
         }
       } catch (error) {
         console.error("Erro ao buscar componentes do agente:", error);
+        setAgentComponents([]);
+        setAgentComponentConfigurations([]);
       }
     },
     [organization?.id]
@@ -440,64 +571,52 @@ const Playground = () => {
       currentAgentComponentConfigurations.length === 0
     ) {
       console.log("Buscando componentes do agente antes de enviar mensagem...");
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const accessToken = session?.access_token || supabaseKey;
-
+      
       try {
-        const componentsResponse = await fetch(
-          `${supabaseUrl}/rest/v1/agent_components?agent_id=eq.${selectedAgent.id}&select=id,agent_id,component_id,created_at,components(id,name,description,identifier,created_at,updated_at)`,
-          {
-            headers: {
-              apikey: supabaseKey,
-              Authorization: `Bearer ${accessToken}`,
-              "Content-Type": "application/json",
-              "accept-profile": "public",
-            },
-          }
-        );
+        const { data: componentsData, error: componentsError } = await supabase
+          .from("agent_components")
+          .select("id,agent_id,component_id,created_at,components(id,name,description,identifier,created_at,updated_at)")
+          .eq("agent_id", selectedAgent.id);
 
-        if (componentsResponse.ok) {
-          const componentsData = await componentsResponse.json();
+        if (componentsError) {
+          console.error("Error loading agent components before send:", {
+            agentId: selectedAgent.id,
+            error: componentsError,
+          });
+        } else {
           currentAgentComponents = (componentsData || []) as AgentComponent[];
           setAgentComponents(currentAgentComponents);
           console.log(
             "Agent components carregados antes do envio:",
-            currentAgentComponents
-          );
-        } else {
-          const errorText = await componentsResponse.text();
-          console.error(
-            "Error loading agent components before send:",
-            componentsResponse.status,
-            errorText
+            {
+              agentId: selectedAgent.id,
+              count: currentAgentComponents.length,
+              components: currentAgentComponents,
+            }
           );
         }
 
-        const configsResponse = await fetch(
-          `${supabaseUrl}/rest/v1/agent_component_configurations?agent_id=eq.${selectedAgent.id}&select=id,agent_id,component_id,config,created_at,updated_at,components(id,name,description,identifier)`,
-          {
-            headers: {
-              apikey: supabaseKey,
-              Authorization: `Bearer ${accessToken}`,
-              "Content-Type": "application/json",
-              "accept-profile": "public",
-            },
-          }
-        );
+        const { data: configsData, error: configsError } = await supabase
+          .from("agent_component_configurations")
+          .select("id,agent_id,component_id,config,created_at,updated_at,components(id,name,description,identifier)")
+          .eq("agent_id", selectedAgent.id);
 
-        if (configsResponse.ok) {
-          const configsData = await configsResponse.json();
+        if (configsError) {
+          console.error("Error loading agent component configurations before send:", {
+            agentId: selectedAgent.id,
+            error: configsError,
+          });
+        } else {
           currentAgentComponentConfigurations = (configsData ||
             []) as AgentComponentConfiguration[];
           setAgentComponentConfigurations(currentAgentComponentConfigurations);
           console.log(
             "Agent component configurations carregadas antes do envio:",
-            currentAgentComponentConfigurations
+            {
+              agentId: selectedAgent.id,
+              count: currentAgentComponentConfigurations.length,
+              configurations: currentAgentComponentConfigurations,
+            }
           );
         }
       } catch (error) {
@@ -512,69 +631,18 @@ const Playground = () => {
       timestamp: new Date(),
     };
 
-    if (!playgroundLeadId) {
-      toast.error("Lead de teste não está disponível. Aguarde um momento...");
-      return;
-    }
-
     setMessages((prev) => [...prev, userMessage]);
     setInputMessage("");
     setSending(true);
 
     try {
-      const { data: testLead, error: leadError } = await supabase
-        .from("leads")
-        .select("*")
-        .eq("id", playgroundLeadId)
-        .single();
+      const mockLead = createMockLead();
 
-      if (leadError || !testLead) {
-        toast.error("Erro ao buscar lead de teste. Recriando...");
-        await createOrGetPlaygroundLead();
+      if (!mockLead) {
+        toast.error("Erro ao criar lead de teste. Verifique a organização.");
         setSending(false);
         return;
       }
-
-      const { data: updatedLead, error: updateError } = await supabase
-        .from("leads")
-        .update({
-          ai_interaction_id: selectedAgent.id,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", playgroundLeadId)
-        .select()
-        .single();
-
-      if (updateError) {
-        console.error("Erro ao atualizar lead de teste:", updateError);
-      }
-
-      const leadToUse = updatedLead || testLead;
-
-      const mockLead = {
-        id: leadToUse.id,
-        name: leadToUse.name || "Lead de Teste",
-        description: leadToUse.description,
-        category: leadToUse.category,
-        status: leadToUse.status || "conversation_started",
-        contact_email: leadToUse.contact_email,
-        contact_whatsapp: leadToUse.contact_whatsapp,
-        source: leadToUse.source || "playground",
-        integration_start_time: leadToUse.integration_start_time,
-        payment_link_url: leadToUse.payment_link_url,
-        payment_stripe_id: leadToUse.payment_stripe_id,
-        payment_status: leadToUse.payment_status || "nao_criado",
-        created_at: leadToUse.created_at || new Date().toISOString(),
-        updated_at: leadToUse.updated_at || new Date().toISOString(),
-        payment_amount: leadToUse.payment_amount,
-        paid_at: leadToUse.paid_at,
-        whatsapp_verified: leadToUse.whatsapp_verified ?? true,
-        ai_interaction_id: selectedAgent.id,
-        remote_jid:
-          leadToUse.remote_jid ||
-          `${leadToUse.contact_whatsapp}@s.whatsapp.net`,
-        organization_id: organization.id,
-      };
 
       const mockOrganization = {
         id: organization.id,
@@ -683,38 +751,48 @@ const Playground = () => {
 
       const messageContent = inputMessage.trim();
 
+      // Garantir que todos os campos do ai_config sejam sempre enviados
+      const aiConfig = {
+        id: selectedAgent.id || "",
+        name: selectedAgent.name || "",
+        nickname: selectedAgent.nickname ?? null,
+        conversation_focus: selectedAgent.conversation_focus || "",
+        priority: selectedAgent.priority || "medium",
+        rejection_action: selectedAgent.rejection_action || "follow_up",
+        tone: selectedAgent.tone || "professional",
+        main_objective: selectedAgent.main_objective || "",
+        additional_instructions: selectedAgent.additional_instructions ?? null,
+        created_at: selectedAgent.created_at || new Date().toISOString(),
+        updated_at: selectedAgent.updated_at || new Date().toISOString(),
+        closing_instructions: selectedAgent.closing_instructions ?? null,
+        organization_id: organization.id || "",
+        personality_traits: Array.isArray(selectedAgent.personality_traits)
+          ? selectedAgent.personality_traits
+          : selectedAgent.personality_traits
+          ? [selectedAgent.personality_traits]
+          : [],
+        communication_style: selectedAgent.communication_style || "balanced",
+        expertise_level: selectedAgent.expertise_level || "intermediate",
+        response_length: selectedAgent.response_length || "medium",
+        empathy_level: selectedAgent.empathy_level || "moderate",
+        formality_level: selectedAgent.formality_level || "professional",
+        humor_level: selectedAgent.humor_level || "none",
+        proactivity_level: selectedAgent.proactivity_level || "moderate",
+        agent_description: selectedAgent.agent_description ?? null,
+        agent_avatar_url: selectedAgent.agent_avatar_url ?? null,
+        agent_color: selectedAgent.agent_color || "#3b82f6",
+        should_introduce_itself: selectedAgent.should_introduce_itself ?? true,
+        memory_amount: selectedAgent.memory_amount || "20",
+      };
+
       const request: IYgdrasilChatRequest = {
         event: "messages.upsert",
         instance: "playground-instance",
         lead: mockLead,
         organization: mockOrganization,
-        ai_config: {
-          id: selectedAgent.id,
-          name: selectedAgent.name,
-          conversation_focus: selectedAgent.conversation_focus,
-          priority: selectedAgent.priority,
-          rejection_action: selectedAgent.rejection_action,
-          tone: selectedAgent.tone,
-          main_objective: selectedAgent.main_objective,
-          additional_instructions: selectedAgent.additional_instructions,
-          created_at: selectedAgent.created_at,
-          updated_at: selectedAgent.updated_at,
-          closing_instructions: selectedAgent.closing_instructions,
-          organization_id: organization.id,
-          personality_traits: selectedAgent.personality_traits,
-          communication_style: selectedAgent.communication_style,
-          expertise_level: selectedAgent.expertise_level,
-          response_length: selectedAgent.response_length,
-          empathy_level: selectedAgent.empathy_level,
-          formality_level: selectedAgent.formality_level,
-          humor_level: selectedAgent.humor_level,
-          proactivity_level: selectedAgent.proactivity_level,
-          agent_description: selectedAgent.agent_description,
-          agent_avatar_url: selectedAgent.agent_avatar_url,
-          agent_color: selectedAgent.agent_color,
-        },
-        agent_components: currentAgentComponents,
-        agent_component_configurations: currentAgentComponentConfigurations,
+        ai_config: aiConfig,
+        agent_components: currentAgentComponents || [],
+        agent_component_configurations: currentAgentComponentConfigurations || [],
         lead_statuses: leadStatusesData,
         message: {
           conversation: messageContent,
@@ -722,23 +800,59 @@ const Playground = () => {
         messageType: "conversation",
         conversation: messageContent,
         messageId: `msg-${Date.now()}`,
-        contactName: "Lead de Teste",
-        phoneNumber: "553189572307",
-        remoteJid: "553189572307@s.whatsapp.net",
+        contactName: mockLead?.name || "Lead de Teste",
+        phoneNumber: mockLead?.contact_whatsapp || "553189572307",
+        remoteJid: mockLead?.remote_jid || "553189572307@s.whatsapp.net",
         fromMe: false,
         timestamp: new Date().toISOString(),
         msg_content: messageContent,
       };
 
+      // Validar que todos os campos obrigatórios estão presentes
+      const aiConfigKeys = Object.keys(aiConfig);
+      const expectedKeys = [
+        'id', 'name', 'nickname', 'conversation_focus', 'priority', 'rejection_action',
+        'tone', 'main_objective', 'additional_instructions', 'created_at', 'updated_at',
+        'closing_instructions', 'organization_id', 'personality_traits', 'communication_style',
+        'expertise_level', 'response_length', 'empathy_level', 'formality_level',
+        'humor_level', 'proactivity_level', 'agent_description', 'agent_avatar_url',
+        'agent_color', 'should_introduce_itself', 'memory_amount'
+      ];
+      const missingKeys = expectedKeys.filter(key => !aiConfigKeys.includes(key));
+      
+      if (missingKeys.length > 0) {
+        console.warn("⚠️ Campos faltando no ai_config:", missingKeys);
+      }
+
       console.log("Request sendo enviado:", {
         msg_content: request.msg_content,
         conversation: request.conversation,
         message: request.message,
+        personality_traits: request.ai_config.personality_traits,
+        personality_traits_count: request.ai_config.personality_traits?.length || 0,
+        nickname: request.ai_config.nickname,
+        should_introduce_itself: request.ai_config.should_introduce_itself,
         agent_components: request.agent_components,
         agent_component_configurations: request.agent_component_configurations,
         agent_components_count: request.agent_components?.length || 0,
         agent_component_configurations_count:
           request.agent_component_configurations?.length || 0,
+        agent_components_details: request.agent_components?.map((ac) => ({
+          id: ac.id,
+          component_id: ac.component_id,
+          component_name: ac.components?.name,
+          component_identifier: ac.components?.identifier,
+        })),
+        agent_component_configurations_details: request.agent_component_configurations?.map((acc) => ({
+          id: acc.id,
+          component_id: acc.component_id,
+          component_name: acc.components?.name,
+          component_identifier: acc.components?.identifier,
+          config: acc.config,
+        })),
+        ai_config: request.ai_config,
+        ai_config_keys: Object.keys(request.ai_config),
+        ai_config_keys_count: Object.keys(request.ai_config).length,
       });
 
       setIsTyping(true);
@@ -834,23 +948,8 @@ const Playground = () => {
     }
   };
 
-  const clearChat = async () => {
+  const clearChat = () => {
     setMessages([]);
-
-    if (playgroundLeadId && organization?.id) {
-      try {
-        await supabase
-          .from("leads")
-          .update({
-            status: "conversation_started",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", playgroundLeadId);
-      } catch (error) {
-        console.error("Erro ao resetar lead de teste:", error);
-      }
-    }
-
     toast.success("Chat limpo");
   };
 
@@ -930,41 +1029,194 @@ const Playground = () => {
                 )}
               </div>
               {selectedAgent && (
-                <div className="space-y-2 pt-2 border-t">
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage
-                        src={selectedAgent.agent_avatar_url || undefined}
-                      />
-                      <AvatarFallback
-                        style={{
-                          backgroundColor:
-                            selectedAgent.agent_color || "#3b82f6",
-                        }}
-                        className="text-white"
+                <>
+                  <div className="space-y-2 pt-2 border-t">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium">Selecionar Lead</label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={createQuickLead}
+                        disabled={isCreatingLead}
+                        className="h-7 px-2 text-xs"
+                        title="Criar lead de teste automaticamente"
                       >
-                        <Bot className="w-5 h-5" />
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm truncate">
-                        {selectedAgent.name}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {selectedAgent.conversation_focus}
-                      </p>
+                        {isCreatingLead ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <>
+                            <Sparkles className="h-3 w-3 mr-1" />
+                            Rápido
+                          </>
+                        )}
+                      </Button>
                     </div>
+                    <div className="flex gap-2">
+                      <Select
+                        value={selectedLead?.id || ""}
+                        onValueChange={(value) => {
+                          const lead = availableLeads.find((l) => l.id === value);
+                          setSelectedLead(lead || null);
+                        }}
+                      >
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Selecione um lead" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableLeads.map((lead) => (
+                            <SelectItem key={lead.id} value={lead.id}>
+                              <div className="flex items-center gap-2">
+                                <User className="h-3 w-3" />
+                                <span className="truncate">{lead.name}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Dialog open={isLeadDialogOpen} onOpenChange={setIsLeadDialogOpen}>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" size="sm" className="px-3">
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Criar Lead Fictício</DialogTitle>
+                            <DialogDescription>
+                              Crie um lead fictício para testar o agente no playground
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="lead-name">Nome *</Label>
+                              <Input
+                                id="lead-name"
+                                placeholder="Nome do lead"
+                                value={newLeadData.name}
+                                onChange={(e) =>
+                                  setNewLeadData({
+                                    ...newLeadData,
+                                    name: e.target.value,
+                                  })
+                                }
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="lead-whatsapp">WhatsApp</Label>
+                              <Input
+                                id="lead-whatsapp"
+                                placeholder="553189572307"
+                                value={newLeadData.contact_whatsapp}
+                                onChange={(e) =>
+                                  setNewLeadData({
+                                    ...newLeadData,
+                                    contact_whatsapp: e.target.value,
+                                  })
+                                }
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="lead-email">Email</Label>
+                              <Input
+                                id="lead-email"
+                                type="email"
+                                placeholder="email@exemplo.com"
+                                value={newLeadData.contact_email}
+                                onChange={(e) =>
+                                  setNewLeadData({
+                                    ...newLeadData,
+                                    contact_email: e.target.value,
+                                  })
+                                }
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="lead-description">Descrição</Label>
+                              <Input
+                                id="lead-description"
+                                placeholder="Descrição do lead"
+                                value={newLeadData.description}
+                                onChange={(e) =>
+                                  setNewLeadData({
+                                    ...newLeadData,
+                                    description: e.target.value,
+                                  })
+                                }
+                              />
+                            </div>
+                          </div>
+                          <DialogFooter>
+                            <Button
+                              variant="outline"
+                              onClick={() => setIsLeadDialogOpen(false)}
+                            >
+                              Cancelar
+                            </Button>
+                            <Button
+                              onClick={handleCreateLead}
+                              disabled={isCreatingLead || !newLeadData.name.trim()}
+                            >
+                              {isCreatingLead ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  Criando...
+                                </>
+                              ) : (
+                                "Criar Lead"
+                              )}
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                    {selectedLead && (
+                      <div className="text-xs text-muted-foreground p-2 bg-muted rounded">
+                        <p className="font-medium">{selectedLead.name}</p>
+                        {selectedLead.contact_whatsapp && (
+                          <p>WhatsApp: {selectedLead.contact_whatsapp}</p>
+                        )}
+                        {selectedLead.contact_email && (
+                          <p>Email: {selectedLead.contact_email}</p>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={clearChat}
-                  >
-                    <X className="w-4 h-4 mr-2" />
-                    Limpar Chat
-                  </Button>
-                </div>
+                  <div className="space-y-2 pt-2 border-t">
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage
+                          src={selectedAgent.agent_avatar_url || undefined}
+                        />
+                        <AvatarFallback
+                          style={{
+                            backgroundColor:
+                              selectedAgent.agent_color || "#3b82f6",
+                          }}
+                          className="text-white"
+                        >
+                          <Bot className="w-5 h-5" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm truncate">
+                          {selectedAgent.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {selectedAgent.conversation_focus}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={clearChat}
+                    >
+                      <X className="w-4 h-4 mr-2" />
+                      Limpar Chat
+                    </Button>
+                  </div>
+                </>
               )}
             </CardHeader>
           </Card>

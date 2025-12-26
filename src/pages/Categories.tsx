@@ -23,6 +23,7 @@ const Categories = () => {
       const { data, error } = await supabase
         .from("leads")
         .select("*")
+        .or("is_test.is.null,is_test.eq.false")
         .order("created_at", { ascending: false });
 
       if (error) throw error;

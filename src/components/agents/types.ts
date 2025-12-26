@@ -1,6 +1,7 @@
 export interface Agent {
   id: string;
   name: string;
+  nickname: string | null;
   agent_description: string | null;
   conversation_focus: string;
   priority: string;
@@ -19,6 +20,8 @@ export interface Agent {
   proactivity_level: string;
   agent_avatar_url: string | null;
   agent_color: string;
+  should_introduce_itself: boolean;
+  memory_amount: string;
   created_at: string;
   updated_at: string;
 }

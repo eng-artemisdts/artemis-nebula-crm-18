@@ -146,6 +146,8 @@ const AgentCreate = () => {
   const [selectedWhatsappInstanceId, setSelectedWhatsappInstanceId] = useState<
     string | null
   >(null);
+  const [whatsappIntentionallyRemoved, setWhatsappIntentionallyRemoved] =
+    useState(false);
   const [agent, setAgent] = useState<Agent>(
     new Agent({
       name: "",
@@ -168,6 +170,8 @@ const AgentCreate = () => {
       proactivity_level: "moderate",
       agent_avatar_url: null,
       agent_color: "#3b82f6",
+      should_introduce_itself: true,
+      memory_amount: "20",
     })
   );
 
@@ -205,6 +209,7 @@ const AgentCreate = () => {
 
           const componentIds = await repository.getAgentComponentIds(agentId);
           setSelectedComponentIds(componentIds);
+          setWhatsappIntentionallyRemoved(false);
         }
       } catch (error) {
         toast.error("Erro ao carregar agente");
@@ -228,6 +233,25 @@ const AgentCreate = () => {
   const shouldShowWhatsappInstanceSelector = useMemo(() => {
     return hasWhatsappSelected && whatsappInstances.length > 1;
   }, [hasWhatsappSelected, whatsappInstances.length]);
+
+  const handleComponentSelectionChange = useCallback(
+    (newSelectedIds: string[]) => {
+      const whatsappWasSelected =
+        whatsappComponent &&
+        selectedComponentIds.includes(whatsappComponent.id);
+      const whatsappIsNowSelected =
+        whatsappComponent && newSelectedIds.includes(whatsappComponent.id);
+
+      if (whatsappWasSelected && !whatsappIsNowSelected && whatsappComponent) {
+        setWhatsappIntentionallyRemoved(true);
+      } else if (!whatsappWasSelected && whatsappIsNowSelected) {
+        setWhatsappIntentionallyRemoved(false);
+      }
+
+      setSelectedComponentIds(newSelectedIds);
+    },
+    [selectedComponentIds, whatsappComponent]
+  );
 
   const loadAvailableComponents = useCallback(async () => {
     if (!organization?.id) return;
@@ -317,6 +341,9 @@ const AgentCreate = () => {
   useEffect(() => {
     if (id) {
       loadAgent(id);
+      setWhatsappIntentionallyRemoved(false);
+    } else {
+      setWhatsappIntentionallyRemoved(false);
     }
   }, [id, loadAgent]);
 
@@ -332,6 +359,28 @@ const AgentCreate = () => {
       loadAgentComponentConfig(id);
     }
   }, [id, components, loadAgentComponentConfig]);
+
+  useEffect(() => {
+    if (
+      !id &&
+      whatsappComponent &&
+      !selectedComponentIds.includes(whatsappComponent.id) &&
+      !whatsappIntentionallyRemoved
+    ) {
+      setSelectedComponentIds((prev) => [...prev, whatsappComponent.id]);
+
+      if (whatsappInstances.length === 1 && !selectedWhatsappInstanceId) {
+        setSelectedWhatsappInstanceId(whatsappInstances[0].id);
+      }
+    }
+  }, [
+    id,
+    whatsappInstances,
+    whatsappComponent,
+    selectedComponentIds,
+    selectedWhatsappInstanceId,
+    whatsappIntentionallyRemoved,
+  ]);
 
   const handleTemplateSelect = (
     template: ReturnType<typeof AgentTemplateService.getTemplates>[0]
@@ -357,6 +406,8 @@ const AgentCreate = () => {
       proactivity_level: "moderate",
       agent_avatar_url: template.icon ? `emoji:${template.icon}` : null,
       agent_color: "#3b82f6",
+      should_introduce_itself: true,
+      memory_amount: "20",
     });
     AgentTemplateService.applyTemplate(newAgent, template);
     setAgent(newAgent);
@@ -445,92 +496,59 @@ const AgentCreate = () => {
     }
 
     if (shouldShowWhatsappInstanceSelector && selectedWhatsappInstanceId) {
-      const session = await supabase.auth.getSession();
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-      const response = await fetch(
-        `${supabaseUrl}/rest/v1/agent_component_configurations`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            apikey: supabaseKey,
-            Authorization: `Bearer ${session.data.session?.access_token || ""}`,
-            Prefer: "resolution=merge-duplicates",
-          },
-          body: JSON.stringify({
+      const { error } = await supabase
+        .from("agent_component_configurations")
+        .upsert(
+          {
             agent_id: agentId,
             component_id: whatsappComponent.id,
             config: {
               whatsapp_instance_id: selectedWhatsappInstanceId,
             },
-            updated_at: new Date().toISOString(),
-          }),
-        }
-      );
+          },
+          {
+            onConflict: "agent_id,component_id",
+          }
+        );
 
-      if (!response.ok) {
-        const errorData = await response.json();
+      if (error) {
         throw new Error(
-          `Erro ao salvar configuração do componente: ${
-            errorData.message || response.statusText
-          }`
+          `Erro ao salvar configuração do componente: ${error.message}`
         );
       }
     } else if (hasWhatsappSelected && !shouldShowWhatsappInstanceSelector) {
       if (whatsappInstances.length === 1) {
-        const session = await supabase.auth.getSession();
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-        const response = await fetch(
-          `${supabaseUrl}/rest/v1/agent_component_configurations`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              apikey: supabaseKey,
-              Authorization: `Bearer ${
-                session.data.session?.access_token || ""
-              }`,
-              Prefer: "resolution=merge-duplicates",
-            },
-            body: JSON.stringify({
+        const { error } = await supabase
+          .from("agent_component_configurations")
+          .upsert(
+            {
               agent_id: agentId,
               component_id: whatsappComponent.id,
               config: {
                 whatsapp_instance_id: whatsappInstances[0].id,
               },
-              updated_at: new Date().toISOString(),
-            }),
-          }
-        );
+            },
+            {
+              onConflict: "agent_id,component_id",
+            }
+          );
 
-        if (!response.ok) {
-          const errorData = await response.json();
+        if (error) {
           throw new Error(
-            `Erro ao salvar configuração do componente: ${
-              errorData.message || response.statusText
-            }`
+            `Erro ao salvar configuração do componente: ${error.message}`
           );
         }
       }
     } else if (!hasWhatsappSelected && whatsappComponent) {
-      const session = await supabase.auth.getSession();
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const { error } = await supabase
+        .from("agent_component_configurations")
+        .delete()
+        .eq("agent_id", agentId)
+        .eq("component_id", whatsappComponent.id);
 
-      await fetch(
-        `${supabaseUrl}/rest/v1/agent_component_configurations?agent_id=eq.${agentId}&component_id=eq.${whatsappComponent.id}`,
-        {
-          method: "DELETE",
-          headers: {
-            apikey: supabaseKey,
-            Authorization: `Bearer ${session.data.session?.access_token || ""}`,
-          },
-        }
-      );
+      if (error) {
+        console.error("Erro ao remover configuração do componente:", error);
+      }
     }
   };
 
@@ -841,6 +859,162 @@ const AgentCreate = () => {
                       </div>
                     </div>
 
+                    <Card className="p-6 border-primary/30 bg-gradient-to-br from-primary/5 via-primary/5 to-primary/10 mt-6">
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-5 h-5 text-primary" />
+                          <h4 className="text-lg font-semibold text-foreground">
+                            Comportamento Inicial e Memória
+                          </h4>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Configure como o agente inicia conversas e quanta
+                          informação ele mantém em memória
+                        </p>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                          <div className="space-y-3">
+                            <LabelWithTooltip
+                              htmlFor="should_introduce_itself"
+                              tooltip="Define se o agente deve se apresentar automaticamente no início de cada conversa. Quando ativado, o agente se apresenta usando seu nome ou apelido de forma amigável e profissional."
+                            >
+                              Deve Começar Se Apresentando
+                            </LabelWithTooltip>
+                            <Select
+                              value={
+                                agentData.should_introduce_itself
+                                  ? "true"
+                                  : "false"
+                              }
+                              onValueChange={(value) =>
+                                handleFieldChange(
+                                  "should_introduce_itself",
+                                  value === "true"
+                                )
+                              }
+                            >
+                              <SelectTrigger className="h-11">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="true">
+                                  Sim - Agente se apresenta automaticamente
+                                </SelectItem>
+                                <SelectItem value="false">
+                                  Não - Agente responde diretamente
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <p className="text-xs text-muted-foreground">
+                              {agentData.should_introduce_itself
+                                ? "O agente começará cada conversa se apresentando com seu nome ou apelido"
+                                : "O agente responderá diretamente às mensagens sem se apresentar"}
+                            </p>
+                          </div>
+
+                          <div className="space-y-3">
+                            <LabelWithTooltip
+                              htmlFor="memory_amount"
+                              tooltip="Define quantas mensagens anteriores o agente deve considerar ao responder (máximo 20). Um número maior permite que o agente mantenha mais contexto da conversa, enquanto um número menor foca apenas no contexto imediato."
+                            >
+                              Número de Mensagens em Memória (Máx: 20)
+                            </LabelWithTooltip>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                id="memory_amount"
+                                type="number"
+                                min="5"
+                                max="20"
+                                step="5"
+                                value={
+                                  typeof agentData.memory_amount === "string" &&
+                                  !isNaN(Number(agentData.memory_amount))
+                                    ? Math.min(
+                                        Number(agentData.memory_amount),
+                                        20
+                                      ).toString()
+                                    : "20"
+                                }
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  if (
+                                    value === "" ||
+                                    (!isNaN(Number(value)) &&
+                                      Number(value) >= 5 &&
+                                      Number(value) <= 20)
+                                  ) {
+                                    const numValue =
+                                      value === ""
+                                        ? 20
+                                        : Math.min(Number(value), 20);
+                                    handleFieldChange(
+                                      "memory_amount",
+                                      numValue.toString()
+                                    );
+                                  }
+                                }}
+                                className="h-11"
+                                placeholder="20"
+                              />
+                              <span className="text-sm text-muted-foreground whitespace-nowrap">
+                                mensagens
+                              </span>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                                onClick={() =>
+                                  handleFieldChange("memory_amount", "10")
+                                }
+                              >
+                                10
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                                onClick={() =>
+                                  handleFieldChange("memory_amount", "20")
+                                }
+                              >
+                                20
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                                onClick={() =>
+                                  handleFieldChange("memory_amount", "15")
+                                }
+                              >
+                                15
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                                onClick={() =>
+                                  handleFieldChange("memory_amount", "5")
+                                }
+                              >
+                                5
+                              </Button>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Limite máximo: 20 mensagens. Recomendado: 10-15
+                              para conversas curtas, 20 para conversas longas
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+
                     <div className="pt-6 mt-6 border-t">
                       <div className="flex items-center gap-2 mb-3">
                         <Sparkles className="w-4 h-4 text-muted-foreground" />
@@ -913,7 +1087,7 @@ const AgentCreate = () => {
                       components={components}
                       selectedComponentIds={selectedComponentIds}
                       availableComponentIds={availableComponentIds}
-                      onSelectionChange={setSelectedComponentIds}
+                      onSelectionChange={handleComponentSelectionChange}
                     />
                   </div>
 

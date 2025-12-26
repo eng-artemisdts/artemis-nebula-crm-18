@@ -158,6 +158,15 @@ export const ComponentConfiguration = () => {
     setConnecting(true);
     try {
       const frontendUrl = window.location.origin;
+      const redirectUri = `${frontendUrl}/oauth/callback`;
+
+      console.log("🔗 OAuth Connect - URLs:", {
+        frontendUrl,
+        redirectUri,
+        provider,
+        message: `Certifique-se de que esta URL está registrada no Google Cloud Console: ${redirectUri}`,
+      });
+
       const { data, error } = await supabase.functions.invoke("oauth-connect", {
         body: {
           component_id: id,
@@ -213,10 +222,27 @@ export const ComponentConfiguration = () => {
         setConnecting(false);
       }
     } catch (error: any) {
-      toast.error(
-        error.message || "Erro ao conectar. Tente novamente mais tarde."
+      const errorMessage =
+        error.message || "Erro ao conectar. Tente novamente mais tarde.";
+      const redirectUri = `${window.location.origin}/oauth/callback`;
+
+      console.error("❌ Erro OAuth:", error);
+      console.error("🔗 URL de redirecionamento usada:", redirectUri);
+      console.error(
+        "💡 Certifique-se de que esta URL está registrada no Google Cloud Console"
       );
-      console.error(error);
+
+      if (
+        errorMessage.includes("redirect_uri_mismatch") ||
+        errorMessage.includes("redirect")
+      ) {
+        toast.error(
+          `Erro de redirecionamento. Adicione esta URL no Google Cloud Console: ${redirectUri}`,
+          { duration: 8000 }
+        );
+      } else {
+        toast.error(errorMessage);
+      }
       setConnecting(false);
     }
   };
