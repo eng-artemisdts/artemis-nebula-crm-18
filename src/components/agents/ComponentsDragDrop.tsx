@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import {
   DndContext,
   closestCenter,
@@ -50,6 +50,8 @@ import { cn } from "@/lib/utils";
 import { IComponentData } from "@/services/components/ComponentDomain";
 import { ComponentConfigService } from "@/services/components/ComponentConfig";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 interface ComponentsDragDropProps {
   components: IComponentData[];
@@ -61,6 +63,7 @@ interface ComponentsDragDropProps {
 interface SortableComponentProps {
   component: IComponentData;
   onRemove: () => void;
+  onRemoveWithConfirmation?: (componentId: string, identifier: string) => void;
 }
 
 interface ComponentVisualInfo {
@@ -140,7 +143,11 @@ const getComponentVisualInfo = (identifier: string): ComponentVisualInfo => {
   }
 };
 
-const SortableComponent = ({ component, onRemove }: SortableComponentProps) => {
+const SortableComponent = ({
+  component,
+  onRemove,
+  onRemoveWithConfirmation,
+}: SortableComponentProps) => {
   const {
     attributes,
     listeners,
@@ -157,6 +164,15 @@ const SortableComponent = ({ component, onRemove }: SortableComponentProps) => {
   };
 
   const visualInfo = getComponentVisualInfo(component.identifier);
+
+  const handleRemove = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onRemoveWithConfirmation) {
+      onRemoveWithConfirmation(component.id, component.identifier);
+    } else {
+      onRemove();
+    }
+  };
 
   return (
     <div
@@ -189,10 +205,7 @@ const SortableComponent = ({ component, onRemove }: SortableComponentProps) => {
         variant="ghost"
         size="sm"
         className="h-6 w-6 p-0 ml-1"
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove();
-        }}
+        onClick={handleRemove}
       >
         <X className="w-3 h-3" />
       </Button>
@@ -211,6 +224,11 @@ export const ComponentsDragDrop = ({
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
+  const [componentToRemove, setComponentToRemove] = useState<{
+    id: string;
+    identifier: string;
+  } | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor));
 
@@ -283,9 +301,30 @@ export const ComponentsDragDrop = ({
     onSelectionChange([...selectedComponentIds, componentId]);
   };
 
-  const handleRemoveComponent = (componentId: string) => {
-    onSelectionChange(selectedComponentIds.filter((id) => id !== componentId));
-  };
+  const handleRemoveComponent = useCallback(
+    (componentId: string, identifier?: string) => {
+      if (identifier === "whatsapp_integration") {
+        setComponentToRemove({ id: componentId, identifier });
+        setConfirmRemoveOpen(true);
+      } else {
+        onSelectionChange(
+          selectedComponentIds.filter((id) => id !== componentId)
+        );
+      }
+    },
+    [selectedComponentIds, onSelectionChange]
+  );
+
+  const handleConfirmRemove = useCallback(() => {
+    if (componentToRemove) {
+      onSelectionChange(
+        selectedComponentIds.filter((id) => id !== componentToRemove.id)
+      );
+      toast.success("WhatsApp removido com sucesso");
+      setComponentToRemove(null);
+      setConfirmRemoveOpen(false);
+    }
+  }, [componentToRemove, selectedComponentIds, onSelectionChange]);
 
   const handleConfigureComponent = (
     componentId: string,
@@ -297,279 +336,297 @@ export const ComponentsDragDrop = ({
   };
 
   return (
-    <div className="space-y-6">
-      <Card className="p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div className="space-y-1">
-            <p className="text-base font-semibold tracking-tight">
-              Habilidades selecionadas
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Arraste para ordenar da mais importante para a menos importante.
-            </p>
-          </div>
-          <Badge variant="outline" className="text-xs">
-            {selectedComponents.length} habilidade(s)
-          </Badge>
-        </div>
-
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={selectedComponentIds}
-            strategy={rectSortingStrategy}
-          >
-            <div className="min-h-[100px] p-4 border-2 border-dashed border-muted rounded-lg bg-muted/30 flex flex-wrap gap-3">
-              {selectedComponents.length === 0 ? (
-                <div className="flex flex-col items-center justify-center gap-2 py-8 text-center w-full">
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Nenhuma habilidade selecionada ainda
-                  </p>
-                  <p className="text-xs text-muted-foreground max-w-md">
-                    Use a biblioteca de componentes abaixo para adicionar
-                    habilidades ao agente.
-                  </p>
-                </div>
-              ) : (
-                selectedComponents.map((component) => (
-                  <SortableComponent
-                    key={component.id}
-                    component={component}
-                    onRemove={() => handleRemoveComponent(component.id)}
-                  />
-                ))
-              )}
-            </div>
-          </SortableContext>
-        </DndContext>
-      </Card>
-
-      <Card className="p-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-          <div className="space-y-1">
-            <p className="text-base font-semibold tracking-tight">
-              Biblioteca de componentes
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Clique para ativar ou desativar habilidades. Itens bloqueados
-              ficam esmaecidos, mas ainda visíveis.
-            </p>
-          </div>
-          <Badge variant="secondary" className="text-xs w-fit">
-            {componentsWithMeta.length} componente(s)
-          </Badge>
-        </div>
-
-        <div className="mb-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Buscar componentes..."
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="pl-9"
-            />
-          </div>
-        </div>
-
-        <div className="min-h-[400px]">
-          {paginatedComponents.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-              <p className="text-sm font-medium text-muted-foreground">
-                Nenhum componente encontrado
+    <>
+      <ConfirmDialog
+        open={confirmRemoveOpen}
+        onOpenChange={setConfirmRemoveOpen}
+        onConfirm={handleConfirmRemove}
+        title="Remover WhatsApp?"
+        description="O WhatsApp é o componente padrão. Tem certeza que deseja removê-lo?"
+        confirmText="Remover"
+        cancelText="Cancelar"
+        variant="destructive"
+      />
+      <div className="space-y-6">
+        <Card className="p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="space-y-1">
+              <p className="text-base font-semibold tracking-tight">
+                Habilidades selecionadas
               </p>
               <p className="text-xs text-muted-foreground">
-                {searchQuery
-                  ? "Tente buscar com outros termos"
-                  : "Nenhum componente disponível"}
+                Arraste para ordenar da mais importante para a menos importante.
               </p>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {paginatedComponents.map(
-                ({ component, isAvailable, isSelected, visualInfo }) => {
-                  const statusVariant = isSelected
-                    ? "default"
-                    : isAvailable
-                    ? "outline"
-                    : "outline";
+            <Badge variant="outline" className="text-xs">
+              {selectedComponents.length} habilidade(s)
+            </Badge>
+          </div>
 
-                  return (
-                    <div
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={selectedComponentIds}
+              strategy={rectSortingStrategy}
+            >
+              <div className="min-h-[100px] p-4 border-2 border-dashed border-muted rounded-lg bg-muted/30 flex flex-wrap gap-3">
+                {selectedComponents.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center gap-2 py-8 text-center w-full">
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Nenhuma habilidade selecionada ainda
+                    </p>
+                    <p className="text-xs text-muted-foreground max-w-md">
+                      Use a biblioteca de componentes abaixo para adicionar
+                      habilidades ao agente.
+                    </p>
+                  </div>
+                ) : (
+                  selectedComponents.map((component) => (
+                    <SortableComponent
                       key={component.id}
-                      className={cn(
-                        "relative flex flex-col rounded-lg border bg-background/60 transition-all",
-                        "hover:border-primary/50 hover:bg-primary/5 hover:shadow-md",
-                        !isAvailable &&
-                          "opacity-60 cursor-not-allowed hover:border-border hover:bg-background/60 hover:shadow-none"
-                      )}
-                    >
-                      <button
-                        type="button"
-                        onClick={() =>
-                          isAvailable && handleAddComponent(component.id)
-                        }
-                        disabled={!isAvailable}
+                      component={component}
+                      onRemove={() => handleRemoveComponent(component.id)}
+                      onRemoveWithConfirmation={handleRemoveComponent}
+                    />
+                  ))
+                )}
+              </div>
+            </SortableContext>
+          </DndContext>
+        </Card>
+
+        <Card className="p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+            <div className="space-y-1">
+              <p className="text-base font-semibold tracking-tight">
+                Biblioteca de componentes
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Clique para ativar ou desativar habilidades. Itens bloqueados
+                ficam esmaecidos, mas ainda visíveis.
+              </p>
+            </div>
+            <Badge variant="secondary" className="text-xs w-fit">
+              {componentsWithMeta.length} componente(s)
+            </Badge>
+          </div>
+
+          <div className="mb-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Buscar componentes..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="pl-9"
+              />
+            </div>
+          </div>
+
+          <div className="min-h-[400px]">
+            {paginatedComponents.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
+                <p className="text-sm font-medium text-muted-foreground">
+                  Nenhum componente encontrado
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {searchQuery
+                    ? "Tente buscar com outros termos"
+                    : "Nenhum componente disponível"}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {paginatedComponents.map(
+                  ({ component, isAvailable, isSelected, visualInfo }) => {
+                    const statusVariant = isSelected
+                      ? "default"
+                      : isAvailable
+                      ? "outline"
+                      : "outline";
+
+                    return (
+                      <div
+                        key={component.id}
                         className={cn(
-                          "flex-1 flex flex-col items-stretch gap-3 px-4 py-4 text-left",
-                          !isAvailable && "cursor-not-allowed"
+                          "relative flex flex-col rounded-lg border bg-background/60 transition-all",
+                          "hover:border-primary/50 hover:bg-primary/5 hover:shadow-md",
+                          !isAvailable &&
+                            "opacity-60 cursor-not-allowed hover:border-border hover:bg-background/60 hover:shadow-none"
                         )}
                       >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <div
-                              className={cn("flex-shrink-0", visualInfo.color)}
-                            >
-                              {visualInfo.icon}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            isAvailable && handleAddComponent(component.id)
+                          }
+                          disabled={!isAvailable}
+                          className={cn(
+                            "flex-1 flex flex-col items-stretch gap-3 px-4 py-4 text-left min-w-0 w-full",
+                            !isAvailable && "cursor-not-allowed"
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <div
+                                className={cn(
+                                  "flex-shrink-0",
+                                  visualInfo.color
+                                )}
+                              >
+                                {visualInfo.icon}
+                              </div>
+                              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground break-words overflow-hidden">
+                                {component.identifier.replace(/_/g, " ")}
+                              </span>
                             </div>
-                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                              {component.identifier.replace(/_/g, " ")}
-                            </span>
-                          </div>
-                          <Badge
-                            variant={statusVariant}
-                            className={cn(
-                              "text-[10px] px-2 py-0 flex-shrink-0",
-                              isSelected &&
-                                "bg-primary text-primary-foreground",
-                              !isAvailable && "border-dashed"
-                            )}
-                          >
-                            {isSelected
-                              ? "Selecionado"
-                              : isAvailable
-                              ? "Disponível"
-                              : "Bloqueado"}
-                          </Badge>
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <p className="text-sm font-semibold leading-tight">
-                            {component.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground line-clamp-2">
-                            {component.description}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground line-clamp-2">
-                            {visualInfo.hint}
-                          </p>
-                        </div>
-
-                        {!isAvailable && (
-                          <div className="absolute top-3 right-3 flex items-center gap-1 text-[10px] text-muted-foreground">
-                            <Lock className="w-3 h-3" />
-                            <span>Não liberado</span>
-                          </div>
-                        )}
-                      </button>
-
-                      {isSelected &&
-                        ComponentConfigService.requiresConfiguration(
-                          component.identifier
-                        ) &&
-                        ComponentConfigService.getConfigType(
-                          component.identifier
-                        ) !== "custom" && (
-                          <div className="px-4 pb-3 pt-0 border-t border-border/50">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full text-xs"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleConfigureComponent(
-                                  component.id,
-                                  component.identifier
-                                );
-                              }}
+                            <Badge
+                              variant={statusVariant}
+                              className={cn(
+                                "text-[10px] px-2 py-0 flex-shrink-0",
+                                isSelected &&
+                                  "bg-primary text-primary-foreground",
+                                !isAvailable && "border-dashed"
+                              )}
                             >
-                              <Settings className="w-3 h-3 mr-2" />
-                              Configurar Componente
-                            </Button>
+                              {isSelected
+                                ? "Selecionado"
+                                : isAvailable
+                                ? "Disponível"
+                                : "Bloqueado"}
+                            </Badge>
                           </div>
-                        )}
-                    </div>
-                  );
-                }
-              )}
+
+                          <div className="space-y-1.5 min-w-0">
+                            <p className="text-sm font-semibold leading-tight break-words">
+                              {component.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground line-clamp-2 break-words">
+                              {component.description}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground line-clamp-2 break-words">
+                              {visualInfo.hint}
+                            </p>
+                          </div>
+
+                          {!isAvailable && (
+                            <div className="absolute top-3 right-3 flex items-center gap-1 text-[10px] text-muted-foreground">
+                              <Lock className="w-3 h-3" />
+                              <span>Não liberado</span>
+                            </div>
+                          )}
+                        </button>
+
+                        {isSelected &&
+                          ComponentConfigService.requiresConfiguration(
+                            component.identifier
+                          ) &&
+                          ComponentConfigService.getConfigType(
+                            component.identifier
+                          ) !== "custom" && (
+                            <div className="px-4 pb-3 pt-0 border-t border-border/50">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full text-xs"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleConfigureComponent(
+                                    component.id,
+                                    component.identifier
+                                  );
+                                }}
+                              >
+                                <Settings className="w-3 h-3 mr-2" />
+                                Configurar Componente
+                              </Button>
+                            </div>
+                          )}
+                      </div>
+                    );
+                  }
+                )}
+              </div>
+            )}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="mt-6 flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                Mostrando {startIndex + 1}-
+                {Math.min(endIndex, componentsWithMeta.length)} de{" "}
+                {componentsWithMeta.length} componente(s)
+              </p>
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (currentPage > 1) setCurrentPage(currentPage - 1);
+                      }}
+                      className={
+                        currentPage === 1
+                          ? "pointer-events-none opacity-50"
+                          : ""
+                      }
+                    />
+                  </PaginationItem>
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    return (
+                      <PaginationItem key={pageNum}>
+                        <PaginationLink
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setCurrentPage(pageNum);
+                          }}
+                          isActive={currentPage === pageNum}
+                        >
+                          {pageNum}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  })}
+                  <PaginationItem>
+                    <PaginationNext
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (currentPage < totalPages)
+                          setCurrentPage(currentPage + 1);
+                      }}
+                      className={
+                        currentPage === totalPages
+                          ? "pointer-events-none opacity-50"
+                          : ""
+                      }
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
             </div>
           )}
-        </div>
-
-        {totalPages > 1 && (
-          <div className="mt-6 flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">
-              Mostrando {startIndex + 1}-
-              {Math.min(endIndex, componentsWithMeta.length)} de{" "}
-              {componentsWithMeta.length} componente(s)
-            </p>
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (currentPage > 1) setCurrentPage(currentPage - 1);
-                    }}
-                    className={
-                      currentPage === 1 ? "pointer-events-none opacity-50" : ""
-                    }
-                  />
-                </PaginationItem>
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum;
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  } else {
-                    pageNum = currentPage - 2 + i;
-                  }
-                  return (
-                    <PaginationItem key={pageNum}>
-                      <PaginationLink
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setCurrentPage(pageNum);
-                        }}
-                        isActive={currentPage === pageNum}
-                      >
-                        {pageNum}
-                      </PaginationLink>
-                    </PaginationItem>
-                  );
-                })}
-                <PaginationItem>
-                  <PaginationNext
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (currentPage < totalPages)
-                        setCurrentPage(currentPage + 1);
-                    }}
-                    className={
-                      currentPage === totalPages
-                        ? "pointer-events-none opacity-50"
-                        : ""
-                    }
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          </div>
-        )}
-      </Card>
-    </div>
+        </Card>
+      </div>
+    </>
   );
 };

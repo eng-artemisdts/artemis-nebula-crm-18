@@ -20,6 +20,8 @@ export interface IAgentData {
   proactivity_level: string;
   agent_avatar_url: string | null;
   agent_color: string;
+  should_introduce_itself: boolean;
+  memory_amount: string;
 }
 
 export class Agent {

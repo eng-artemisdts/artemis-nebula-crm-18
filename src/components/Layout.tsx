@@ -176,11 +176,6 @@ const menuItems: MenuItem[] = [
     title: "Inteligência Artificial",
     icon: Bot,
     subItems: [
-      {
-        title: "Configurar IA Padrão",
-        url: "/ai-configuration",
-        icon: Sparkles,
-      },
       { title: "Agentes de IA", url: "/ai-interaction", icon: Bot },
       { title: "Habilidades e Integrações", url: "/abilities", icon: Bot },
       {

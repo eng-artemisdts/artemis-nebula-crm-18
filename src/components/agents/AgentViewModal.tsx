@@ -431,6 +431,42 @@ export const AgentViewModal = ({
                         )}
                       </Badge>
                     </div>
+                    <div>
+                      <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-2">
+                        <User className="w-4 h-4" />
+                        <span>Apresentação Inicial</span>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className="text-xs font-semibold"
+                        style={{
+                          borderColor: agent.should_introduce_itself
+                            ? "#10b981"
+                            : "#6b7280",
+                          color: agent.should_introduce_itself
+                            ? "#10b981"
+                            : "#6b7280",
+                        }}
+                      >
+                        {agent.should_introduce_itself ? "Sim" : "Não"}
+                      </Badge>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-2">
+                        <Clock className="w-4 h-4" />
+                        <span>Memória</span>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className="text-xs font-semibold"
+                        style={{
+                          borderColor: agent.agent_color || "#3b82f6",
+                          color: agent.agent_color || "#3b82f6",
+                        }}
+                      >
+                        {agent.memory_amount || "20"} mensagens
+                      </Badge>
+                    </div>
                   </div>
                 </div>
 

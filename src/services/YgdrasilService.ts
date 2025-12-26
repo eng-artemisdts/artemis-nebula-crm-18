@@ -6,6 +6,8 @@ export interface IYgdrasilRAGRequest {
   fileContent: ArrayBuffer | Blob;
   indexName: string;
   companyName: string;
+  embeddingModel?: string;
+  vectorDimension?: number;
 }
 
 export interface IYgdrasilRAGResponse {
@@ -23,7 +25,7 @@ class YgdrasilService implements IYgdrasilService {
   private readonly authToken: string;
 
   constructor() {
-    const url = import.meta.env.VITE_YGDRASIL_API_URL || 'https://yggdrasil.artemisdigital.tech/webhook-test/a8dc1f44-cbb3-4704-8b1a-6e286bc214a0';
+    const url = import.meta.env.VITE_YGDRASIL_API_URL || 'https://yggdrasil.artemisdigital.tech/webhook/a8dc1f44-cbb3-4704-8b1a-6e286bc214a0';
     const token = import.meta.env.VITE_YGDRASIL_AUTH_TOKEN || '6fa4687c02611c991c2d481b21682809cfd7a613daed1e0ee5f14bfacc1f4a19';
     
     this.endpointUrl = url;
@@ -45,6 +47,14 @@ class YgdrasilService implements IYgdrasilService {
     formData.append('fileSize', request.fileSize.toString());
     formData.append('indexName', request.indexName);
     formData.append('companyName', request.companyName);
+    
+    if (request.embeddingModel) {
+      formData.append('embeddingModel', request.embeddingModel);
+    }
+    
+    if (request.vectorDimension !== undefined) {
+      formData.append('vectorDimension', request.vectorDimension.toString());
+    }
 
     const response = await fetch(this.endpointUrl, {
       method: 'POST',

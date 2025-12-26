@@ -29,6 +29,7 @@ import {
   ArrowRight,
   LayoutGrid,
   List,
+  Star,
 } from "lucide-react";
 import { ComponentRepository } from "@/services/components/ComponentRepository";
 import {
@@ -50,6 +51,7 @@ const Agents = () => {
   const [selectedAgent, setSelectedAgent] =
     useState<AgentWithComponents | null>(null);
   const [viewModalOpen, setViewModalOpen] = useState(false);
+  const [defaultAgentId, setDefaultAgentId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const saved = localStorage.getItem("agentViewMode");
     return (saved as ViewMode) || "detailed";
@@ -101,7 +103,102 @@ const Agents = () => {
 
   useEffect(() => {
     fetchAgents();
+    fetchDefaultAgent();
   }, [fetchAgents]);
+
+  const fetchDefaultAgent = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("settings")
+        .select("default_ai_interaction_id")
+        .maybeSingle();
+
+      if (error) {
+        console.error("Erro ao buscar agente padrão:", error);
+        return;
+      }
+
+      if (data) {
+        setDefaultAgentId(data.default_ai_interaction_id);
+      }
+    } catch (error) {
+      console.error("Erro ao buscar agente padrão:", error);
+    }
+  };
+
+  const handleSetAsDefault = async (agentId: string) => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      
+      if (!userData.user) {
+        toast.error("Usuário não autenticado");
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("organization_id")
+        .eq("id", userData.user.id)
+        .single();
+
+      if (!profile?.organization_id) {
+        toast.error("Organização não encontrada");
+        return;
+      }
+
+      const { data: existingSettings } = await supabase
+        .from("settings")
+        .select("id")
+        .maybeSingle();
+
+      if (existingSettings) {
+        const { error } = await supabase
+          .from("settings")
+          .update({ default_ai_interaction_id: agentId })
+          .eq("id", existingSettings.id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("settings")
+          .insert({ 
+            organization_id: profile.organization_id,
+            default_ai_interaction_id: agentId 
+          });
+
+        if (error) throw error;
+      }
+
+      setDefaultAgentId(agentId);
+      toast.success("Agente padrão definido com sucesso!");
+    } catch (error: any) {
+      toast.error("Erro ao definir agente padrão");
+      console.error(error);
+    }
+  };
+
+  const handleRemoveDefault = async () => {
+    try {
+      const { data: existingSettings } = await supabase
+        .from("settings")
+        .select("id")
+        .maybeSingle();
+
+      if (existingSettings) {
+        const { error } = await supabase
+          .from("settings")
+          .update({ default_ai_interaction_id: null })
+          .eq("id", existingSettings.id);
+
+        if (error) throw error;
+        setDefaultAgentId(null);
+        toast.success("Agente padrão removido com sucesso!");
+      }
+    } catch (error: any) {
+      toast.error("Erro ao remover agente padrão");
+      console.error(error);
+    }
+  };
 
   const handleEdit = (agent: AgentWithComponents) => {
     navigate(`/ai-interaction/edit/${agent.id}`);
@@ -328,9 +425,20 @@ const Agents = () => {
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-xl mb-1.5 truncate group-hover:text-primary transition-colors">
-                          {agent.name}
-                        </h3>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <h3 className="font-bold text-xl truncate group-hover:text-primary transition-colors">
+                            {agent.name}
+                          </h3>
+                          {defaultAgentId === agent.id && (
+                            <Badge
+                              variant="secondary"
+                              className="text-xs px-2 py-0.5 flex items-center gap-1 bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 border-yellow-500/30"
+                            >
+                              <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                              Padrão
+                            </Badge>
+                          )}
+                        </div>
                         <div className="flex items-center gap-2 flex-wrap mb-2">
                           <Badge
                             variant="secondary"
@@ -388,6 +496,19 @@ const Agents = () => {
                           >
                             <Pencil className="w-4 h-4 mr-2" />
                             Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (defaultAgentId === agent.id) {
+                                handleRemoveDefault();
+                              } else {
+                                handleSetAsDefault(agent.id);
+                              }
+                            }}
+                          >
+                            <Star className={`w-4 h-4 mr-2 ${defaultAgentId === agent.id ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+                            {defaultAgentId === agent.id ? 'Remover como padrão' : 'Definir como padrão'}
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={(e) => {
@@ -569,9 +690,20 @@ const Agents = () => {
                           />
                         </div>
                         <div className="flex-1 min-w-0 pt-1">
-                          <h3 className="font-bold text-xl mb-1.5 truncate group-hover:text-primary transition-colors duration-300">
-                            {agent.name}
-                          </h3>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <h3 className="font-bold text-xl truncate group-hover:text-primary transition-colors duration-300">
+                              {agent.name}
+                            </h3>
+                            {defaultAgentId === agent.id && (
+                              <Badge
+                                variant="secondary"
+                                className="text-xs px-2 py-0.5 flex items-center gap-1 bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 border-yellow-500/30"
+                              >
+                                <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                                Padrão
+                              </Badge>
+                            )}
+                          </div>
                           {agent.agent_description && (
                             <p className="text-xs text-muted-foreground line-clamp-2 mb-2 leading-relaxed">
                               {agent.agent_description}
@@ -630,6 +762,19 @@ const Agents = () => {
                           >
                             <Pencil className="w-4 h-4 mr-2" />
                             Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (defaultAgentId === agent.id) {
+                                handleRemoveDefault();
+                              } else {
+                                handleSetAsDefault(agent.id);
+                              }
+                            }}
+                          >
+                            <Star className={`w-4 h-4 mr-2 ${defaultAgentId === agent.id ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+                            {defaultAgentId === agent.id ? 'Remover como padrão' : 'Definir como padrão'}
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={(e) => {

@@ -291,6 +291,7 @@ const Dashboard = () => {
         .from("leads")
         .select("*", { count: "exact" })
         .eq("organization_id", organization.id)
+        .or("is_test.is.null,is_test.eq.false")
         .order("created_at", { ascending: false });
 
       if (searchQuery.trim() || viewMode === "kanban") {
@@ -924,12 +925,12 @@ Se quiser saber mais, é só acessar:
               automatizar o atendimento dos novos leads.
               <br />
               <Button
-                onClick={() => navigate("/ai-configuration")}
+                onClick={() => navigate("/ai-interaction")}
                 variant="outline"
                 className="mt-3 gap-2 border-amber-500/50 hover:bg-amber-500/10"
               >
                 <AlertCircle className="w-4 h-4" />
-                Configurar IA Padrão
+                Ir para Agentes
               </Button>
             </AlertDescription>
           </Alert>

@@ -21,6 +21,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { ygdrasilService } from "@/services/YgdrasilService";
+import { pineconeIndexCacheService } from "@/services/cache/PineconeIndexCacheService";
 import { useOrganization } from "@/hooks/useOrganization";
 import { cn } from "@/lib/utils";
 
@@ -111,6 +112,52 @@ export default function AIContextDocuments() {
 
       const indexName = generateIndexName(organization?.company_name);
 
+      if (!pineconeIndexCacheService.isIndexCached(indexName)) {
+        try {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          if (!session) {
+            throw new Error("Usuário não autenticado");
+          }
+
+          const ensureIndexResponse = await fetch(
+            `${
+              import.meta.env.VITE_SUPABASE_URL
+            }/functions/v1/ensure-pinecone-index`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${session.access_token}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                indexName,
+                vectorDimension: 1024,
+              }),
+            }
+          );
+
+          if (!ensureIndexResponse.ok) {
+            const errorData = await ensureIndexResponse.json();
+            throw new Error(
+              errorData.error || "Erro ao garantir existência do índice"
+            );
+          }
+
+          pineconeIndexCacheService.cacheIndex(indexName);
+        } catch (indexError) {
+          console.error("Erro ao garantir índice:", indexError);
+          toast.error(
+            indexError instanceof Error
+              ? indexError.message
+              : "Erro ao criar índice no Pinecone"
+          );
+          setUploading(false);
+          return;
+        }
+      }
+
       for (const file of validFiles) {
         const fileName = file.name.replace(/\.[^/.]+$/, "");
         const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
@@ -156,6 +203,8 @@ export default function AIContextDocuments() {
             fileContent,
             indexName,
             companyName: indexName,
+            vectorDimension: 1024,
+            embeddingModel: "text-embedding-3-small",
           });
 
           if (documentId) {
