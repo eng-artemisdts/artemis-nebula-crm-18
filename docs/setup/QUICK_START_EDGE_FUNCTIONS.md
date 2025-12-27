@@ -81,5 +81,4 @@ supabase functions list
 Consulte os arquivos de documentação:
 - `EDGE_FUNCTIONS_SETUP.md` - Guia completo
 - `EDGE_FUNCTIONS_SECRETS.md` - Lista de secrets
-- `TROUBLESHOOTING.md` - Solução de problemas
 

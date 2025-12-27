@@ -35,6 +35,10 @@ import { ComponentRepository } from "@/services/components/ComponentRepository";
 import { splitResponse } from "@/utils/messageSplitter";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { PlaygroundLoading } from "@/components/PlaygroundLoading";
+import { StatusBadge } from "@/components/StatusBadge";
+import { LeadStatusService, LeadStatus } from "@/services/LeadStatusService";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import {
   Bot,
   Send,
@@ -45,6 +49,11 @@ import {
   X,
   User,
   Plus,
+  Mail,
+  Phone,
+  Calendar,
+  DollarSign,
+  CheckCircle,
 } from "lucide-react";
 import {
   DndContext,
@@ -209,7 +218,10 @@ const Playground = () => {
     description: "",
   });
   const [isLeadDialogOpen, setIsLeadDialogOpen] = useState(false);
+  const [leadStatuses, setLeadStatuses] = useState<LeadStatus[]>([]);
+  const [loadingStatuses, setLoadingStatuses] = useState(false);
   const componentRepository = useMemo(() => new ComponentRepository(), []);
+  const leadStatusService = useMemo(() => new LeadStatusService(), []);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -350,7 +362,7 @@ const Playground = () => {
         name: selectedLead.name || `Lead de Teste`,
         description: selectedLead.description || null,
         category: selectedLead.category || null,
-        status: selectedLead.status || "conversation_started",
+        status: selectedLead.status || "new",
         contact_email: selectedLead.contact_email || null,
         contact_whatsapp: testPhoneNumber.replace("@s.whatsapp.net", ""),
         source: selectedLead.source || "playground",
@@ -378,7 +390,7 @@ const Playground = () => {
       name: `Lead de Teste - ${organization.name || "Organização"}`,
       description: null,
       category: null,
-      status: "conversation_started",
+      status: "new",
       contact_email: null,
       contact_whatsapp: testPhoneNumber,
       source: "playground",
@@ -417,7 +429,7 @@ const Playground = () => {
           contact_email: null,
           contact_whatsapp: phoneNumber,
           remote_jid: remoteJid,
-          status: "conversation_started",
+          status: "new",
           source: "playground",
           organization_id: organization.id,
           whatsapp_verified: true,
@@ -460,7 +472,7 @@ const Playground = () => {
           contact_email: newLeadData.contact_email || null,
           contact_whatsapp: phoneNumber.replace("@s.whatsapp.net", ""),
           remote_jid: remoteJid,
-          status: "conversation_started",
+          status: "new",
           source: "playground",
           organization_id: organization.id,
           whatsapp_verified: true,
@@ -489,10 +501,25 @@ const Playground = () => {
     }
   };
 
+  const fetchLeadStatuses = useCallback(async () => {
+    if (!organization?.id) return;
+
+    setLoadingStatuses(true);
+    try {
+      const statuses = await leadStatusService.getAll(organization.id);
+      setLeadStatuses(statuses);
+    } catch (error) {
+      console.error("Erro ao buscar status dos leads:", error);
+    } finally {
+      setLoadingStatuses(false);
+    }
+  }, [organization?.id, leadStatusService]);
+
   useEffect(() => {
     fetchAgents();
     fetchLeads();
-  }, [fetchAgents, fetchLeads]);
+    fetchLeadStatuses();
+  }, [fetchAgents, fetchLeads, fetchLeadStatuses]);
 
   const fetchAgentComponents = useCallback(
     async (agentId: string) => {
@@ -989,7 +1016,8 @@ const Playground = () => {
         </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <Card className="col-span-1 border-border/80 shadow-sm">
+          <div className="col-span-1 space-y-6">
+          <Card className="border-border/80 shadow-sm">
             <CardHeader className="space-y-3">
               <CardTitle className="text-lg">Configuração</CardTitle>
               <div className="space-y-2">
@@ -1169,17 +1197,6 @@ const Playground = () => {
                         </DialogContent>
                       </Dialog>
                     </div>
-                    {selectedLead && (
-                      <div className="text-xs text-muted-foreground p-2 bg-muted rounded">
-                        <p className="font-medium">{selectedLead.name}</p>
-                        {selectedLead.contact_whatsapp && (
-                          <p>WhatsApp: {selectedLead.contact_whatsapp}</p>
-                        )}
-                        {selectedLead.contact_email && (
-                          <p>Email: {selectedLead.contact_email}</p>
-                        )}
-                      </div>
-                    )}
                   </div>
                   <div className="space-y-2 pt-2 border-t">
                     <div className="flex items-center gap-2">
@@ -1220,6 +1237,246 @@ const Playground = () => {
               )}
             </CardHeader>
           </Card>
+
+          {selectedLead && (
+            <Card className="border-border/80 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  Dados do Lead
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div>
+                    <h3 className="font-semibold text-base mb-2">{selectedLead.name}</h3>
+                    {selectedLead.description && (
+                      <p className="text-sm text-muted-foreground mb-3">{selectedLead.description}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">WhatsApp:</span>
+                      <span className="font-medium">{selectedLead.contact_whatsapp || "Não informado"}</span>
+                    </div>
+                    {selectedLead.contact_email && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Mail className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Email:</span>
+                        <span className="font-medium">{selectedLead.contact_email}</span>
+                      </div>
+                    )}
+                    {selectedLead.category && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-muted-foreground">Categoria:</span>
+                        <Badge variant="secondary" className="text-xs">
+                          {selectedLead.category}
+                        </Badge>
+                      </div>
+                    )}
+                    {selectedLead.source && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-muted-foreground">Origem:</span>
+                        <span className="font-medium">{selectedLead.source}</span>
+                      </div>
+                    )}
+                    {selectedLead.created_at && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Criado em:</span>
+                        <span className="font-medium">
+                          {format(new Date(selectedLead.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {selectedLead.payment_status && selectedLead.payment_status !== "nao_criado" && (
+                    <div className="pt-3 border-t space-y-2">
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        <DollarSign className="h-4 w-4" />
+                        Informações de Pagamento
+                      </div>
+                      <div className="space-y-1.5 text-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground">Status:</span>
+                          <Badge
+                            variant={
+                              selectedLead.payment_status === "pago"
+                                ? "default"
+                                : selectedLead.payment_status === "expirado"
+                                ? "destructive"
+                                : "secondary"
+                            }
+                            className="text-xs"
+                          >
+                            {selectedLead.payment_status === "pago"
+                              ? "Pago"
+                              : selectedLead.payment_status === "link_gerado"
+                              ? "Link Gerado"
+                              : selectedLead.payment_status === "expirado"
+                              ? "Expirado"
+                              : selectedLead.payment_status}
+                          </Badge>
+                        </div>
+                        {selectedLead.payment_amount && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Valor:</span>
+                            <span className="font-medium">
+                              {new Intl.NumberFormat("pt-BR", {
+                                style: "currency",
+                                currency: "BRL",
+                              }).format(selectedLead.payment_amount)}
+                            </span>
+                          </div>
+                        )}
+                        {selectedLead.paid_at && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Pago em:</span>
+                            <span className="font-medium">
+                              {format(new Date(selectedLead.paid_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-4 border-t">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-semibold">Status no Funil</h4>
+                    {loadingStatuses && (
+                      <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                    )}
+                  </div>
+                  {loadingStatuses ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : leadStatuses.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="mb-3">
+                        <StatusBadge status={selectedLead.status} />
+                      </div>
+                      <div className="relative">
+                        <div className="flex flex-col gap-2">
+                          {leadStatuses
+                            .filter((s) => s.status_key !== "finished")
+                            .map((status) => {
+                              const isCurrentStatus = status.status_key === selectedLead.status;
+                              const currentStatusOrder = leadStatuses.find(
+                                (s) => s.status_key === selectedLead.status
+                              )?.display_order ?? 0;
+                              const isPastStatus = currentStatusOrder > status.display_order;
+                              const isFutureStatus = currentStatusOrder < status.display_order;
+
+                              return (
+                                <div
+                                  key={status.id}
+                                  className={`relative flex items-center gap-2 p-2 rounded-md transition-all ${
+                                    isCurrentStatus
+                                      ? "bg-primary/10 border border-primary/30"
+                                      : isPastStatus
+                                      ? "bg-green-500/10 border border-green-500/20"
+                                      : "bg-muted/50 border border-border/50"
+                                  }`}
+                                >
+                                  <div
+                                    className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                      isCurrentStatus
+                                        ? "bg-primary"
+                                        : isPastStatus
+                                        ? "bg-green-500"
+                                        : "bg-muted-foreground/30"
+                                    }`}
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span
+                                        className={`text-xs font-medium ${
+                                          isCurrentStatus
+                                            ? "text-primary"
+                                            : isPastStatus
+                                            ? "text-green-600 dark:text-green-400"
+                                            : "text-muted-foreground"
+                                        }`}
+                                      >
+                                        {status.label}
+                                      </span>
+                                      {isCurrentStatus && (
+                                        <CheckCircle className="h-3 w-3 text-primary flex-shrink-0" />
+                                      )}
+                                      {isPastStatus && (
+                                        <CheckCircle className="h-3 w-3 text-green-500 flex-shrink-0" />
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                        {leadStatuses.find((s) => s.status_key === "finished") && (
+                          <div className="mt-3 pt-3 border-t">
+                            <div
+                              className={`flex items-center gap-2 p-2 rounded-md ${
+                                selectedLead.status === "finished"
+                                  ? "bg-green-500/10 border border-green-500/30"
+                                  : "bg-muted/30 border border-border/50"
+                              }`}
+                            >
+                              <div
+                                className={`w-2 h-2 rounded-full ${
+                                  selectedLead.status === "finished"
+                                    ? "bg-green-500"
+                                    : "bg-muted-foreground/30"
+                                }`}
+                              />
+                              <span
+                                className={`text-xs font-medium ${
+                                  selectedLead.status === "finished"
+                                    ? "text-green-600 dark:text-green-400"
+                                    : "text-muted-foreground"
+                                }`}
+                              >
+                                {leadStatuses.find((s) => s.status_key === "finished")?.label || "Finalizado"}
+                              </span>
+                              {selectedLead.status === "finished" && (
+                                <CheckCircle className="h-3 w-3 text-green-500 ml-auto" />
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <div className="mt-3 pt-3 border-t">
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-2 h-2 rounded-full bg-primary" />
+                            <span>Atual</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-2 h-2 rounded-full bg-green-500" />
+                            <span>Concluído</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-2 h-2 rounded-full bg-muted-foreground/30" />
+                            <span>Pendente</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground text-center py-4">
+                      Nenhum status configurado
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          </div>
 
           <Card className="col-span-3 border-border/80 shadow-sm flex flex-col h-[calc(100vh-12rem)]">
             <CardHeader className="flex-shrink-0">
