@@ -41,6 +41,7 @@ FUNCTIONS=(
     "get-calendar-events"
     "create-calendar-event"
     "process-scheduled-messages"
+    "process-scheduled-interactions"
     "process-ai-context-document"
     "ensure-pinecone-index"
     "search-nearby-businesses"

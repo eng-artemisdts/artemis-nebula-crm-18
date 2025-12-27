@@ -50,7 +50,7 @@ serve(async (req) => {
     const maskedUrl = RABBITMQ_URL.replace(/:[^:@]+@/, ":****@");
     console.log(`URL mascarada: ${maskedUrl}`);
 
-    let maskedUrlForError = maskedUrl;
+    const maskedUrlForError = maskedUrl;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
