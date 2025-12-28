@@ -89,17 +89,10 @@ const NestedSubMenuItem = ({
 
   if (hasNestedSubItems) {
     return (
-      <Collapsible
-        asChild
-        open={isNestedOpen}
-        onOpenChange={setIsNestedOpen}
-      >
+      <Collapsible asChild open={isNestedOpen} onOpenChange={setIsNestedOpen}>
         <SidebarMenuSubItem>
           <CollapsibleTrigger asChild>
-            <SidebarMenuSubButton
-              isActive={isNestedActive}
-              className="w-full"
-            >
+            <SidebarMenuSubButton isActive={isNestedActive} className="w-full">
               <subItem.icon className="w-4 h-4 shrink-0" />
               <span className="flex-1 text-left">{subItem.title}</span>
               <ChevronRight
@@ -132,7 +125,8 @@ const NestedSubMenuItem = ({
                           e.preventDefault();
                           toast({
                             title: "Em breve",
-                            description: "Funcionalidade será liberada em breve.",
+                            description:
+                              "Funcionalidade será liberada em breve.",
                           });
                         }
                       }}
@@ -162,9 +156,7 @@ const NestedSubMenuItem = ({
         asChild
         isActive={location.pathname === subItem.url}
         className={
-          subItem.comingSoon
-            ? "opacity-60 cursor-not-allowed"
-            : undefined
+          subItem.comingSoon ? "opacity-60 cursor-not-allowed" : undefined
         }
       >
         <NavLink
@@ -203,9 +195,10 @@ const MenuItemWithSubItems = ({
 }: MenuItemWithSubItemsProps) => {
   const { setOpen } = useSidebar();
   const isCategoryActive =
-    item.subItems?.some((subItem) => 
-      location.pathname === subItem.url ||
-      subItem.subItems?.some((nested) => location.pathname === nested.url)
+    item.subItems?.some(
+      (subItem) =>
+        location.pathname === subItem.url ||
+        subItem.subItems?.some((nested) => location.pathname === nested.url)
     ) || false;
   const [isOpen, setIsOpen] = useState(isCategoryActive);
 

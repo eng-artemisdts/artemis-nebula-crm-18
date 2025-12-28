@@ -240,10 +240,10 @@ const Playground = () => {
         .select("*")
         .eq("organization_id", organization.id)
         .order("created_at", { ascending: false });
-      
+
       console.log("Agentes carregados do banco:", {
         count: data?.length || 0,
-        agents: data?.map(a => ({
+        agents: data?.map((a) => ({
           id: a.id,
           name: a.name,
           personality_traits: a.personality_traits,
@@ -336,7 +336,7 @@ const Playground = () => {
       }
 
       setAvailableLeads(data || []);
-      
+
       setSelectedLead((current) => {
         if (current && data?.some((l) => l.id === current.id)) {
           return current;
@@ -375,7 +375,8 @@ const Playground = () => {
         payment_amount: selectedLead.payment_amount || null,
         paid_at: selectedLead.paid_at || null,
         whatsapp_verified: selectedLead.whatsapp_verified ?? true,
-        ai_interaction_id: selectedAgent?.id || selectedLead.ai_interaction_id || null,
+        ai_interaction_id:
+          selectedAgent?.id || selectedLead.ai_interaction_id || null,
         remote_jid: testRemoteJid,
         organization_id: organization.id,
       };
@@ -424,7 +425,10 @@ const Playground = () => {
       const { data, error } = await supabase
         .from("leads")
         .insert({
-          name: `Lead de Teste ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`,
+          name: `Lead de Teste ${new Date().toLocaleTimeString("pt-BR", {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}`,
           description: "Lead criado automaticamente para testes no playground",
           contact_email: null,
           contact_whatsapp: phoneNumber,
@@ -521,6 +525,59 @@ const Playground = () => {
     fetchLeadStatuses();
   }, [fetchAgents, fetchLeads, fetchLeadStatuses]);
 
+  useEffect(() => {
+    if (!selectedLead?.id || !organization?.id) return;
+
+    const fetchLeadUpdate = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("leads")
+          .select("*")
+          .eq("id", selectedLead.id)
+          .single();
+
+        if (error) {
+          console.error("Erro ao buscar atualização do lead:", error);
+          return;
+        }
+
+        if (data) {
+          setSelectedLead((current) => {
+            if (!current) return data;
+
+            const statusChanged = current.status !== data.status;
+            const hasOtherChanges =
+              current.updated_at !== data.updated_at ||
+              current.payment_status !== data.payment_status ||
+              current.payment_amount !== data.payment_amount ||
+              current.paid_at !== data.paid_at;
+
+            if (statusChanged || hasOtherChanges) {
+              if (statusChanged) {
+                toast.success(`Status do lead atualizado: ${data.status}`, {
+                  duration: 2000,
+                });
+              }
+              return data;
+            }
+
+            return current;
+          });
+
+          setAvailableLeads((prev) =>
+            prev.map((lead) => (lead.id === data.id ? data : lead))
+          );
+        }
+      } catch (error) {
+        console.error("Erro ao buscar atualização do lead:", error);
+      }
+    };
+
+    const intervalId = setInterval(fetchLeadUpdate, 5000);
+
+    return () => clearInterval(intervalId);
+  }, [selectedLead?.id, organization?.id]);
+
   const fetchAgentComponents = useCallback(
     async (agentId: string) => {
       if (!organization?.id) return;
@@ -528,7 +585,9 @@ const Playground = () => {
       try {
         const { data: componentsData, error: componentsError } = await supabase
           .from("agent_components")
-          .select("id,agent_id,component_id,created_at,components(id,name,description,identifier,created_at,updated_at)")
+          .select(
+            "id,agent_id,component_id,created_at,components(id,name,description,identifier,created_at,updated_at)"
+          )
           .eq("agent_id", agentId);
 
         if (componentsError) {
@@ -538,17 +597,14 @@ const Playground = () => {
           });
           setAgentComponents([]);
         } else {
-          console.log("Agent components loaded:", {
-            agentId,
-            count: componentsData?.length || 0,
-            data: componentsData,
-          });
           setAgentComponents((componentsData || []) as AgentComponent[]);
         }
 
         const { data: configsData, error: configsError } = await supabase
           .from("agent_component_configurations")
-          .select("id,agent_id,component_id,config,created_at,updated_at,components(id,name,description,identifier)")
+          .select(
+            "id,agent_id,component_id,config,created_at,updated_at,components(id,name,description,identifier)"
+          )
           .eq("agent_id", agentId);
 
         if (configsError) {
@@ -598,11 +654,13 @@ const Playground = () => {
       currentAgentComponentConfigurations.length === 0
     ) {
       console.log("Buscando componentes do agente antes de enviar mensagem...");
-      
+
       try {
         const { data: componentsData, error: componentsError } = await supabase
           .from("agent_components")
-          .select("id,agent_id,component_id,created_at,components(id,name,description,identifier,created_at,updated_at)")
+          .select(
+            "id,agent_id,component_id,created_at,components(id,name,description,identifier,created_at,updated_at)"
+          )
           .eq("agent_id", selectedAgent.id);
 
         if (componentsError) {
@@ -613,26 +671,28 @@ const Playground = () => {
         } else {
           currentAgentComponents = (componentsData || []) as AgentComponent[];
           setAgentComponents(currentAgentComponents);
-          console.log(
-            "Agent components carregados antes do envio:",
-            {
-              agentId: selectedAgent.id,
-              count: currentAgentComponents.length,
-              components: currentAgentComponents,
-            }
-          );
+          console.log("Agent components carregados antes do envio:", {
+            agentId: selectedAgent.id,
+            count: currentAgentComponents.length,
+            components: currentAgentComponents,
+          });
         }
 
         const { data: configsData, error: configsError } = await supabase
           .from("agent_component_configurations")
-          .select("id,agent_id,component_id,config,created_at,updated_at,components(id,name,description,identifier)")
+          .select(
+            "id,agent_id,component_id,config,created_at,updated_at,components(id,name,description,identifier)"
+          )
           .eq("agent_id", selectedAgent.id);
 
         if (configsError) {
-          console.error("Error loading agent component configurations before send:", {
-            agentId: selectedAgent.id,
-            error: configsError,
-          });
+          console.error(
+            "Error loading agent component configurations before send:",
+            {
+              agentId: selectedAgent.id,
+              error: configsError,
+            }
+          );
         } else {
           currentAgentComponentConfigurations = (configsData ||
             []) as AgentComponentConfiguration[];
@@ -819,7 +879,8 @@ const Playground = () => {
         organization: mockOrganization,
         ai_config: aiConfig,
         agent_components: currentAgentComponents || [],
-        agent_component_configurations: currentAgentComponentConfigurations || [],
+        agent_component_configurations:
+          currentAgentComponentConfigurations || [],
         lead_statuses: leadStatusesData,
         message: {
           conversation: messageContent,
@@ -838,15 +899,37 @@ const Playground = () => {
       // Validar que todos os campos obrigatórios estão presentes
       const aiConfigKeys = Object.keys(aiConfig);
       const expectedKeys = [
-        'id', 'name', 'nickname', 'conversation_focus', 'priority', 'rejection_action',
-        'tone', 'main_objective', 'additional_instructions', 'created_at', 'updated_at',
-        'closing_instructions', 'organization_id', 'personality_traits', 'communication_style',
-        'expertise_level', 'response_length', 'empathy_level', 'formality_level',
-        'humor_level', 'proactivity_level', 'agent_description', 'agent_avatar_url',
-        'agent_color', 'should_introduce_itself', 'memory_amount'
+        "id",
+        "name",
+        "nickname",
+        "conversation_focus",
+        "priority",
+        "rejection_action",
+        "tone",
+        "main_objective",
+        "additional_instructions",
+        "created_at",
+        "updated_at",
+        "closing_instructions",
+        "organization_id",
+        "personality_traits",
+        "communication_style",
+        "expertise_level",
+        "response_length",
+        "empathy_level",
+        "formality_level",
+        "humor_level",
+        "proactivity_level",
+        "agent_description",
+        "agent_avatar_url",
+        "agent_color",
+        "should_introduce_itself",
+        "memory_amount",
       ];
-      const missingKeys = expectedKeys.filter(key => !aiConfigKeys.includes(key));
-      
+      const missingKeys = expectedKeys.filter(
+        (key) => !aiConfigKeys.includes(key)
+      );
+
       if (missingKeys.length > 0) {
         console.warn("⚠️ Campos faltando no ai_config:", missingKeys);
       }
@@ -856,7 +939,8 @@ const Playground = () => {
         conversation: request.conversation,
         message: request.message,
         personality_traits: request.ai_config.personality_traits,
-        personality_traits_count: request.ai_config.personality_traits?.length || 0,
+        personality_traits_count:
+          request.ai_config.personality_traits?.length || 0,
         nickname: request.ai_config.nickname,
         should_introduce_itself: request.ai_config.should_introduce_itself,
         agent_components: request.agent_components,
@@ -870,13 +954,14 @@ const Playground = () => {
           component_name: ac.components?.name,
           component_identifier: ac.components?.identifier,
         })),
-        agent_component_configurations_details: request.agent_component_configurations?.map((acc) => ({
-          id: acc.id,
-          component_id: acc.component_id,
-          component_name: acc.components?.name,
-          component_identifier: acc.components?.identifier,
-          config: acc.config,
-        })),
+        agent_component_configurations_details:
+          request.agent_component_configurations?.map((acc) => ({
+            id: acc.id,
+            component_id: acc.component_id,
+            component_name: acc.components?.name,
+            component_identifier: acc.components?.identifier,
+            config: acc.config,
+          })),
         ai_config: request.ai_config,
         ai_config_keys: Object.keys(request.ai_config),
         ai_config_keys_count: Object.keys(request.ai_config).length,
@@ -1017,465 +1102,522 @@ const Playground = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="col-span-1 space-y-6">
-          <Card className="border-border/80 shadow-sm">
-            <CardHeader className="space-y-3">
-              <CardTitle className="text-lg">Configuração</CardTitle>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Selecionar Agente</label>
-                {loading ? (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  </div>
-                ) : (
-                  <Select
-                    value={selectedAgent?.id || ""}
-                    onValueChange={(value) => {
-                      const agent = agents.find((a) => a.id === value);
-                      setSelectedAgent(agent || null);
-                      setMessages([]);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um agente" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {agents.map((agent) => (
-                        <SelectItem key={agent.id} value={agent.id}>
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="w-3 h-3 rounded-full"
-                              style={{
-                                backgroundColor: agent.agent_color || "#3b82f6",
-                              }}
-                            />
-                            <span>{agent.name}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-              {selectedAgent && (
-                <>
-                  <div className="space-y-2 pt-2 border-t">
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium">Selecionar Lead</label>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={createQuickLead}
-                        disabled={isCreatingLead}
-                        className="h-7 px-2 text-xs"
-                        title="Criar lead de teste automaticamente"
-                      >
-                        {isCreatingLead ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <>
-                            <Sparkles className="h-3 w-3 mr-1" />
-                            Rápido
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                    <div className="flex gap-2">
-                      <Select
-                        value={selectedLead?.id || ""}
-                        onValueChange={(value) => {
-                          const lead = availableLeads.find((l) => l.id === value);
-                          setSelectedLead(lead || null);
-                        }}
-                      >
-                        <SelectTrigger className="flex-1">
-                          <SelectValue placeholder="Selecione um lead" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableLeads.map((lead) => (
-                            <SelectItem key={lead.id} value={lead.id}>
-                              <div className="flex items-center gap-2">
-                                <User className="h-3 w-3" />
-                                <span className="truncate">{lead.name}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Dialog open={isLeadDialogOpen} onOpenChange={setIsLeadDialogOpen}>
-                        <DialogTrigger asChild>
-                          <Button variant="outline" size="sm" className="px-3">
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Criar Lead Fictício</DialogTitle>
-                            <DialogDescription>
-                              Crie um lead fictício para testar o agente no playground
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="space-y-4 py-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="lead-name">Nome *</Label>
-                              <Input
-                                id="lead-name"
-                                placeholder="Nome do lead"
-                                value={newLeadData.name}
-                                onChange={(e) =>
-                                  setNewLeadData({
-                                    ...newLeadData,
-                                    name: e.target.value,
-                                  })
-                                }
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="lead-whatsapp">WhatsApp</Label>
-                              <Input
-                                id="lead-whatsapp"
-                                placeholder="553189572307"
-                                value={newLeadData.contact_whatsapp}
-                                onChange={(e) =>
-                                  setNewLeadData({
-                                    ...newLeadData,
-                                    contact_whatsapp: e.target.value,
-                                  })
-                                }
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="lead-email">Email</Label>
-                              <Input
-                                id="lead-email"
-                                type="email"
-                                placeholder="email@exemplo.com"
-                                value={newLeadData.contact_email}
-                                onChange={(e) =>
-                                  setNewLeadData({
-                                    ...newLeadData,
-                                    contact_email: e.target.value,
-                                  })
-                                }
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="lead-description">Descrição</Label>
-                              <Input
-                                id="lead-description"
-                                placeholder="Descrição do lead"
-                                value={newLeadData.description}
-                                onChange={(e) =>
-                                  setNewLeadData({
-                                    ...newLeadData,
-                                    description: e.target.value,
-                                  })
-                                }
-                              />
-                            </div>
-                          </div>
-                          <DialogFooter>
-                            <Button
-                              variant="outline"
-                              onClick={() => setIsLeadDialogOpen(false)}
-                            >
-                              Cancelar
-                            </Button>
-                            <Button
-                              onClick={handleCreateLead}
-                              disabled={isCreatingLead || !newLeadData.name.trim()}
-                            >
-                              {isCreatingLead ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                  Criando...
-                                </>
-                              ) : (
-                                "Criar Lead"
-                              )}
-                            </Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                  </div>
-                  <div className="space-y-2 pt-2 border-t">
-                    <div className="flex items-center gap-2">
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage
-                          src={selectedAgent.agent_avatar_url || undefined}
-                        />
-                        <AvatarFallback
-                          style={{
-                            backgroundColor:
-                              selectedAgent.agent_color || "#3b82f6",
-                          }}
-                          className="text-white"
-                        >
-                          <Bot className="w-5 h-5" />
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm truncate">
-                          {selectedAgent.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {selectedAgent.conversation_focus}
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                      onClick={clearChat}
-                    >
-                      <X className="w-4 h-4 mr-2" />
-                      Limpar Chat
-                    </Button>
-                  </div>
-                </>
-              )}
-            </CardHeader>
-          </Card>
-
-          {selectedLead && (
             <Card className="border-border/80 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  Dados do Lead
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div>
-                    <h3 className="font-semibold text-base mb-2">{selectedLead.name}</h3>
-                    {selectedLead.description && (
-                      <p className="text-sm text-muted-foreground mb-3">{selectedLead.description}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm">
-                      <Phone className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">WhatsApp:</span>
-                      <span className="font-medium">{selectedLead.contact_whatsapp || "Não informado"}</span>
-                    </div>
-                    {selectedLead.contact_email && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Mail className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">Email:</span>
-                        <span className="font-medium">{selectedLead.contact_email}</span>
-                      </div>
-                    )}
-                    {selectedLead.category && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="text-muted-foreground">Categoria:</span>
-                        <Badge variant="secondary" className="text-xs">
-                          {selectedLead.category}
-                        </Badge>
-                      </div>
-                    )}
-                    {selectedLead.source && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="text-muted-foreground">Origem:</span>
-                        <span className="font-medium">{selectedLead.source}</span>
-                      </div>
-                    )}
-                    {selectedLead.created_at && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">Criado em:</span>
-                        <span className="font-medium">
-                          {format(new Date(selectedLead.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {selectedLead.payment_status && selectedLead.payment_status !== "nao_criado" && (
-                    <div className="pt-3 border-t space-y-2">
-                      <div className="flex items-center gap-2 text-sm font-medium">
-                        <DollarSign className="h-4 w-4" />
-                        Informações de Pagamento
-                      </div>
-                      <div className="space-y-1.5 text-sm">
-                        <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground">Status:</span>
-                          <Badge
-                            variant={
-                              selectedLead.payment_status === "pago"
-                                ? "default"
-                                : selectedLead.payment_status === "expirado"
-                                ? "destructive"
-                                : "secondary"
-                            }
-                            className="text-xs"
-                          >
-                            {selectedLead.payment_status === "pago"
-                              ? "Pago"
-                              : selectedLead.payment_status === "link_gerado"
-                              ? "Link Gerado"
-                              : selectedLead.payment_status === "expirado"
-                              ? "Expirado"
-                              : selectedLead.payment_status}
-                          </Badge>
-                        </div>
-                        {selectedLead.payment_amount && (
-                          <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">Valor:</span>
-                            <span className="font-medium">
-                              {new Intl.NumberFormat("pt-BR", {
-                                style: "currency",
-                                currency: "BRL",
-                              }).format(selectedLead.payment_amount)}
-                            </span>
-                          </div>
-                        )}
-                        {selectedLead.paid_at && (
-                          <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">Pago em:</span>
-                            <span className="font-medium">
-                              {format(new Date(selectedLead.paid_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="pt-4 border-t">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-sm font-semibold">Status no Funil</h4>
-                    {loadingStatuses && (
-                      <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                    )}
-                  </div>
-                  {loadingStatuses ? (
+              <CardHeader className="space-y-3">
+                <CardTitle className="text-lg">Configuração</CardTitle>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">
+                    Selecionar Agente
+                  </label>
+                  {loading ? (
                     <div className="flex items-center justify-center py-4">
                       <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                     </div>
-                  ) : leadStatuses.length > 0 ? (
-                    <div className="space-y-2">
-                      <div className="mb-3">
-                        <StatusBadge status={selectedLead.status} />
-                      </div>
-                      <div className="relative">
-                        <div className="flex flex-col gap-2">
-                          {leadStatuses
-                            .filter((s) => s.status_key !== "finished")
-                            .map((status) => {
-                              const isCurrentStatus = status.status_key === selectedLead.status;
-                              const currentStatusOrder = leadStatuses.find(
-                                (s) => s.status_key === selectedLead.status
-                              )?.display_order ?? 0;
-                              const isPastStatus = currentStatusOrder > status.display_order;
-                              const isFutureStatus = currentStatusOrder < status.display_order;
-
-                              return (
-                                <div
-                                  key={status.id}
-                                  className={`relative flex items-center gap-2 p-2 rounded-md transition-all ${
-                                    isCurrentStatus
-                                      ? "bg-primary/10 border border-primary/30"
-                                      : isPastStatus
-                                      ? "bg-green-500/10 border border-green-500/20"
-                                      : "bg-muted/50 border border-border/50"
-                                  }`}
-                                >
-                                  <div
-                                    className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                                      isCurrentStatus
-                                        ? "bg-primary"
-                                        : isPastStatus
-                                        ? "bg-green-500"
-                                        : "bg-muted-foreground/30"
-                                    }`}
-                                  />
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center justify-between gap-2">
-                                      <span
-                                        className={`text-xs font-medium ${
-                                          isCurrentStatus
-                                            ? "text-primary"
-                                            : isPastStatus
-                                            ? "text-green-600 dark:text-green-400"
-                                            : "text-muted-foreground"
-                                        }`}
-                                      >
-                                        {status.label}
-                                      </span>
-                                      {isCurrentStatus && (
-                                        <CheckCircle className="h-3 w-3 text-primary flex-shrink-0" />
-                                      )}
-                                      {isPastStatus && (
-                                        <CheckCircle className="h-3 w-3 text-green-500 flex-shrink-0" />
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                        </div>
-                        {leadStatuses.find((s) => s.status_key === "finished") && (
-                          <div className="mt-3 pt-3 border-t">
-                            <div
-                              className={`flex items-center gap-2 p-2 rounded-md ${
-                                selectedLead.status === "finished"
-                                  ? "bg-green-500/10 border border-green-500/30"
-                                  : "bg-muted/30 border border-border/50"
-                              }`}
-                            >
-                              <div
-                                className={`w-2 h-2 rounded-full ${
-                                  selectedLead.status === "finished"
-                                    ? "bg-green-500"
-                                    : "bg-muted-foreground/30"
-                                }`}
-                              />
-                              <span
-                                className={`text-xs font-medium ${
-                                  selectedLead.status === "finished"
-                                    ? "text-green-600 dark:text-green-400"
-                                    : "text-muted-foreground"
-                                }`}
-                              >
-                                {leadStatuses.find((s) => s.status_key === "finished")?.label || "Finalizado"}
-                              </span>
-                              {selectedLead.status === "finished" && (
-                                <CheckCircle className="h-3 w-3 text-green-500 ml-auto" />
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      <div className="mt-3 pt-3 border-t">
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-2 h-2 rounded-full bg-primary" />
-                            <span>Atual</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-2 h-2 rounded-full bg-green-500" />
-                            <span>Concluído</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-2 h-2 rounded-full bg-muted-foreground/30" />
-                            <span>Pendente</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
                   ) : (
-                    <div className="text-sm text-muted-foreground text-center py-4">
-                      Nenhum status configurado
-                    </div>
+                    <Select
+                      value={selectedAgent?.id || ""}
+                      onValueChange={(value) => {
+                        const agent = agents.find((a) => a.id === value);
+                        setSelectedAgent(agent || null);
+                        setMessages([]);
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um agente" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {agents.map((agent) => (
+                          <SelectItem key={agent.id} value={agent.id}>
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-3 h-3 rounded-full"
+                                style={{
+                                  backgroundColor:
+                                    agent.agent_color || "#3b82f6",
+                                }}
+                              />
+                              <span>{agent.name}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   )}
                 </div>
-              </CardContent>
+                {selectedAgent && (
+                  <>
+                    <div className="space-y-2 pt-2 border-t">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium">
+                          Selecionar Lead
+                        </label>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={createQuickLead}
+                          disabled={isCreatingLead}
+                          className="h-7 px-2 text-xs"
+                          title="Criar lead de teste automaticamente"
+                        >
+                          {isCreatingLead ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <>
+                              <Sparkles className="h-3 w-3 mr-1" />
+                              Rápido
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                      <div className="flex gap-2">
+                        <Select
+                          value={selectedLead?.id || ""}
+                          onValueChange={(value) => {
+                            const lead = availableLeads.find(
+                              (l) => l.id === value
+                            );
+                            setSelectedLead(lead || null);
+                          }}
+                        >
+                          <SelectTrigger className="flex-1">
+                            <SelectValue placeholder="Selecione um lead" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableLeads.map((lead) => (
+                              <SelectItem key={lead.id} value={lead.id}>
+                                <div className="flex items-center gap-2">
+                                  <User className="h-3 w-3" />
+                                  <span className="truncate">{lead.name}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Dialog
+                          open={isLeadDialogOpen}
+                          onOpenChange={setIsLeadDialogOpen}
+                        >
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="px-3"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Criar Lead Fictício</DialogTitle>
+                              <DialogDescription>
+                                Crie um lead fictício para testar o agente no
+                                playground
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4">
+                              <div className="space-y-2">
+                                <Label htmlFor="lead-name">Nome *</Label>
+                                <Input
+                                  id="lead-name"
+                                  placeholder="Nome do lead"
+                                  value={newLeadData.name}
+                                  onChange={(e) =>
+                                    setNewLeadData({
+                                      ...newLeadData,
+                                      name: e.target.value,
+                                    })
+                                  }
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="lead-whatsapp">WhatsApp</Label>
+                                <Input
+                                  id="lead-whatsapp"
+                                  placeholder="553189572307"
+                                  value={newLeadData.contact_whatsapp}
+                                  onChange={(e) =>
+                                    setNewLeadData({
+                                      ...newLeadData,
+                                      contact_whatsapp: e.target.value,
+                                    })
+                                  }
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="lead-email">Email</Label>
+                                <Input
+                                  id="lead-email"
+                                  type="email"
+                                  placeholder="email@exemplo.com"
+                                  value={newLeadData.contact_email}
+                                  onChange={(e) =>
+                                    setNewLeadData({
+                                      ...newLeadData,
+                                      contact_email: e.target.value,
+                                    })
+                                  }
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="lead-description">
+                                  Descrição
+                                </Label>
+                                <Input
+                                  id="lead-description"
+                                  placeholder="Descrição do lead"
+                                  value={newLeadData.description}
+                                  onChange={(e) =>
+                                    setNewLeadData({
+                                      ...newLeadData,
+                                      description: e.target.value,
+                                    })
+                                  }
+                                />
+                              </div>
+                            </div>
+                            <DialogFooter>
+                              <Button
+                                variant="outline"
+                                onClick={() => setIsLeadDialogOpen(false)}
+                              >
+                                Cancelar
+                              </Button>
+                              <Button
+                                onClick={handleCreateLead}
+                                disabled={
+                                  isCreatingLead || !newLeadData.name.trim()
+                                }
+                              >
+                                {isCreatingLead ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Criando...
+                                  </>
+                                ) : (
+                                  "Criar Lead"
+                                )}
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    </div>
+                    <div className="space-y-2 pt-2 border-t">
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage
+                            src={selectedAgent.agent_avatar_url || undefined}
+                          />
+                          <AvatarFallback
+                            style={{
+                              backgroundColor:
+                                selectedAgent.agent_color || "#3b82f6",
+                            }}
+                            className="text-white"
+                          >
+                            <Bot className="w-5 h-5" />
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm truncate">
+                            {selectedAgent.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {selectedAgent.conversation_focus}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={clearChat}
+                      >
+                        <X className="w-4 h-4 mr-2" />
+                        Limpar Chat
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </CardHeader>
             </Card>
-          )}
+
+            {selectedLead && (
+              <Card className="border-border/80 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <User className="h-5 w-5" />
+                    Dados do Lead
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    <div>
+                      <h3 className="font-semibold text-base mb-2">
+                        {selectedLead.name}
+                      </h3>
+                      {selectedLead.description && (
+                        <p className="text-sm text-muted-foreground mb-3">
+                          {selectedLead.description}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Phone className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">WhatsApp:</span>
+                        <span className="font-medium">
+                          {selectedLead.contact_whatsapp || "Não informado"}
+                        </span>
+                      </div>
+                      {selectedLead.contact_email && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Mail className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">Email:</span>
+                          <span className="font-medium">
+                            {selectedLead.contact_email}
+                          </span>
+                        </div>
+                      )}
+                      {selectedLead.category && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="text-muted-foreground">
+                            Categoria:
+                          </span>
+                          <Badge variant="secondary" className="text-xs">
+                            {selectedLead.category}
+                          </Badge>
+                        </div>
+                      )}
+                      {selectedLead.source && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="text-muted-foreground">Origem:</span>
+                          <span className="font-medium">
+                            {selectedLead.source}
+                          </span>
+                        </div>
+                      )}
+                      {selectedLead.created_at && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">
+                            Criado em:
+                          </span>
+                          <span className="font-medium">
+                            {format(
+                              new Date(selectedLead.created_at),
+                              "dd/MM/yyyy 'às' HH:mm",
+                              { locale: ptBR }
+                            )}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {selectedLead.payment_status &&
+                      selectedLead.payment_status !== "nao_criado" && (
+                        <div className="pt-3 border-t space-y-2">
+                          <div className="flex items-center gap-2 text-sm font-medium">
+                            <DollarSign className="h-4 w-4" />
+                            Informações de Pagamento
+                          </div>
+                          <div className="space-y-1.5 text-sm">
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">
+                                Status:
+                              </span>
+                              <Badge
+                                variant={
+                                  selectedLead.payment_status === "pago"
+                                    ? "default"
+                                    : selectedLead.payment_status === "expirado"
+                                    ? "destructive"
+                                    : "secondary"
+                                }
+                                className="text-xs"
+                              >
+                                {selectedLead.payment_status === "pago"
+                                  ? "Pago"
+                                  : selectedLead.payment_status ===
+                                    "link_gerado"
+                                  ? "Link Gerado"
+                                  : selectedLead.payment_status === "expirado"
+                                  ? "Expirado"
+                                  : selectedLead.payment_status}
+                              </Badge>
+                            </div>
+                            {selectedLead.payment_amount && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">
+                                  Valor:
+                                </span>
+                                <span className="font-medium">
+                                  {new Intl.NumberFormat("pt-BR", {
+                                    style: "currency",
+                                    currency: "BRL",
+                                  }).format(selectedLead.payment_amount)}
+                                </span>
+                              </div>
+                            )}
+                            {selectedLead.paid_at && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">
+                                  Pago em:
+                                </span>
+                                <span className="font-medium">
+                                  {format(
+                                    new Date(selectedLead.paid_at),
+                                    "dd/MM/yyyy 'às' HH:mm",
+                                    { locale: ptBR }
+                                  )}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                  </div>
+
+                  <div className="pt-4 border-t">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-semibold">Status no Funil</h4>
+                      {loadingStatuses && (
+                        <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                      )}
+                    </div>
+                    {loadingStatuses ? (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : leadStatuses.length > 0 ? (
+                      <div className="space-y-2">
+                        <div className="mb-3">
+                          <StatusBadge status={selectedLead.status} />
+                        </div>
+                        <div className="relative">
+                          <div className="flex flex-col gap-2">
+                            {leadStatuses
+                              .filter((s) => s.status_key !== "finished")
+                              .map((status) => {
+                                const isCurrentStatus =
+                                  status.status_key === selectedLead.status;
+                                const currentStatusOrder =
+                                  leadStatuses.find(
+                                    (s) => s.status_key === selectedLead.status
+                                  )?.display_order ?? 0;
+                                const isPastStatus =
+                                  currentStatusOrder > status.display_order;
+                                const isFutureStatus =
+                                  currentStatusOrder < status.display_order;
+
+                                return (
+                                  <div
+                                    key={status.id}
+                                    className={`relative flex items-center gap-2 p-2 rounded-md transition-all ${
+                                      isCurrentStatus
+                                        ? "bg-primary/10 border border-primary/30"
+                                        : isPastStatus
+                                        ? "bg-green-500/10 border border-green-500/20"
+                                        : "bg-muted/50 border border-border/50"
+                                    }`}
+                                  >
+                                    <div
+                                      className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                        isCurrentStatus
+                                          ? "bg-primary"
+                                          : isPastStatus
+                                          ? "bg-green-500"
+                                          : "bg-muted-foreground/30"
+                                      }`}
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <span
+                                          className={`text-xs font-medium ${
+                                            isCurrentStatus
+                                              ? "text-primary"
+                                              : isPastStatus
+                                              ? "text-green-600 dark:text-green-400"
+                                              : "text-muted-foreground"
+                                          }`}
+                                        >
+                                          {status.label}
+                                        </span>
+                                        {isCurrentStatus && (
+                                          <CheckCircle className="h-3 w-3 text-primary flex-shrink-0" />
+                                        )}
+                                        {isPastStatus && (
+                                          <CheckCircle className="h-3 w-3 text-green-500 flex-shrink-0" />
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                          </div>
+                          {leadStatuses.find(
+                            (s) => s.status_key === "finished"
+                          ) && (
+                            <div className="mt-3 pt-3 border-t">
+                              <div
+                                className={`flex items-center gap-2 p-2 rounded-md ${
+                                  selectedLead.status === "finished"
+                                    ? "bg-green-500/10 border border-green-500/30"
+                                    : "bg-muted/30 border border-border/50"
+                                }`}
+                              >
+                                <div
+                                  className={`w-2 h-2 rounded-full ${
+                                    selectedLead.status === "finished"
+                                      ? "bg-green-500"
+                                      : "bg-muted-foreground/30"
+                                  }`}
+                                />
+                                <span
+                                  className={`text-xs font-medium ${
+                                    selectedLead.status === "finished"
+                                      ? "text-green-600 dark:text-green-400"
+                                      : "text-muted-foreground"
+                                  }`}
+                                >
+                                  {leadStatuses.find(
+                                    (s) => s.status_key === "finished"
+                                  )?.label || "Finalizado"}
+                                </span>
+                                {selectedLead.status === "finished" && (
+                                  <CheckCircle className="h-3 w-3 text-green-500 ml-auto" />
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-3 pt-3 border-t">
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2 h-2 rounded-full bg-primary" />
+                              <span>Atual</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2 h-2 rounded-full bg-green-500" />
+                              <span>Concluído</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2 h-2 rounded-full bg-muted-foreground/30" />
+                              <span>Pendente</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-muted-foreground text-center py-4">
+                        Nenhum status configurado
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           <Card className="col-span-3 border-border/80 shadow-sm flex flex-col h-[calc(100vh-12rem)]">
