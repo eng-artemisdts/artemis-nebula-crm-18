@@ -46,7 +46,6 @@ import {
 import { useOrganization } from "@/hooks/useOrganization";
 import { cleanPhoneNumber, formatWhatsAppNumber } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { LocationAutocomplete } from "@/components/LocationAutocomplete";
 import { InteractiveMap } from "@/components/InteractiveMap";
 import { CategoriesDragDrop } from "@/components/CategoriesDragDrop";
@@ -291,6 +290,108 @@ const LeadSearch = () => {
     setShowConfirmDialog(true);
   };
 
+  const parseAddress = (address: string) => {
+    const addressParts = {
+      address: address,
+      city: "",
+      state: "",
+      zip_code: "",
+      country: "Brasil",
+    };
+
+    if (!address) return addressParts;
+
+    const brazilianStates = [
+      "AC",
+      "AL",
+      "AP",
+      "AM",
+      "BA",
+      "CE",
+      "DF",
+      "ES",
+      "GO",
+      "MA",
+      "MT",
+      "MS",
+      "MG",
+      "PA",
+      "PB",
+      "PR",
+      "PE",
+      "PI",
+      "RJ",
+      "RN",
+      "RS",
+      "RO",
+      "RR",
+      "SC",
+      "SP",
+      "SE",
+      "TO",
+    ];
+
+    const parts = address.split(",").map((p) => p.trim());
+
+    if (parts.length >= 2) {
+      const lastPart = parts[parts.length - 1];
+      const secondLastPart = parts[parts.length - 2];
+
+      if (lastPart === "Brasil" || lastPart === "Brazil") {
+        addressParts.country = "Brasil";
+
+        if (parts.length >= 3) {
+          const stateCityPart = secondLastPart;
+          const stateMatch = stateCityPart.match(/\b([A-Z]{2})\b/);
+
+          if (stateMatch) {
+            const state = stateMatch[1];
+            if (brazilianStates.includes(state)) {
+              addressParts.state = state;
+              addressParts.city = stateCityPart
+                .replace(/\b[A-Z]{2}\b/, "")
+                .trim()
+                .replace(/^-\s*/, "")
+                .trim();
+            } else {
+              addressParts.city = stateCityPart;
+            }
+          } else {
+            addressParts.city = stateCityPart;
+          }
+
+          const zipCodeMatch = address.match(/\b(\d{5}-?\d{3})\b/);
+          if (zipCodeMatch) {
+            addressParts.zip_code = zipCodeMatch[1]
+              .replace("-", "")
+              .replace(/(\d{5})(\d{3})/, "$1-$2");
+          }
+        }
+      } else {
+        const stateMatch = lastPart.match(/\b([A-Z]{2})\b/);
+        if (stateMatch && brazilianStates.includes(stateMatch[1])) {
+          addressParts.state = stateMatch[1];
+          if (parts.length >= 2) {
+            addressParts.city = secondLastPart;
+          }
+        } else if (parts.length >= 1) {
+          addressParts.city = lastPart;
+        }
+
+        const zipCodeMatch = address.match(/\b(\d{5}-?\d{3})\b/);
+        if (zipCodeMatch) {
+          addressParts.zip_code = zipCodeMatch[1]
+            .replace("-", "")
+            .replace(/(\d{5})(\d{3})/, "$1-$2");
+        }
+      }
+    } else if (parts.length === 1) {
+      addressParts.city = parts[0];
+    }
+
+    return addressParts;
+  };
+
   const processAddToLeads = async () => {
     const businessesToAdd = selectedBusinesses.map(
       (index) => searchResults[index]
@@ -351,6 +452,7 @@ const LeadSearch = () => {
           }
 
           const normalizedPhone = formatWhatsAppNumber(cleanedPhone);
+          const parsedAddress = parseAddress(business.address);
 
           return {
             name: business.name,
@@ -359,10 +461,16 @@ const LeadSearch = () => {
             status: "novo",
             contact_email: business.email || null,
             contact_whatsapp: normalizedPhone,
+            phone: business.phone || null,
             remote_jid: phoneToJidMap[cleanedPhone],
             source: "Busca Automática",
             whatsapp_verified: true,
             organization_id: organization?.id,
+            address: parsedAddress.address || null,
+            city: parsedAddress.city || null,
+            state: parsedAddress.state || null,
+            zip_code: parsedAddress.zip_code || null,
+            country: parsedAddress.country || "Brasil",
           };
         })
         .filter((lead): lead is NonNullable<typeof lead> => lead !== null);
@@ -434,8 +542,6 @@ const LeadSearch = () => {
 
   return (
     <Layout>
-      {loading && <LoadingOverlay message={loadingMessage} />}
-
       <ConfirmDialog
         open={showConfirmDialog}
         onOpenChange={setShowConfirmDialog}

@@ -224,72 +224,114 @@ export type Database = {
       leads: {
         Row: {
           ai_interaction_id: string | null
+          annual_revenue: number | null
           category: string | null
+          city: string | null
+          company_name: string | null
           contact_email: string | null
           contact_whatsapp: string | null
+          country: string | null
           created_at: string | null
           description: string | null
           id: string
+          industry: string | null
           integration_start_time: string | null
           is_test: boolean | null
+          job_title: string | null
+          linkedin_url: string | null
           name: string
+          notes: string | null
+          number_of_employees: number | null
           organization_id: string | null
           paid_at: string | null
           payment_amount: number | null
           payment_link_url: string | null
           payment_status: string | null
           payment_stripe_id: string | null
+          phone: string | null
           remote_jid: string | null
           source: string | null
+          state: string | null
           status: string
           updated_at: string | null
+          website: string | null
           whatsapp_verified: boolean | null
+          zip_code: string | null
+          address: string | null
         }
         Insert: {
           ai_interaction_id?: string | null
+          annual_revenue?: number | null
           category?: string | null
+          city?: string | null
+          company_name?: string | null
           contact_email?: string | null
           contact_whatsapp?: string | null
+          country?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
+          industry?: string | null
           integration_start_time?: string | null
           is_test?: boolean | null
+          job_title?: string | null
+          linkedin_url?: string | null
           name: string
+          notes?: string | null
+          number_of_employees?: number | null
           organization_id?: string | null
           paid_at?: string | null
           payment_amount?: number | null
           payment_link_url?: string | null
           payment_status?: string | null
           payment_stripe_id?: string | null
+          phone?: string | null
           remote_jid?: string | null
           source?: string | null
+          state?: string | null
           status?: string
           updated_at?: string | null
+          website?: string | null
           whatsapp_verified?: boolean | null
+          zip_code?: string | null
+          address?: string | null
         }
         Update: {
           ai_interaction_id?: string | null
+          annual_revenue?: number | null
           category?: string | null
+          city?: string | null
+          company_name?: string | null
           contact_email?: string | null
           contact_whatsapp?: string | null
+          country?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
+          industry?: string | null
           integration_start_time?: string | null
           is_test?: boolean | null
+          job_title?: string | null
+          linkedin_url?: string | null
           name?: string
+          notes?: string | null
+          number_of_employees?: number | null
           organization_id?: string | null
           paid_at?: string | null
           payment_amount?: number | null
           payment_link_url?: string | null
           payment_status?: string | null
           payment_stripe_id?: string | null
+          phone?: string | null
           remote_jid?: string | null
           source?: string | null
+          state?: string | null
           status?: string
           updated_at?: string | null
+          website?: string | null
           whatsapp_verified?: boolean | null
+          zip_code?: string | null
+          address?: string | null
         }
         Relationships: [
           {

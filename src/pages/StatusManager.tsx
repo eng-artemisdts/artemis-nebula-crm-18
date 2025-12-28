@@ -153,7 +153,7 @@ const StatusManager = () => {
       const data = await service.getAll(organization.id);
       setStatuses(data);
     } catch (error: any) {
-      toast.error(error.message || "Erro ao carregar status");
+        toast.error(error.message || "Erro ao carregar etapas do funil");
       console.error(error);
     } finally {
       setLoading(false);
@@ -180,14 +180,14 @@ const StatusManager = () => {
           label: formData.label,
         };
         await service.update(organization.id, editingId, dto);
-        toast.success("Status atualizado com sucesso!");
+        toast.success("Etapa do funil atualizada com sucesso!");
       } else {
         const dto: CreateLeadStatusDTO = {
           status_key: formData.status_key.toLowerCase().replace(/\s+/g, "_"),
           label: formData.label,
         };
         await service.create(organization.id, dto);
-        toast.success("Status criado com sucesso!");
+        toast.success("Etapa do funil criada com sucesso!");
       }
 
       setFormData({ status_key: "", label: "" });
@@ -195,7 +195,7 @@ const StatusManager = () => {
       setIsDialogOpen(false);
       fetchStatuses();
     } catch (error: any) {
-      toast.error(error.message || "Erro ao salvar status");
+      toast.error(error.message || "Erro ao salvar etapa do funil");
       console.error("Error saving status:", error);
     } finally {
       setLoading(false);
@@ -214,14 +214,14 @@ const StatusManager = () => {
   const handleDelete = async (id: string) => {
     if (!organization?.id) return;
 
-    if (!window.confirm("Tem certeza que deseja excluir este status?")) return;
+    if (!window.confirm("Tem certeza que deseja excluir esta etapa do funil?")) return;
 
     try {
       await service.delete(organization.id, id);
-      toast.success("Status excluído com sucesso!");
+      toast.success("Etapa do funil excluída com sucesso!");
       fetchStatuses();
     } catch (error: any) {
-      toast.error(error.message || "Erro ao excluir status");
+      toast.error(error.message || "Erro ao excluir etapa do funil");
       console.error(error);
     }
   };
@@ -276,28 +276,32 @@ const StatusManager = () => {
       <div className="space-y-6 animate-fade-in">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Gerenciar Status de Leads</h1>
+            <h1 className="text-3xl font-bold">Funil de Vendas</h1>
             <p className="text-muted-foreground mt-1">
-              Personalize os status dos seus leads. Os status "Novo", "Conversa Iniciada", "Proposta Enviada", "Reunião Agendada" e "Finalizado" são obrigatórios.
+              Configure as etapas do seu funil de vendas. As etapas definidas aqui serão utilizadas para organizar seus leads. 
+              Se a ferramenta de atualização automática estiver ativada, os status dos leads serão atualizados automaticamente conforme as interações.
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              <strong>Etapas obrigatórias:</strong> Novo, Conversa Iniciada, Proposta Enviada, Reunião Agendada e Finalizado.
             </p>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={() => { setEditingId(null); setFormData({ status_key: "", label: "" }); }}>
                 <Plus className="w-4 h-4 mr-2" />
-                Novo Status
+                Nova Etapa
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>
-                  {editingId ? "Editar Status" : "Novo Status"}
+                  {editingId ? "Editar Etapa do Funil" : "Nova Etapa do Funil"}
                 </DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 {!editingId && (
                   <div className="space-y-2">
-                    <Label htmlFor="status_key">Chave do Status *</Label>
+                    <Label htmlFor="status_key">Chave da Etapa *</Label>
                     <Input
                       id="status_key"
                       value={formData.status_key}
@@ -315,7 +319,7 @@ const StatusManager = () => {
                 )}
                 {editingId && (
                   <div className="space-y-2">
-                    <Label htmlFor="status_key">Chave do Status</Label>
+                    <Label htmlFor="status_key">Chave da Etapa</Label>
                     <Input
                       id="status_key"
                       value={formData.status_key}
@@ -328,7 +332,7 @@ const StatusManager = () => {
                   </div>
                 )}
                 <div className="space-y-2">
-                  <Label htmlFor="label">Rótulo *</Label>
+                  <Label htmlFor="label">Nome da Etapa *</Label>
                   <Input
                     id="label"
                     value={formData.label}
@@ -338,6 +342,9 @@ const StatusManager = () => {
                     required
                     placeholder="Ex: Proposta Enviada"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Nome que será exibido no funil de vendas
+                  </p>
                 </div>
                 <div className="flex gap-2 justify-end">
                   <Button
@@ -360,13 +367,13 @@ const StatusManager = () => {
 
         {loading && statuses.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">Carregando status...</p>
+            <p className="text-muted-foreground">Carregando etapas do funil...</p>
           </div>
         ) : (
           <>
             {requiredStatuses.length > 0 && (
               <div className="space-y-4">
-                <h2 className="text-xl font-semibold">Status Obrigatórios</h2>
+                <h2 className="text-xl font-semibold">Etapas Obrigatórias do Funil</h2>
                 <div className="space-y-3">
                   {requiredStatuses.map((status) => (
                     <Card key={status.id} className="p-4 space-y-3">
@@ -401,9 +408,9 @@ const StatusManager = () => {
 
             {customStatuses.length > 0 && (
               <div className="space-y-4">
-                <h2 className="text-xl font-semibold">Status Personalizados</h2>
-                <p className="text-sm text-muted-foreground">
-                  Arraste para reordenar os status personalizados
+                <h2 className="text-xl font-semibold">Etapas Personalizadas do Funil</h2>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Arraste para reordenar as etapas do funil. A ordem definida aqui será exibida no painel de leads.
                 </p>
                 <DndContext
                   sensors={sensors}
@@ -431,7 +438,7 @@ const StatusManager = () => {
 
             {finishedStatus && (
               <div className="space-y-4">
-                <h2 className="text-xl font-semibold">Status Final</h2>
+                <h2 className="text-xl font-semibold">Etapa Final do Funil</h2>
                 <Card className="p-4 space-y-3">
                   <div className="flex items-start gap-3">
                     <div className="mt-1">
@@ -448,7 +455,7 @@ const StatusManager = () => {
                         Chave: <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{finishedStatus.status_key}</code>
                       </p>
                       <p className="text-xs text-muted-foreground mt-2">
-                        Este status sempre aparece por último na ordem
+                        Esta etapa sempre aparece por último no funil de vendas
                       </p>
                     </div>
                     <Button
@@ -466,7 +473,7 @@ const StatusManager = () => {
             {statuses.length === 0 && (
               <div className="text-center py-12 border-2 border-dashed border-border rounded-lg">
                 <p className="text-muted-foreground">
-                  Nenhum status encontrado. Os status obrigatórios serão criados automaticamente.
+                  Nenhuma etapa encontrada. As etapas obrigatórias do funil serão criadas automaticamente.
                 </p>
               </div>
             )}
