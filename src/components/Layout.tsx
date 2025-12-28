@@ -18,6 +18,7 @@ import {
   MessageCircle,
   Brain,
   Play,
+  TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -49,16 +50,19 @@ import {
 } from "@/components/ui/collapsible";
 import logo from "@/assets/logo.png";
 
+interface SubMenuItem {
+  title: string;
+  url?: string;
+  icon: React.ComponentType<{ className?: string }>;
+  comingSoon?: boolean;
+  subItems?: SubMenuItem[];
+}
+
 interface MenuItem {
   title: string;
   url?: string;
   icon: React.ComponentType<{ className?: string }>;
-  subItems?: {
-    title: string;
-    url: string;
-    icon: React.ComponentType<{ className?: string }>;
-    comingSoon?: boolean;
-  }[];
+  subItems?: SubMenuItem[];
 }
 
 interface MenuItemWithSubItemsProps {
@@ -67,6 +71,123 @@ interface MenuItemWithSubItemsProps {
   isCollapsed: boolean;
 }
 
+const NestedSubMenuItem = ({
+  subItem,
+  location,
+  isCollapsed,
+}: {
+  subItem: SubMenuItem;
+  location: { pathname: string };
+  isCollapsed: boolean;
+}) => {
+  const { setOpen } = useSidebar();
+  const hasNestedSubItems = subItem.subItems && subItem.subItems.length > 0;
+  const isNestedActive = hasNestedSubItems
+    ? subItem.subItems?.some((nested) => location.pathname === nested.url)
+    : false;
+  const [isNestedOpen, setIsNestedOpen] = useState(isNestedActive || false);
+
+  if (hasNestedSubItems) {
+    return (
+      <Collapsible asChild open={isNestedOpen} onOpenChange={setIsNestedOpen}>
+        <SidebarMenuSubItem>
+          <CollapsibleTrigger asChild>
+            <SidebarMenuSubButton isActive={isNestedActive} className="w-full">
+              <subItem.icon className="w-4 h-4 shrink-0" />
+              <span className="flex-1 text-left">{subItem.title}</span>
+              <ChevronRight
+                className={`ml-auto w-3 h-3 transition-transform duration-200 ${
+                  isNestedOpen ? "rotate-90" : ""
+                }`}
+              />
+            </SidebarMenuSubButton>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <SidebarMenuSub className="ml-4 mt-1">
+              {subItem.subItems?.map((nestedItem) => (
+                <SidebarMenuSubItem key={nestedItem.title}>
+                  <SidebarMenuSubButton
+                    asChild
+                    isActive={location.pathname === nestedItem.url}
+                    className={
+                      nestedItem.comingSoon
+                        ? "opacity-60 cursor-not-allowed"
+                        : undefined
+                    }
+                  >
+                    <NavLink
+                      to={nestedItem.comingSoon ? "#" : nestedItem.url || "#"}
+                      onClick={(e) => {
+                        if (isCollapsed) {
+                          setOpen(true);
+                        }
+                        if (nestedItem.comingSoon) {
+                          e.preventDefault();
+                          toast({
+                            title: "Em breve",
+                            description:
+                              "Funcionalidade será liberada em breve.",
+                          });
+                        }
+                      }}
+                      className="flex items-center gap-2"
+                    >
+                      <nestedItem.icon className="w-4 h-4 shrink-0" />
+                      <span>{nestedItem.title}</span>
+                      {nestedItem.comingSoon && (
+                        <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                          Em breve
+                        </span>
+                      )}
+                    </NavLink>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+              ))}
+            </SidebarMenuSub>
+          </CollapsibleContent>
+        </SidebarMenuSubItem>
+      </Collapsible>
+    );
+  }
+
+  return (
+    <SidebarMenuSubItem>
+      <SidebarMenuSubButton
+        asChild
+        isActive={location.pathname === subItem.url}
+        className={
+          subItem.comingSoon ? "opacity-60 cursor-not-allowed" : undefined
+        }
+      >
+        <NavLink
+          to={subItem.comingSoon ? "#" : subItem.url || "#"}
+          onClick={(e) => {
+            if (isCollapsed) {
+              setOpen(true);
+            }
+            if (subItem.comingSoon) {
+              e.preventDefault();
+              toast({
+                title: "Em breve",
+                description: "O chat será liberado em breve.",
+              });
+            }
+          }}
+          className="flex items-center gap-2"
+        >
+          <subItem.icon className="w-4 h-4 shrink-0" />
+          <span>{subItem.title}</span>
+          {subItem.comingSoon && (
+            <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+              Em breve
+            </span>
+          )}
+        </NavLink>
+      </SidebarMenuSubButton>
+    </SidebarMenuSubItem>
+  );
+};
+
 const MenuItemWithSubItems = ({
   item,
   location,
@@ -74,8 +195,11 @@ const MenuItemWithSubItems = ({
 }: MenuItemWithSubItemsProps) => {
   const { setOpen } = useSidebar();
   const isCategoryActive =
-    item.subItems?.some((subItem) => location.pathname === subItem.url) ||
-    false;
+    item.subItems?.some(
+      (subItem) =>
+        location.pathname === subItem.url ||
+        subItem.subItems?.some((nested) => location.pathname === nested.url)
+    ) || false;
   const [isOpen, setIsOpen] = useState(isCategoryActive);
 
   const handleClick = () => {
@@ -112,42 +236,12 @@ const MenuItemWithSubItems = ({
         <CollapsibleContent>
           <SidebarMenuSub>
             {item.subItems?.map((subItem) => (
-              <SidebarMenuSubItem key={subItem.title}>
-                <SidebarMenuSubButton
-                  asChild
-                  isActive={location.pathname === subItem.url}
-                  className={
-                    subItem.comingSoon
-                      ? "opacity-60 cursor-not-allowed"
-                      : undefined
-                  }
-                >
-                  <NavLink
-                    to={subItem.comingSoon ? "#" : subItem.url}
-                    onClick={(e) => {
-                      if (isCollapsed) {
-                        setOpen(true);
-                      }
-                      if (subItem.comingSoon) {
-                        e.preventDefault();
-                        toast({
-                          title: "Em breve",
-                          description: "O chat será liberado em breve.",
-                        });
-                      }
-                    }}
-                    className="flex items-center gap-2"
-                  >
-                    <subItem.icon className="w-4 h-4 shrink-0" />
-                    <span>{subItem.title}</span>
-                    {subItem.comingSoon && (
-                      <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                        Em breve
-                      </span>
-                    )}
-                  </NavLink>
-                </SidebarMenuSubButton>
-              </SidebarMenuSubItem>
+              <NestedSubMenuItem
+                key={subItem.title}
+                subItem={subItem}
+                location={location}
+                isCollapsed={isCollapsed}
+              />
             ))}
           </SidebarMenuSub>
         </CollapsibleContent>
@@ -157,11 +251,18 @@ const MenuItemWithSubItems = ({
 };
 
 const menuItems: MenuItem[] = [
-  { title: "Painel", url: "/dashboard", icon: Home },
+  {
+    title: "Funil de Vendas",
+    icon: TrendingUp,
+    subItems: [
+      { title: "Painel", url: "/dashboard", icon: Home },
+      { title: "Funil de Vendas", url: "/status-manager", icon: TrendingUp },
+    ],
+  },
   { title: "Calendário", url: "/calendar", icon: Calendar },
   {
     title: "Leads",
-    icon: List,
+    icon: Users,
     subItems: [
       { title: "Todos os Leads", url: "/leads", icon: List },
       { title: "Buscar Leads", url: "/lead-search", icon: SearchCheck },
@@ -169,6 +270,18 @@ const menuItems: MenuItem[] = [
         title: "Agendar Interações",
         url: "/schedule-interactions",
         icon: Calendar,
+      },
+      {
+        title: "Categorias",
+        icon: FolderKanban,
+        subItems: [
+          { title: "Categorias", url: "/categories", icon: Users },
+          {
+            title: "Gerenciar Categorias",
+            url: "/category-manager",
+            icon: FolderKanban,
+          },
+        ],
       },
     ],
   },
@@ -201,19 +314,6 @@ const menuItems: MenuItem[] = [
       },
       { title: "Chat", url: "/chat", icon: MessageCircle, comingSoon: true },
       { title: "Conectar WhatsApp", url: "/whatsapp", icon: Smartphone },
-    ],
-  },
-  {
-    title: "Categorias",
-    icon: FolderKanban,
-    subItems: [
-      { title: "Categorias", url: "/categories", icon: Users },
-      {
-        title: "Gerenciar Categorias",
-        url: "/category-manager",
-        icon: FolderKanban,
-      },
-      { title: "Gerenciar Status", url: "/status-manager", icon: List },
     ],
   },
   { title: "Configurações", url: "/settings", icon: Settings },

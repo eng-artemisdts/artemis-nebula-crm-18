@@ -278,20 +278,36 @@ supabase secrets set GOOGLE_DRIVE_CLIENT_SECRET=...
 supabase secrets set GOOGLE_PLACES_API_KEY=...
 ```
 
-Consulte os arquivos de documentação:
-- `EDGE_FUNCTIONS_SETUP.md`
-- `EDGE_FUNCTIONS_SECRETS.md`
-- `SCHEDULED_MESSAGES_SETUP.md`
+Consulte os arquivos de documentação na pasta `docs/`:
+- `docs/setup/EDGE_FUNCTIONS_SETUP.md`
+- `docs/setup/EDGE_FUNCTIONS_SECRETS.md`
 
 ---
 
 ## 📚 Documentação Adicional
 
+Toda a documentação do projeto está organizada na pasta `docs/`:
+
+### Setup e Configuração (`docs/setup/`)
 - `EDGE_FUNCTIONS_SETUP.md`: Configuração das Edge Functions
-- `SCHEDULED_MESSAGES_SETUP.md`: Configuração de mensagens agendadas
+- `EDGE_FUNCTIONS_SECRETS.md`: Configuração de secrets
+- `QUICK_START_EDGE_FUNCTIONS.md`: Guia rápido de Edge Functions
 - `SETUP_GOOGLE_PLACES.md`: Configuração do Google Places
+- `GOOGLE_OAUTH_SETUP.md`: Configuração do Google OAuth
+- `CONFIGURAR_OUTLOOK_CALENDAR.md`: Configuração do Outlook Calendar
+- `DEPLOY_OAUTH_FUNCTIONS.md`: Deploy de funções OAuth
+- `RESOLVER_ERRO_OAUTH.md`: Resolução de erros OAuth
+
+### Documentação Geral (`docs/`)
 - `MIGRATIONS.md`: Documentação das migrações
-- `TROUBLESHOOTING.md`: Solução de problemas comuns
+- `PROMPTS_AI_AGENTE.md`: Documentação dos prompts do agente IA
+- `FLUXO_AGENDAMENTO_REUNIOES.md`: Fluxo de agendamento de reuniões
+- `AGENDAR_REUNIAO.md`: Guia de agendamento de reuniões
+- `DOCUMENTACAO_CLIENTE.md`: Documentação para clientes
+- `DOCUMENTACAO_NEBULLA_CLIENTE.md`: Documentação Nebula para clientes
+
+### APIs (`docs/api/`)
+- `CURL_EXAMPLE.md`: Exemplos de requisições cURL
 
 ---
 

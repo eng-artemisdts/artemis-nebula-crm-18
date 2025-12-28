@@ -15,9 +15,11 @@ O projeto possui as seguintes Edge Functions:
 7. **evolution-send-message** - Envia mensagens via WhatsApp
 8. **evolution-webhook** - Recebe webhooks da Evolution API
 9. **handle-stripe-webhook** - Processa webhooks do Stripe
-10. **search-nearby-businesses** - Busca negócios próximos (Google Places)
-11. **suggest-categories** - Sugere categorias para leads
-12. **upload-to-google-drive** - Faz upload de documentos para Google Drive
+10. **oauth-connect** - Inicia fluxo OAuth para Gmail, Google Calendar, Outlook
+11. **oauth-callback** - Processa callback OAuth e salva tokens
+12. **search-nearby-businesses** - Busca negócios próximos (Google Places)
+13. **suggest-categories** - Sugere categorias para leads
+14. **upload-to-google-drive** - Faz upload de documentos para Google Drive
 
 ## 🚀 Método 1: Deploy via Supabase CLI (Recomendado)
 
@@ -83,6 +85,8 @@ supabase functions deploy evolution-instance-status
 supabase functions deploy evolution-send-message
 supabase functions deploy evolution-webhook
 supabase functions deploy handle-stripe-webhook
+supabase functions deploy oauth-connect
+supabase functions deploy oauth-callback
 supabase functions deploy search-nearby-businesses
 supabase functions deploy suggest-categories
 supabase functions deploy upload-to-google-drive

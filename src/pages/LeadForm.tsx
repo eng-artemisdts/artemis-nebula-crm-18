@@ -7,12 +7,39 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeft, Save, Trash2, DollarSign, ExternalLink, MessageCircle, AlertTriangle, Info, RefreshCw, CheckCircle } from "lucide-react";
+import { 
+  ArrowLeft, 
+  Save, 
+  Trash2, 
+  DollarSign, 
+  ExternalLink, 
+  MessageCircle, 
+  AlertTriangle, 
+  Info, 
+  RefreshCw, 
+  CheckCircle,
+  User,
+  Building2,
+  MapPin,
+  Phone,
+  Mail,
+  Globe,
+  Linkedin,
+  Briefcase,
+  TrendingUp,
+  Users,
+  FileText,
+  Sparkles
+} from "lucide-react";
 import { useOrganization } from "@/hooks/useOrganization";
-import { cleanPhoneNumber, formatPhoneDisplay, formatWhatsAppNumber } from "@/lib/utils";
+import { cleanPhoneNumber, formatPhoneDisplay, formatWhatsAppNumber, cn } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,11 +60,13 @@ const LeadForm = () => {
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
   const [aiInteractions, setAiInteractions] = useState<any[]>([]);
+  const [defaultAIInteractionId, setDefaultAIInteractionId] = useState<string | null>(null);
   const [invalidWhatsAppConfirmed, setInvalidWhatsAppConfirmed] = useState(false);
   const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false);
   const [isValidatingWhatsApp, setIsValidatingWhatsApp] = useState(false);
   const [leadRemoteJid, setLeadRemoteJid] = useState<string | null>(null);
   const [leadWhatsappVerified, setLeadWhatsappVerified] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState("basic");
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -45,10 +74,24 @@ const LeadForm = () => {
     status: "novo",
     contact_email: "",
     contact_whatsapp: "",
+    phone: "",
     source: "",
     integration_start_time: "09:00",
     payment_amount: "",
     ai_interaction_id: "",
+    company_name: "",
+    job_title: "",
+    address: "",
+    city: "",
+    state: "",
+    zip_code: "",
+    country: "Brasil",
+    website: "",
+    linkedin_url: "",
+    notes: "",
+    industry: "",
+    annual_revenue: "",
+    number_of_employees: "",
   });
   const [paymentData, setPaymentData] = useState({
     payment_link_url: "",
@@ -59,6 +102,7 @@ const LeadForm = () => {
   useEffect(() => {
     fetchCategories();
     fetchAIInteractions();
+    fetchDefaultAIInteraction();
     if (isEdit) {
       fetchLead();
     }
@@ -77,6 +121,32 @@ const LeadForm = () => {
     setAiInteractions(data || []);
   };
 
+  const fetchDefaultAIInteraction = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("settings")
+        .select("default_ai_interaction_id")
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error fetching default AI interaction:", error);
+        return;
+      }
+
+      if (data?.default_ai_interaction_id) {
+        setDefaultAIInteractionId(data.default_ai_interaction_id);
+        if (!isEdit && !formData.ai_interaction_id) {
+          setFormData(prev => ({ ...prev, ai_interaction_id: data.default_ai_interaction_id }));
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching default AI interaction:", error);
+    }
+  };
+
+  const getSelectedAIInteractionId = () => {
+    return formData.ai_interaction_id || defaultAIInteractionId || undefined;
+  };
 
   const fetchLead = async () => {
     try {
@@ -93,12 +163,13 @@ const LeadForm = () => {
 
       if (data) {
         setFormData({
-          name: data.name,
+          name: data.name || "",
           description: data.description || "",
           category: data.category || "",
           status: data.status,
           contact_email: data.contact_email || "",
           contact_whatsapp: data.contact_whatsapp || "",
+          phone: data.phone || "",
           source: data.source || "",
           integration_start_time: data.integration_start_time?.slice(0, 5) || "09:00",
           payment_amount: data.payment_amount
@@ -108,6 +179,24 @@ const LeadForm = () => {
             })
             : "",
           ai_interaction_id: data.ai_interaction_id || "",
+          company_name: data.company_name || "",
+          job_title: data.job_title || "",
+          address: data.address || "",
+          city: data.city || "",
+          state: data.state || "",
+          zip_code: data.zip_code || "",
+          country: data.country || "Brasil",
+          website: data.website || "",
+          linkedin_url: data.linkedin_url || "",
+          notes: data.notes || "",
+          industry: data.industry || "",
+          annual_revenue: data.annual_revenue
+            ? data.annual_revenue.toLocaleString("pt-BR", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })
+            : "",
+          number_of_employees: data.number_of_employees?.toString() || "",
         });
         setPaymentData({
           payment_link_url: data.payment_link_url || "",
@@ -123,18 +212,37 @@ const LeadForm = () => {
     }
   };
 
+  const calculateFormProgress = () => {
+    const fields = [
+      formData.name,
+      formData.contact_email,
+      formData.contact_whatsapp,
+      formData.company_name,
+      formData.city,
+      formData.state,
+    ];
+    const filledFields = fields.filter(f => f && f.trim() !== "").length;
+    return Math.round((filledFields / fields.length) * 100);
+  };
+
   const handleSubmitWithoutValidation = async () => {
     setLoading(true);
     try {
       const cleanedPhone = formData.contact_whatsapp ? formatWhatsAppNumber(formData.contact_whatsapp) : null;
-
-      // Continua sem validação do WhatsApp
       const remoteJid = null;
       const whatsappVerified = false;
 
       const paymentAmount = formData.payment_amount
         ? parseFloat(formData.payment_amount.replace(/\./g, "").replace(",", "."))
         : null;
+
+      const annualRevenue = formData.annual_revenue
+        ? parseFloat(formData.annual_revenue.replace(/\./g, "").replace(",", "."))
+        : null;
+
+      const aiInteractionIdToSave = formData.ai_interaction_id === defaultAIInteractionId 
+        ? null 
+        : (formData.ai_interaction_id || null);
 
       const leadData = {
         name: formData.name,
@@ -143,15 +251,29 @@ const LeadForm = () => {
         status: formData.status,
         contact_email: formData.contact_email || null,
         contact_whatsapp: cleanedPhone,
+        phone: formData.phone || null,
         remote_jid: remoteJid,
         whatsapp_verified: whatsappVerified,
         source: formData.source || null,
         integration_start_time: formData.integration_start_time ? `${formData.integration_start_time}:00+00` : null,
         payment_amount: paymentAmount,
-        ai_interaction_id: formData.ai_interaction_id || null,
+        ai_interaction_id: aiInteractionIdToSave,
         payment_link_url: paymentData.payment_link_url || null,
         payment_stripe_id: paymentData.payment_stripe_id || null,
         payment_status: paymentData.payment_status,
+        company_name: formData.company_name || null,
+        job_title: formData.job_title || null,
+        address: formData.address || null,
+        city: formData.city || null,
+        state: formData.state || null,
+        zip_code: formData.zip_code || null,
+        country: formData.country || null,
+        website: formData.website || null,
+        linkedin_url: formData.linkedin_url || null,
+        notes: formData.notes || null,
+        industry: formData.industry || null,
+        annual_revenue: annualRevenue,
+        number_of_employees: formData.number_of_employees ? parseInt(formData.number_of_employees) : null,
         ...(isEdit ? {} : { organization_id: organization?.id }),
       };
 
@@ -184,7 +306,6 @@ const LeadForm = () => {
     setLoading(true);
 
     try {
-      // Validate phone number if provided
       if (formData.contact_whatsapp) {
         const cleanedPhone = cleanPhoneNumber(formData.contact_whatsapp);
         if (cleanedPhone.length < 10 || cleanedPhone.length > 13) {
@@ -194,14 +315,16 @@ const LeadForm = () => {
         }
       }
 
-      // Parse payment amount from formatted string
       const paymentAmount = formData.payment_amount
         ? parseFloat(formData.payment_amount.replace(/\./g, "").replace(",", "."))
         : null;
 
+      const annualRevenue = formData.annual_revenue
+        ? parseFloat(formData.annual_revenue.replace(/\./g, "").replace(",", "."))
+        : null;
+
       const cleanedPhone = formData.contact_whatsapp ? formatWhatsAppNumber(formData.contact_whatsapp) : null;
 
-      // Get correct remote_jid from Evolution API if phone exists
       let remoteJid = null;
       let whatsappVerified = false;
 
@@ -214,18 +337,15 @@ const LeadForm = () => {
           if (checkError) {
             console.error("Error checking WhatsApp:", checkError);
 
-            // Verifica se é erro de instância não conectada
             const isNoInstanceError = checkError.message?.includes("No connected WhatsApp instance") ||
               checkError.message?.includes("connected WhatsApp instance");
 
             if (isNoInstanceError) {
-              // Mostra diálogo informativo sobre instância não conectada
               setLoading(false);
               setShowWhatsAppDialog(true);
               return;
             }
 
-            // Para outros erros, pergunta se quer continuar
             const shouldContinue = window.confirm(
               "Não foi possível validar o número no WhatsApp. Deseja cadastrar mesmo assim?\n\n" +
               "⚠️ Atenção: Não será possível enviar mensagens automaticamente para este lead."
@@ -236,7 +356,6 @@ const LeadForm = () => {
               return;
             }
 
-            // Continua sem validação
             remoteJid = null;
             whatsappVerified = false;
           } else if (checkData?.results?.[0]?.exists && checkData.results[0].jid) {
@@ -244,7 +363,6 @@ const LeadForm = () => {
             whatsappVerified = true;
             console.log("WhatsApp verified, jid:", remoteJid);
           } else {
-            // Número não existe no WhatsApp - pedir confirmação
             const shouldContinue = window.confirm(
               "⚠️ Este número não está registrado no WhatsApp!\n\n" +
               "Deseja cadastrar o lead mesmo assim?\n\n" +
@@ -256,7 +374,6 @@ const LeadForm = () => {
               return;
             }
 
-            // Usuário confirmou, salvar sem remote_jid
             setInvalidWhatsAppConfirmed(true);
             remoteJid = null;
             whatsappVerified = false;
@@ -279,7 +396,6 @@ const LeadForm = () => {
           whatsappVerified = false;
         }
       } else if (cleanedPhone && invalidWhatsAppConfirmed) {
-        // Já foi confirmado anteriormente nesta sessão
         remoteJid = null;
         whatsappVerified = false;
       }
@@ -291,6 +407,7 @@ const LeadForm = () => {
         status: formData.status,
         contact_email: formData.contact_email || null,
         contact_whatsapp: cleanedPhone,
+        phone: formData.phone || null,
         remote_jid: remoteJid,
         whatsapp_verified: whatsappVerified,
         source: formData.source || null,
@@ -300,6 +417,19 @@ const LeadForm = () => {
         payment_link_url: paymentData.payment_link_url || null,
         payment_stripe_id: paymentData.payment_stripe_id || null,
         payment_status: paymentData.payment_status,
+        company_name: formData.company_name || null,
+        job_title: formData.job_title || null,
+        address: formData.address || null,
+        city: formData.city || null,
+        state: formData.state || null,
+        zip_code: formData.zip_code || null,
+        country: formData.country || null,
+        website: formData.website || null,
+        linkedin_url: formData.linkedin_url || null,
+        notes: formData.notes || null,
+        industry: formData.industry || null,
+        annual_revenue: annualRevenue,
+        number_of_employees: formData.number_of_employees ? parseInt(formData.number_of_employees) : null,
         ...(isEdit ? {} : { organization_id: organization?.id }),
       };
 
@@ -336,7 +466,6 @@ const LeadForm = () => {
         }
       }
 
-      // Reset confirmation state
       setInvalidWhatsAppConfirmed(false);
       navigate("/");
     } catch (error: any) {
@@ -368,7 +497,6 @@ const LeadForm = () => {
       return;
     }
 
-    // Validate payment amount
     const amount = formData.payment_amount
       ? parseFloat(formData.payment_amount.replace(/\./g, "").replace(",", "."))
       : 0;
@@ -397,7 +525,6 @@ const LeadForm = () => {
 
       await fetchLead();
 
-      // Open checkout in new tab
       window.open(data.url, '_blank');
       toast.success("Checkout aberto! Complete o pagamento na nova aba.");
     } catch (error: any) {
@@ -484,243 +611,558 @@ const LeadForm = () => {
     }
   };
 
+  const formProgress = calculateFormProgress();
+  const brazilianStates = [
+    "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
+    "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
+    "RS", "RO", "RR", "SC", "SP", "SE", "TO"
+  ];
+
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold">
-              {isEdit ? "Editar Lead" : "Novo Lead"}
-            </h1>
-            <p className="text-muted-foreground">
-              {isEdit ? "Atualize as informações do lead" : "Adicione um novo lead ao sistema"}
-            </p>
+      <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold flex items-center gap-2">
+                {isEdit ? "Editar Lead" : "Novo Lead"}
+                {leadWhatsappVerified && (
+                  <Badge variant="default" className="gap-1">
+                    <CheckCircle className="w-3 h-3" />
+                    WhatsApp Verificado
+                  </Badge>
+                )}
+              </h1>
+              <p className="text-muted-foreground">
+                {isEdit ? "Atualize as informações do lead" : "Adicione um novo lead ao sistema"}
+              </p>
+            </div>
           </div>
         </div>
 
+        <Card className="p-6 space-y-4 border-2">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">Progresso do Formulário</Label>
+              <span className="text-sm text-muted-foreground">{formProgress}%</span>
+            </div>
+            <Progress value={formProgress} className="h-2" />
+            <p className="text-xs text-muted-foreground">
+              Complete os campos principais para melhorar o progresso
+            </p>
+          </div>
+        </Card>
+
         <form onSubmit={handleSubmit} className="space-y-6">
-          <Card className="p-6 space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="name">Nome *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                  placeholder="Nome do lead"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="category">Categoria</Label>
-                <Select
-                  value={formData.category || "none"}
-                  onValueChange={(value) => setFormData({ ...formData, category: value === "none" ? "" : value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione uma categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nenhuma categoria</SelectItem>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.name}>
-                        {cat.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="basic" className="gap-2">
+                <User className="w-4 h-4" />
+                Básico
+              </TabsTrigger>
+              <TabsTrigger value="company" className="gap-2">
+                <Building2 className="w-4 h-4" />
+                Empresa
+              </TabsTrigger>
+              <TabsTrigger value="contact" className="gap-2">
+                <Phone className="w-4 h-4" />
+                Contato
+              </TabsTrigger>
+              <TabsTrigger value="location" className="gap-2">
+                <MapPin className="w-4 h-4" />
+                Localização
+              </TabsTrigger>
+              <TabsTrigger value="advanced" className="gap-2">
+                <Sparkles className="w-4 h-4" />
+                Avançado
+              </TabsTrigger>
+            </TabsList>
 
-            <div className="space-y-2">
-              <Label htmlFor="description">Descrição</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Descreva o lead..."
-                rows={3}
-              />
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="status">Status *</Label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(value) => setFormData({ ...formData, status: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="novo">Novo</SelectItem>
-                    <SelectItem value="conversa_iniciada">Conversa Iniciada</SelectItem>
-                    <SelectItem value="proposta_enviada">Proposta Enviada</SelectItem>
-                    <SelectItem value="link_pagamento_enviado">Link de Pagamento Enviado</SelectItem>
-                    <SelectItem value="pago">Pago</SelectItem>
-                    <SelectItem value="perdido">Perdido</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="source">Origem</Label>
-                <Input
-                  id="source"
-                  value={formData.source}
-                  onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-                  placeholder="Ex: Google Ads, Indicação..."
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="contact_email">Email de Contato</Label>
-                <Input
-                  id="contact_email"
-                  type="email"
-                  value={formData.contact_email}
-                  onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
-                  placeholder="email@exemplo.com"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="contact_whatsapp">WhatsApp</Label>
-                <Input
-                  id="contact_whatsapp"
-                  value={formData.contact_whatsapp ? formatPhoneDisplay(formData.contact_whatsapp) : ""}
-                  onChange={(e) => {
-                    const cleaned = cleanPhoneNumber(e.target.value);
-                    setFormData({ ...formData, contact_whatsapp: cleaned });
-                  }}
-                  placeholder="(11) 99999-9999"
-                  maxLength={20}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Digite apenas números. Exemplo: 11999998888 ou 5511999998888
-                </p>
-                <Alert className="border-amber-500/50 bg-amber-500/10">
-                  <AlertTriangle className="h-4 w-4 text-amber-600" />
-                  <AlertTitle className="text-sm font-semibold text-amber-700 dark:text-amber-400">
-                    Importante para Agendar Interações
-                  </AlertTitle>
-                  <AlertDescription className="text-xs text-amber-700/90 dark:text-amber-400/90 mt-1">
-                    Para poder agendar interações com IA e iniciar conversas automáticas, este lead precisa ter:
-                    <ul className="list-disc list-inside mt-1 space-y-0.5">
-                      <li>WhatsApp válido e verificado</li>
-                      <li>Remote JID configurado (gerado automaticamente quando o número é verificado)</li>
-                    </ul>
-                    {isEdit && formData.contact_whatsapp && (!leadRemoteJid || !leadWhatsappVerified) && (
-                      <div className="mt-2 pt-2 border-t border-amber-500/30">
-                        <p className="mb-2 font-medium">WhatsApp não verificado</p>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={handleValidateWhatsApp}
-                          disabled={isValidatingWhatsApp}
-                          className="w-full gap-2 border-amber-500/50 text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950"
-                        >
-                          <RefreshCw className={`w-4 h-4 ${isValidatingWhatsApp ? "animate-spin" : ""}`} />
-                          {isValidatingWhatsApp ? "Validando..." : "Validar WhatsApp Agora"}
-                        </Button>
-                      </div>
-                    )}
-                    {isEdit && leadRemoteJid && leadWhatsappVerified && (
-                      <div className="mt-2 pt-2 border-t border-amber-500/30">
-                        <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
-                          <CheckCircle className="w-4 h-4" />
-                          <span className="font-medium">WhatsApp verificado e pronto para agendar interações</span>
-                        </div>
-                      </div>
-                    )}
-                    {!isEdit && (
-                      <p className="mt-2">O sistema tentará validar o número automaticamente ao salvar. Se a validação falhar, o lead poderá ser salvo, mas não será possível agendar interações até que o WhatsApp seja verificado.</p>
-                    )}
-                  </AlertDescription>
-                </Alert>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="ai_interaction">
-                <div className="flex items-center gap-2">
-                  Configuração de IA para este Lead
+            <TabsContent value="basic" className="space-y-6 mt-6 animate-fade-in">
+              <Card className="p-6 space-y-6">
+                <div className="flex items-center gap-2 pb-2 border-b">
+                  <User className="w-5 h-5 text-primary" />
+                  <h3 className="text-lg font-semibold">Informações Básicas</h3>
                 </div>
-              </Label>
-              <Select
-                value={formData.ai_interaction_id || "default"}
-                onValueChange={(value) => setFormData({ ...formData, ai_interaction_id: value === "default" ? "" : value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Usar configuração padrão ou escolher específica" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="default">Usar configuração padrão</SelectItem>
-                  {aiInteractions.map((ai) => (
-                    <SelectItem key={ai.id} value={ai.id}>
-                      {ai.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Se não selecionar, será usada a configuração padrão definida em Settings
-              </p>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="integration_start_time">Horário de Integração (n8n)</Label>
-              <Input
-                id="integration_start_time"
-                type="time"
-                value={formData.integration_start_time}
-                onChange={(e) => setFormData({ ...formData, integration_start_time: e.target.value })}
-              />
-              <p className="text-xs text-muted-foreground">
-                Horário diário para iniciar o fluxo de automação
-              </p>
-            </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Nome Completo *</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      required
+                      placeholder="Nome do lead"
+                      className="transition-all focus:scale-[1.02]"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="job_title">Cargo</Label>
+                    <Input
+                      id="job_title"
+                      value={formData.job_title}
+                      onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
+                      placeholder="Ex: Gerente de Vendas"
+                      className="transition-all focus:scale-[1.02]"
+                    />
+                  </div>
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="payment_amount">Valor da Proposta (R$)</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
-                  R$
-                </span>
-                <Input
-                  id="payment_amount"
-                  type="text"
-                  value={formData.payment_amount}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, "");
-                    if (value === "") {
-                      setFormData({ ...formData, payment_amount: "" });
-                      return;
-                    }
-                    const numbers = value;
-                    const amount = parseFloat(numbers) / 100;
-                    const formatted = amount.toLocaleString("pt-BR", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    });
-                    setFormData({ ...formData, payment_amount: formatted });
-                  }}
-                  placeholder="0,00"
-                  className="pl-12"
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Valor individual desta proposta em Reais
-              </p>
-            </div>
-          </Card>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="category">Categoria</Label>
+                    <Select
+                      value={formData.category || "none"}
+                      onValueChange={(value) => setFormData({ ...formData, category: value === "none" ? "" : value })}
+                    >
+                      <SelectTrigger className="transition-all focus:scale-[1.02]">
+                        <SelectValue placeholder="Selecione uma categoria" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Nenhuma categoria</SelectItem>
+                        {categories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.name}>
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="status">Status *</Label>
+                    <Select
+                      value={formData.status}
+                      onValueChange={(value) => setFormData({ ...formData, status: value })}
+                    >
+                      <SelectTrigger className="transition-all focus:scale-[1.02]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="novo">Novo</SelectItem>
+                        <SelectItem value="conversa_iniciada">Conversa Iniciada</SelectItem>
+                        <SelectItem value="proposta_enviada">Proposta Enviada</SelectItem>
+                        <SelectItem value="link_pagamento_enviado">Link de Pagamento Enviado</SelectItem>
+                        <SelectItem value="pago">Pago</SelectItem>
+                        <SelectItem value="perdido">Perdido</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
 
-          {/* Payment Section */}
+                <div className="space-y-2">
+                  <Label htmlFor="description">Descrição</Label>
+                  <Textarea
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Descreva o lead..."
+                    rows={4}
+                    className="transition-all focus:scale-[1.01]"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="source">Origem do Lead</Label>
+                  <Input
+                    id="source"
+                    value={formData.source}
+                    onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+                    placeholder="Ex: Google Ads, Indicação, LinkedIn..."
+                    className="transition-all focus:scale-[1.02]"
+                  />
+                </div>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="company" className="space-y-6 mt-6 animate-fade-in">
+              <Card className="p-6 space-y-6">
+                <div className="flex items-center gap-2 pb-2 border-b">
+                  <Building2 className="w-5 h-5 text-primary" />
+                  <h3 className="text-lg font-semibold">Informações da Empresa</h3>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="company_name">Nome da Empresa</Label>
+                  <Input
+                    id="company_name"
+                    value={formData.company_name}
+                    onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+                    placeholder="Nome da empresa do lead"
+                    className="transition-all focus:scale-[1.02]"
+                  />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="industry">Setor/Indústria</Label>
+                    <Input
+                      id="industry"
+                      value={formData.industry}
+                      onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
+                      placeholder="Ex: Tecnologia, Varejo, Serviços..."
+                      className="transition-all focus:scale-[1.02]"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="website">Website</Label>
+                    <div className="relative">
+                      <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="website"
+                        type="url"
+                        value={formData.website}
+                        onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                        placeholder="https://exemplo.com"
+                        className="pl-10 transition-all focus:scale-[1.02]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="annual_revenue">Receita Anual (R$)</Label>
+                    <div className="relative">
+                      <TrendingUp className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="annual_revenue"
+                        type="text"
+                        value={formData.annual_revenue}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, "");
+                          if (value === "") {
+                            setFormData({ ...formData, annual_revenue: "" });
+                            return;
+                          }
+                          const amount = parseFloat(value) / 100;
+                          const formatted = amount.toLocaleString("pt-BR", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          });
+                          setFormData({ ...formData, annual_revenue: formatted });
+                        }}
+                        placeholder="0,00"
+                        className="pl-10 transition-all focus:scale-[1.02]"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="number_of_employees">Número de Funcionários</Label>
+                    <div className="relative">
+                      <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="number_of_employees"
+                        type="number"
+                        value={formData.number_of_employees}
+                        onChange={(e) => setFormData({ ...formData, number_of_employees: e.target.value })}
+                        placeholder="Ex: 50"
+                        min="0"
+                        className="pl-10 transition-all focus:scale-[1.02]"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="contact" className="space-y-6 mt-6 animate-fade-in">
+              <Card className="p-6 space-y-6">
+                <div className="flex items-center gap-2 pb-2 border-b">
+                  <Phone className="w-5 h-5 text-primary" />
+                  <h3 className="text-lg font-semibold">Informações de Contato</h3>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="contact_email">Email *</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="contact_email"
+                        type="email"
+                        value={formData.contact_email}
+                        onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
+                        placeholder="email@exemplo.com"
+                        className="pl-10 transition-all focus:scale-[1.02]"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Telefone Fixo</Label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="phone"
+                        value={formData.phone ? formatPhoneDisplay(formData.phone) : ""}
+                        onChange={(e) => {
+                          const cleaned = cleanPhoneNumber(e.target.value);
+                          setFormData({ ...formData, phone: cleaned });
+                        }}
+                        placeholder="(11) 3333-4444"
+                        maxLength={20}
+                        className="pl-10 transition-all focus:scale-[1.02]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="contact_whatsapp">WhatsApp</Label>
+                  <div className="relative">
+                    <MessageCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="contact_whatsapp"
+                      value={formData.contact_whatsapp ? formatPhoneDisplay(formData.contact_whatsapp) : ""}
+                      onChange={(e) => {
+                        const cleaned = cleanPhoneNumber(e.target.value);
+                        setFormData({ ...formData, contact_whatsapp: cleaned });
+                      }}
+                      placeholder="(11) 99999-9999"
+                      maxLength={20}
+                      className="pl-10 transition-all focus:scale-[1.02]"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Digite apenas números. Exemplo: 11999998888 ou 5511999998888
+                  </p>
+                  <Alert className="border-amber-500/50 bg-amber-500/10">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    <AlertTitle className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+                      Importante para Agendar Interações
+                    </AlertTitle>
+                    <AlertDescription className="text-xs text-amber-700/90 dark:text-amber-400/90 mt-1">
+                      Para poder agendar interações com IA e iniciar conversas automáticas, este lead precisa ter:
+                      <ul className="list-disc list-inside mt-1 space-y-0.5">
+                        <li>WhatsApp válido e verificado</li>
+                        <li>Remote JID configurado (gerado automaticamente quando o número é verificado)</li>
+                      </ul>
+                      {isEdit && formData.contact_whatsapp && (!leadRemoteJid || !leadWhatsappVerified) && (
+                        <div className="mt-2 pt-2 border-t border-amber-500/30">
+                          <p className="mb-2 font-medium">WhatsApp não verificado</p>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleValidateWhatsApp}
+                            disabled={isValidatingWhatsApp}
+                            className="w-full gap-2 border-amber-500/50 text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950"
+                          >
+                            <RefreshCw className={cn("w-4 h-4", isValidatingWhatsApp && "animate-spin")} />
+                            {isValidatingWhatsApp ? "Validando..." : "Validar WhatsApp Agora"}
+                          </Button>
+                        </div>
+                      )}
+                      {isEdit && leadRemoteJid && leadWhatsappVerified && (
+                        <div className="mt-2 pt-2 border-t border-amber-500/30">
+                          <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                            <CheckCircle className="w-4 h-4" />
+                            <span className="font-medium">WhatsApp verificado e pronto para agendar interações</span>
+                          </div>
+                        </div>
+                      )}
+                      {!isEdit && (
+                        <p className="mt-2">O sistema tentará validar o número automaticamente ao salvar. Se a validação falhar, o lead poderá ser salvo, mas não será possível agendar interações até que o WhatsApp seja verificado.</p>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="linkedin_url">LinkedIn</Label>
+                  <div className="relative">
+                    <Linkedin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="linkedin_url"
+                      type="url"
+                      value={formData.linkedin_url}
+                      onChange={(e) => setFormData({ ...formData, linkedin_url: e.target.value })}
+                      placeholder="https://linkedin.com/in/usuario"
+                      className="pl-10 transition-all focus:scale-[1.02]"
+                    />
+                  </div>
+                </div>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="location" className="space-y-6 mt-6 animate-fade-in">
+              <Card className="p-6 space-y-6">
+                <div className="flex items-center gap-2 pb-2 border-b">
+                  <MapPin className="w-5 h-5 text-primary" />
+                  <h3 className="text-lg font-semibold">Localização</h3>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="address">Endereço Completo</Label>
+                  <Input
+                    id="address"
+                    value={formData.address}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    placeholder="Rua, número, complemento"
+                    className="transition-all focus:scale-[1.02]"
+                  />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="city">Cidade</Label>
+                    <Input
+                      id="city"
+                      value={formData.city}
+                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                      placeholder="São Paulo"
+                      className="transition-all focus:scale-[1.02]"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="state">Estado</Label>
+                    <Select
+                      value={formData.state || undefined}
+                      onValueChange={(value) => setFormData({ ...formData, state: value })}
+                    >
+                      <SelectTrigger className="transition-all focus:scale-[1.02]">
+                        <SelectValue placeholder="Selecione o estado" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {brazilianStates.map((state) => (
+                          <SelectItem key={state} value={state}>
+                            {state}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="zip_code">CEP</Label>
+                    <Input
+                      id="zip_code"
+                      value={formData.zip_code}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, "");
+                        const formatted = value.length > 5 
+                          ? `${value.slice(0, 5)}-${value.slice(5, 8)}`
+                          : value;
+                        setFormData({ ...formData, zip_code: formatted });
+                      }}
+                      placeholder="00000-000"
+                      maxLength={9}
+                      className="transition-all focus:scale-[1.02]"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="country">País</Label>
+                  <Input
+                    id="country"
+                    value={formData.country}
+                    onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                    placeholder="Brasil"
+                    className="transition-all focus:scale-[1.02]"
+                  />
+                </div>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="advanced" className="space-y-6 mt-6 animate-fade-in">
+              <Card className="p-6 space-y-6">
+                <div className="flex items-center gap-2 pb-2 border-b">
+                  <Sparkles className="w-5 h-5 text-primary" />
+                  <h3 className="text-lg font-semibold">Configurações Avançadas</h3>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="ai_interaction">
+                    <div className="flex items-center gap-2">
+                      Configuração de IA para este Lead
+                    </div>
+                  </Label>
+                  <Select
+                    value={getSelectedAIInteractionId()}
+                    onValueChange={(value) => setFormData({ ...formData, ai_interaction_id: value })}
+                  >
+                    <SelectTrigger className="transition-all focus:scale-[1.02]">
+                      <SelectValue placeholder="Selecione uma configuração" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {aiInteractions.map((ai) => (
+                        <SelectItem key={ai.id} value={ai.id}>
+                          {ai.name}
+                          {ai.id === defaultAIInteractionId && " (Padrão)"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {defaultAIInteractionId 
+                      ? "A configuração padrão será usada se nenhuma for selecionada"
+                      : "Configure uma configuração padrão em Settings > Configuração de IA"}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="integration_start_time">Horário de Integração (n8n)</Label>
+                  <Input
+                    id="integration_start_time"
+                    type="time"
+                    value={formData.integration_start_time}
+                    onChange={(e) => setFormData({ ...formData, integration_start_time: e.target.value })}
+                    className="transition-all focus:scale-[1.02]"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Horário diário para iniciar o fluxo de automação
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="payment_amount">Valor da Proposta (R$)</Label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium" />
+                    <Input
+                      id="payment_amount"
+                      type="text"
+                      value={formData.payment_amount}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, "");
+                        if (value === "") {
+                          setFormData({ ...formData, payment_amount: "" });
+                          return;
+                        }
+                        const numbers = value;
+                        const amount = parseFloat(numbers) / 100;
+                        const formatted = amount.toLocaleString("pt-BR", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        });
+                        setFormData({ ...formData, payment_amount: formatted });
+                      }}
+                      placeholder="0,00"
+                      className="pl-12 transition-all focus:scale-[1.02]"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Valor individual desta proposta em Reais
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Notas Adicionais</Label>
+                  <Textarea
+                    id="notes"
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    placeholder="Anotações importantes sobre este lead..."
+                    rows={5}
+                    className="transition-all focus:scale-[1.01]"
+                  />
+                </div>
+              </Card>
+            </TabsContent>
+          </Tabs>
+
           {isEdit && (
             <Card className="p-6 space-y-4 border-accent/30">
               <div className="flex items-center gap-2">
@@ -770,8 +1212,7 @@ const LeadForm = () => {
             </Card>
           )}
 
-          {/* Actions */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 pb-6">
             <Button type="submit" disabled={loading} className="flex-1" size="lg">
               <Save className="w-4 h-4 mr-2" />
               {isEdit ? "Salvar Alterações" : "Criar Lead"}
@@ -792,7 +1233,6 @@ const LeadForm = () => {
         </form>
       </div>
 
-      {/* WhatsApp Instance Dialog */}
       <AlertDialog open={showWhatsAppDialog} onOpenChange={setShowWhatsAppDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -837,9 +1277,7 @@ const LeadForm = () => {
             <AlertDialogAction
               onClick={async () => {
                 setShowWhatsAppDialog(false);
-                // Continua sem validação - marca como confirmado
                 setInvalidWhatsAppConfirmed(true);
-                // Salva o lead sem validação do WhatsApp
                 await handleSubmitWithoutValidation();
               }}
               className="bg-secondary text-secondary-foreground hover:bg-secondary/80"
