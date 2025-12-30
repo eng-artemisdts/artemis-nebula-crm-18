@@ -583,7 +583,10 @@ const Playground = () => {
       if (!organization?.id) return;
 
       try {
-        const { data: componentsData, error: componentsError } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: componentsData, error: componentsError } = await (
+          supabase as any
+        )
           .from("agent_components")
           .select(
             "id,agent_id,component_id,created_at,components(id,name,description,identifier,created_at,updated_at)"
@@ -600,7 +603,10 @@ const Playground = () => {
           setAgentComponents((componentsData || []) as AgentComponent[]);
         }
 
-        const { data: configsData, error: configsError } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: configsData, error: configsError } = await (
+          supabase as any
+        )
           .from("agent_component_configurations")
           .select(
             "id,agent_id,component_id,config,created_at,updated_at,components(id,name,description,identifier)"
@@ -656,7 +662,10 @@ const Playground = () => {
       console.log("Buscando componentes do agente antes de enviar mensagem...");
 
       try {
-        const { data: componentsData, error: componentsError } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: componentsData, error: componentsError } = await (
+          supabase as any
+        )
           .from("agent_components")
           .select(
             "id,agent_id,component_id,created_at,components(id,name,description,identifier,created_at,updated_at)"
@@ -678,7 +687,10 @@ const Playground = () => {
           });
         }
 
-        const { data: configsData, error: configsError } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: configsData, error: configsError } = await (
+          supabase as any
+        )
           .from("agent_component_configurations")
           .select(
             "id,agent_id,component_id,config,created_at,updated_at,components(id,name,description,identifier)"
@@ -872,15 +884,66 @@ const Playground = () => {
         memory_amount: selectedAgent.memory_amount || "20",
       };
 
+      const configuredComponentIdentifiers = (currentAgentComponents || [])
+        .map((ac) => ac.components?.identifier)
+        .filter((identifier): identifier is string => !!identifier);
+
+      let mediaConfigurations: Record<
+        string,
+        {
+          mediaItems?: Array<{
+            id: string;
+            type: "image" | "video";
+            url: string;
+            fileName: string;
+            usageDescription: string;
+          }>;
+        }
+      > | null = null;
+
+      if (configuredComponentIdentifiers.includes("media_sender")) {
+        try {
+          const { ComponentRepository } = await import(
+            "@/services/components/ComponentRepository"
+          );
+          const componentRepository = new ComponentRepository();
+          const mediaComponent = await componentRepository.findByIdentifier(
+            "media_sender"
+          );
+
+          if (mediaComponent) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: mediaData, error: mediaError } = await (
+              supabase as any
+            )
+              .from("component_configurations")
+              .select("config")
+              .eq("component_id", mediaComponent.id)
+              .maybeSingle();
+
+            if (!mediaError && mediaData?.config?.mediaItems) {
+              mediaConfigurations = {
+                media_sender: {
+                  mediaItems: mediaData.config.mediaItems,
+                },
+              };
+            }
+          }
+        } catch (error) {
+          console.error("Erro ao buscar configurações de mídia:", error);
+        }
+      }
+
       const request: IYgdrasilChatRequest = {
         event: "messages.upsert",
         instance: "playground-instance",
         lead: mockLead,
         organization: mockOrganization,
         ai_config: aiConfig,
-        agent_components: currentAgentComponents || [],
+        agent_components: configuredComponentIdentifiers as string[],
         agent_component_configurations:
           currentAgentComponentConfigurations || [],
+        component_configurations: mediaConfigurations || undefined,
         lead_statuses: leadStatusesData,
         message: {
           conversation: messageContent,
@@ -945,15 +1008,22 @@ const Playground = () => {
         should_introduce_itself: request.ai_config.should_introduce_itself,
         agent_components: request.agent_components,
         agent_component_configurations: request.agent_component_configurations,
-        agent_components_count: request.agent_components?.length || 0,
+        component_configurations: request.component_configurations,
+        agent_components_count: Array.isArray(request.agent_components)
+          ? request.agent_components.length
+          : 0,
         agent_component_configurations_count:
           request.agent_component_configurations?.length || 0,
-        agent_components_details: request.agent_components?.map((ac) => ({
-          id: ac.id,
-          component_id: ac.component_id,
-          component_name: ac.components?.name,
-          component_identifier: ac.components?.identifier,
-        })),
+        agent_components_identifiers:
+          Array.isArray(request.agent_components) &&
+          typeof request.agent_components[0] === "string"
+            ? request.agent_components
+            : (
+                request.agent_components as unknown as Array<{
+                  components?: { identifier?: string };
+                  component_id?: string;
+                }>
+              )?.map((ac) => ac.components?.identifier || ac.component_id),
         agent_component_configurations_details:
           request.agent_component_configurations?.map((acc) => ({
             id: acc.id,
@@ -962,6 +1032,9 @@ const Playground = () => {
             component_identifier: acc.components?.identifier,
             config: acc.config,
           })),
+        media_items_count:
+          request.component_configurations?.media_sender?.mediaItems?.length ||
+          0,
         ai_config: request.ai_config,
         ai_config_keys: Object.keys(request.ai_config),
         ai_config_keys_count: Object.keys(request.ai_config).length,

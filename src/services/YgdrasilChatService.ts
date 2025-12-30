@@ -72,7 +72,7 @@ export interface IYgdrasilChatRequest {
     should_introduce_itself?: boolean;
     memory_amount?: string;
   };
-  agent_components?: Array<{
+  agent_components?: string[] | Array<{
     id: string;
     agent_id: string;
     component_id: string;
@@ -99,6 +99,15 @@ export interface IYgdrasilChatRequest {
       description: string;
       identifier: string;
     };
+  }>;
+  component_configurations?: Record<string, {
+    mediaItems?: Array<{
+      id: string;
+      type: "image" | "video";
+      url: string;
+      fileName: string;
+      usageDescription: string;
+    }>;
   }>;
   lead_statuses: Array<{
     id: string;

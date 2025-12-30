@@ -39,3 +39,5 @@ COMMENT ON COLUMN public.leads.industry IS 'Setor/indústria da empresa do lead'
 COMMENT ON COLUMN public.leads.annual_revenue IS 'Receita anual da empresa em R$';
 COMMENT ON COLUMN public.leads.number_of_employees IS 'Número de funcionários da empresa';
 
+
+

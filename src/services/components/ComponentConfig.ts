@@ -88,6 +88,11 @@ export class ComponentConfigService {
       requiresConfiguration: false,
       configType: "none",
     },
+    media_sender: {
+      requiresConfiguration: true,
+      configType: "custom",
+      customConfigPath: "/media-sender",
+    },
   };
 
   static getConfig(identifier: string): ComponentConfigDefinition {
@@ -335,6 +340,32 @@ export class ComponentConfigService {
         "Identificar leads frios e atualizar status apropriado",
         "Sincronizar status com progresso real da conversa",
         "Manter funil de vendas sempre atualizado",
+      ],
+    },
+    media_sender: {
+      title: "Envio de Mídia",
+      description:
+        "Permite ao agente enviar imagens e vídeos durante as conversas em ocasiões específicas. Configure quais mídias devem ser enviadas e em quais situações a IA deve utilizá-las.",
+      features: [
+        "Upload de imagens e vídeos",
+        "Configuração de ocasiões de uso",
+        "Descrição de quando cada mídia deve ser enviada",
+        "Múltiplas mídias por agente",
+        "Armazenamento seguro de arquivos",
+        "Integração com WhatsApp e outros canais",
+      ],
+      useCases: [
+        "Enviar catálogo de produtos quando solicitado",
+        "Compartilhar imagens de demonstração",
+        "Enviar vídeos explicativos de produtos",
+        "Compartilhar materiais promocionais",
+        "Enviar documentos visuais quando relevante",
+        "Compartilhar cases de sucesso em formato visual",
+      ],
+      requirements: [
+        "Arquivos de imagem (JPG, PNG, GIF)",
+        "Arquivos de vídeo (MP4, MOV)",
+        "Descrição clara de quando usar cada mídia",
       ],
     },
   };
