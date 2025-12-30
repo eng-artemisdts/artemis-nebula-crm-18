@@ -1,0 +1,161 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  try {
+    const { instanceName, remoteJid, message, mediaUrl, mediaType } = await req.json();
+
+    if (!instanceName || !remoteJid || !mediaUrl || !mediaType) {
+      throw new Error("Missing required parameters: instanceName, remoteJid, mediaUrl, and mediaType are required");
+    }
+
+    if (mediaType !== 'image' && mediaType !== 'video') {
+      throw new Error("mediaType must be 'image' or 'video'");
+    }
+
+    const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL");
+    const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_KEY");
+
+    if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
+      throw new Error("Evolution API credentials not configured");
+    }
+
+    let finalMediaUrl = mediaUrl;
+    let mimetype = '';
+    let fileName = '';
+
+    if (mediaType === 'image') {
+      if (!mediaUrl.match(/\.(png|jpg|jpeg|gif|webp)(\?.*)?$/i)) {
+        if (mediaUrl.includes('?')) {
+          const [base, query] = mediaUrl.split('?');
+          finalMediaUrl = `${base}.png?${query}`;
+        } else {
+          finalMediaUrl = `${mediaUrl}.png`;
+        }
+        console.log("URL without extension detected, modified to:", finalMediaUrl);
+      }
+
+      const extension = finalMediaUrl.match(/\.(png|jpg|jpeg|gif|webp)/i)?.[1]?.toLowerCase();
+      const mimetypeMap: Record<string, string> = {
+        'png': 'image/png',
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'gif': 'image/gif',
+        'webp': 'image/webp'
+      };
+      mimetype = mimetypeMap[extension || 'png'] || 'image/png';
+      fileName = `media.${extension || 'png'}`;
+    } else if (mediaType === 'video') {
+      if (!mediaUrl.match(/\.(mp4|mov|quicktime)(\?.*)?$/i)) {
+        if (mediaUrl.includes('?')) {
+          const [base, query] = mediaUrl.split('?');
+          finalMediaUrl = `${base}.mp4?${query}`;
+        } else {
+          finalMediaUrl = `${mediaUrl}.mp4`;
+        }
+        console.log("URL without extension detected, modified to:", finalMediaUrl);
+      }
+
+      const extension = finalMediaUrl.match(/\.(mp4|mov|quicktime)/i)?.[1]?.toLowerCase();
+      const mimetypeMap: Record<string, string> = {
+        'mp4': 'video/mp4',
+        'mov': 'video/quicktime',
+        'quicktime': 'video/quicktime'
+      };
+      mimetype = mimetypeMap[extension || 'mp4'] || 'video/mp4';
+      fileName = `media.${extension || 'mp4'}`;
+    }
+
+    console.log(`Preparing to send ${mediaType}:`, finalMediaUrl);
+    console.log(`Mimetype: ${mimetype}, FileName: ${fileName}`);
+
+    const mediaResponse = await fetch(`${EVOLUTION_API_URL}/message/sendMedia/${instanceName}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": EVOLUTION_API_KEY,
+      },
+      body: JSON.stringify({
+        number: remoteJid,
+        mediatype: mediaType,
+        mimetype: mimetype,
+        media: finalMediaUrl,
+        fileName: fileName
+      }),
+    });
+
+    if (!mediaResponse.ok) {
+      const errorData = await mediaResponse.text();
+      console.error(`Error sending ${mediaType}:`, errorData);
+
+      if (mediaResponse.status === 404) {
+        throw new Error("A instância WhatsApp não está mais ativa. Por favor, reconecte no menu WhatsApp.");
+      }
+
+      throw new Error(`Failed to send ${mediaType}: ${mediaResponse.status} - ${errorData}`);
+    }
+
+    const mediaResult = await mediaResponse.json();
+    console.log(`${mediaType} sent successfully:`, mediaResult);
+
+    if (message) {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      console.log("Sending text message to:", remoteJid);
+      const textResponse = await fetch(`${EVOLUTION_API_URL}/message/sendText/${instanceName}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": EVOLUTION_API_KEY,
+        },
+        body: JSON.stringify({
+          number: remoteJid,
+          text: message,
+        }),
+      });
+
+      if (!textResponse.ok) {
+        const errorData = await textResponse.text();
+        console.error("Error sending text message:", errorData);
+
+        if (textResponse.status === 404) {
+          throw new Error("A instância WhatsApp não está mais ativa. Por favor, reconecte no menu WhatsApp.");
+        }
+
+        throw new Error(`Failed to send text message: ${textResponse.status}`);
+      }
+
+      const textResult = await textResponse.json();
+      console.log("Text message sent successfully:", textResult);
+    }
+
+    return new Response(
+      JSON.stringify({ success: true, mediaResult }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      },
+    );
+  } catch (error) {
+    console.error("Error in evolution-send-media:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return new Response(
+      JSON.stringify({ error: errorMessage }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      },
+    );
+  }
+});
+
+
+

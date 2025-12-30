@@ -67,6 +67,28 @@ class EvolutionChatService {
       throw new Error(error.message || "Erro ao enviar mensagem");
     }
   }
+
+  async sendMedia(params: {
+    instanceName: string;
+    remoteJid: string;
+    mediaUrl: string;
+    mediaType: "image" | "video";
+    message?: string;
+  }): Promise<void> {
+    const { error } = await supabase.functions.invoke("evolution-send-media", {
+      body: {
+        instanceName: params.instanceName,
+        remoteJid: params.remoteJid,
+        mediaUrl: params.mediaUrl,
+        mediaType: params.mediaType,
+        message: params.message,
+      },
+    });
+
+    if (error) {
+      throw new Error(error.message || "Erro ao enviar mídia");
+    }
+  }
 }
 
 export const evolutionChatService = new EvolutionChatService();

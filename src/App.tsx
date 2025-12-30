@@ -19,6 +19,7 @@ import { ComponentConfiguration } from "./pages/ComponentConfiguration";
 import Documents from "./pages/Documents";
 import AIContextDocuments from "./pages/AIContextDocuments";
 import WhatsAppConnect from "./pages/WhatsAppConnect";
+import MediaSenderConfiguration from "./pages/MediaSenderConfiguration";
 import Settings from "./pages/Settings";
 import MessageConfiguration from "./pages/MessageConfiguration";
 import ScheduleMessages from "./pages/ScheduleMessages";
@@ -152,6 +153,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <WhatsAppConnect />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/media-sender"
+              element={
+                <ProtectedRoute>
+                  <MediaSenderConfiguration />
                 </ProtectedRoute>
               }
             />

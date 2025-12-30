@@ -7,6 +7,7 @@ export interface LeadStatus {
   label: string;
   is_required: boolean;
   display_order: number;
+  ai_transition_condition: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -15,11 +16,13 @@ export interface CreateLeadStatusDTO {
   status_key: string;
   label: string;
   display_order?: number;
+  ai_transition_condition?: string | null;
 }
 
 export interface UpdateLeadStatusDTO {
   label?: string;
   display_order?: number;
+  ai_transition_condition?: string | null;
 }
 
 export class LeadStatusService {
@@ -91,6 +94,7 @@ export class LeadStatusService {
         label: dto.label,
         is_required: false,
         display_order: displayOrder,
+        ai_transition_condition: dto.ai_transition_condition || null,
       })
       .select()
       .single();
@@ -118,6 +122,7 @@ export class LeadStatusService {
         .update({
           label: dto.label,
           display_order: dto.display_order ?? status.display_order,
+          ai_transition_condition: dto.ai_transition_condition !== undefined ? dto.ai_transition_condition : status.ai_transition_condition,
         })
         .eq("id", statusId)
         .select()
@@ -135,6 +140,7 @@ export class LeadStatusService {
       .update({
         label: dto.label ?? status.label,
         display_order: dto.display_order ?? status.display_order,
+        ai_transition_condition: dto.ai_transition_condition !== undefined ? dto.ai_transition_condition : status.ai_transition_condition,
       })
       .eq("id", statusId)
       .select()

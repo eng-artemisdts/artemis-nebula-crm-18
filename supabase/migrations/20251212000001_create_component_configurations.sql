@@ -102,3 +102,5 @@ COMMENT ON COLUMN public.component_configurations.config IS 'JSON object contain
 
 
 
+
+

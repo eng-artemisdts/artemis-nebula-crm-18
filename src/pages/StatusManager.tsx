@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Plus, Edit, Trash2, Save, X, GripVertical, Lock } from "lucide-react";
 import {
@@ -90,6 +91,11 @@ const SortableStatusItem = ({
           <p className="text-sm text-muted-foreground mt-1">
             Chave: <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{status.status_key}</code>
           </p>
+          {status.ai_transition_condition && (
+            <p className="text-sm text-muted-foreground mt-2 italic">
+              <strong>Condição IA:</strong> {status.ai_transition_condition}
+            </p>
+          )}
         </div>
         <div className="flex gap-2">
           {!status.is_required && (
@@ -134,6 +140,7 @@ const StatusManager = () => {
   const [formData, setFormData] = useState({
     status_key: "",
     label: "",
+    ai_transition_condition: "",
   });
 
   const service = new LeadStatusService();
@@ -178,6 +185,7 @@ const StatusManager = () => {
       if (editingId) {
         const dto: UpdateLeadStatusDTO = {
           label: formData.label,
+          ai_transition_condition: formData.ai_transition_condition || null,
         };
         await service.update(organization.id, editingId, dto);
         toast.success("Etapa do funil atualizada com sucesso!");
@@ -185,12 +193,13 @@ const StatusManager = () => {
         const dto: CreateLeadStatusDTO = {
           status_key: formData.status_key.toLowerCase().replace(/\s+/g, "_"),
           label: formData.label,
+          ai_transition_condition: formData.ai_transition_condition || null,
         };
         await service.create(organization.id, dto);
         toast.success("Etapa do funil criada com sucesso!");
       }
 
-      setFormData({ status_key: "", label: "" });
+      setFormData({ status_key: "", label: "", ai_transition_condition: "" });
       setEditingId(null);
       setIsDialogOpen(false);
       fetchStatuses();
@@ -206,6 +215,7 @@ const StatusManager = () => {
     setFormData({
       status_key: status.status_key,
       label: status.label,
+      ai_transition_condition: status.ai_transition_condition || "",
     });
     setEditingId(status.id);
     setIsDialogOpen(true);
@@ -227,7 +237,7 @@ const StatusManager = () => {
   };
 
   const handleCancel = () => {
-    setFormData({ status_key: "", label: "" });
+    setFormData({ status_key: "", label: "", ai_transition_condition: "" });
     setEditingId(null);
     setIsDialogOpen(false);
   };
@@ -287,7 +297,7 @@ const StatusManager = () => {
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={() => { setEditingId(null); setFormData({ status_key: "", label: "" }); }}>
+              <Button onClick={() => { setEditingId(null); setFormData({ status_key: "", label: "", ai_transition_condition: "" }); }}>
                 <Plus className="w-4 h-4 mr-2" />
                 Nova Etapa
               </Button>
@@ -346,6 +356,22 @@ const StatusManager = () => {
                     Nome que será exibido no funil de vendas
                   </p>
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ai_transition_condition">Condição de Transição da IA</Label>
+                  <Textarea
+                    id="ai_transition_condition"
+                    value={formData.ai_transition_condition}
+                    onChange={(e) =>
+                      setFormData({ ...formData, ai_transition_condition: e.target.value })
+                    }
+                    placeholder="Ex: Quando o lead demonstrar interesse em receber uma proposta comercial, quando mencionar que precisa de um orçamento, quando perguntar sobre preços..."
+                    rows={4}
+                    className="resize-none"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Descreva quando a IA deve mudar o lead para esta etapa do funil. Este texto será usado pela IA para decidir automaticamente quando fazer a transição.
+                  </p>
+                </div>
                 <div className="flex gap-2 justify-end">
                   <Button
                     type="button"
@@ -391,6 +417,11 @@ const StatusManager = () => {
                           <p className="text-sm text-muted-foreground mt-1">
                             Chave: <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{status.status_key}</code>
                           </p>
+                          {status.ai_transition_condition && (
+                            <p className="text-sm text-muted-foreground mt-2 italic">
+                              <strong>Condição IA:</strong> {status.ai_transition_condition}
+                            </p>
+                          )}
                         </div>
                         <Button
                           variant="outline"
@@ -454,6 +485,11 @@ const StatusManager = () => {
                       <p className="text-sm text-muted-foreground mt-1">
                         Chave: <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{finishedStatus.status_key}</code>
                       </p>
+                      {finishedStatus.ai_transition_condition && (
+                        <p className="text-sm text-muted-foreground mt-2 italic">
+                          <strong>Condição IA:</strong> {finishedStatus.ai_transition_condition}
+                        </p>
+                      )}
                       <p className="text-xs text-muted-foreground mt-2">
                         Esta etapa sempre aparece por último no funil de vendas
                       </p>

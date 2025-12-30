@@ -307,36 +307,38 @@ const AgentCreate = () => {
           (c) => c.identifier === "whatsapp_integration"
         );
 
-        if (!whatsappComponent) return;
+        if (whatsappComponent) {
+          const session = await supabase.auth.getSession();
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-        const session = await supabase.auth.getSession();
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+          const response = await fetch(
+            `${supabaseUrl}/rest/v1/agent_component_configurations?agent_id=eq.${agentId}&component_id=eq.${whatsappComponent.id}&select=config`,
+            {
+              headers: {
+                apikey: supabaseKey,
+                Authorization: `Bearer ${
+                  session.data.session?.access_token || ""
+                }`,
+              },
+            }
+          );
 
-        const response = await fetch(
-          `${supabaseUrl}/rest/v1/agent_component_configurations?agent_id=eq.${agentId}&component_id=eq.${whatsappComponent.id}&select=config`,
-          {
-            headers: {
-              apikey: supabaseKey,
-              Authorization: `Bearer ${
-                session.data.session?.access_token || ""
-              }`,
-            },
-          }
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data && data[0]?.config?.whatsapp_instance_id) {
-            setSelectedWhatsappInstanceId(data[0].config.whatsapp_instance_id);
+          if (response.ok) {
+            const data = await response.json();
+            if (data && data[0]?.config?.whatsapp_instance_id) {
+              setSelectedWhatsappInstanceId(data[0].config.whatsapp_instance_id);
+            }
           }
         }
+
       } catch (error) {
         console.error("Erro ao carregar configuração do componente:", error);
       }
     },
     [components, organization?.id]
   );
+
 
   useEffect(() => {
     if (id) {
@@ -485,39 +487,37 @@ const AgentCreate = () => {
     }
   };
 
-  const saveAgentComponentConfig = async (agentId: string) => {
-    if (!whatsappComponent || !hasWhatsappSelected) return;
+  const updateMediaPaths = async (agentId: string) => {
+    if (!organization?.id) return;
 
-    if (shouldShowWhatsappInstanceSelector && !selectedWhatsappInstanceId) {
-      toast.error(
-        "Selecione uma instância WhatsApp para o agente ou remova a habilidade WhatsApp"
-      );
-      throw new Error("Instância WhatsApp não selecionada");
-    }
-
-    if (shouldShowWhatsappInstanceSelector && selectedWhatsappInstanceId) {
-      const { error } = await supabase
-        .from("agent_component_configurations")
-        .upsert(
-          {
-            agent_id: agentId,
-            component_id: whatsappComponent.id,
-            config: {
-              whatsapp_instance_id: selectedWhatsappInstanceId,
-            },
-          },
-          {
-            onConflict: "agent_id,component_id",
-          }
-        );
-
-      if (error) {
-        throw new Error(
-          `Erro ao salvar configuração do componente: ${error.message}`
-        );
+    const updatedMediaItems = mediaItems.map((media) => {
+      if (media.url.includes("/temp-")) {
+        const urlParts = media.url.split("/");
+        const fileName = urlParts[urlParts.length - 1];
+        const newPath = `${organization.id}/${agentId}/${fileName}`;
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from("media-sender").getPublicUrl(newPath);
+        return { ...media, url: publicUrl };
       }
-    } else if (hasWhatsappSelected && !shouldShowWhatsappInstanceSelector) {
-      if (whatsappInstances.length === 1) {
+      return media;
+    });
+
+    if (JSON.stringify(updatedMediaItems) !== JSON.stringify(mediaItems)) {
+      setMediaItems(updatedMediaItems);
+    }
+  };
+
+  const saveAgentComponentConfig = async (agentId: string) => {
+    if (whatsappComponent && hasWhatsappSelected) {
+      if (shouldShowWhatsappInstanceSelector && !selectedWhatsappInstanceId) {
+        toast.error(
+          "Selecione uma instância WhatsApp para o agente ou remova a habilidade WhatsApp"
+        );
+        throw new Error("Instância WhatsApp não selecionada");
+      }
+
+      if (shouldShowWhatsappInstanceSelector && selectedWhatsappInstanceId) {
         const { error } = await supabase
           .from("agent_component_configurations")
           .upsert(
@@ -525,7 +525,7 @@ const AgentCreate = () => {
               agent_id: agentId,
               component_id: whatsappComponent.id,
               config: {
-                whatsapp_instance_id: whatsappInstances[0].id,
+                whatsapp_instance_id: selectedWhatsappInstanceId,
               },
             },
             {
@@ -538,18 +538,42 @@ const AgentCreate = () => {
             `Erro ao salvar configuração do componente: ${error.message}`
           );
         }
-      }
-    } else if (!hasWhatsappSelected && whatsappComponent) {
-      const { error } = await supabase
-        .from("agent_component_configurations")
-        .delete()
-        .eq("agent_id", agentId)
-        .eq("component_id", whatsappComponent.id);
+      } else if (hasWhatsappSelected && !shouldShowWhatsappInstanceSelector) {
+        if (whatsappInstances.length === 1) {
+          const { error } = await supabase
+            .from("agent_component_configurations")
+            .upsert(
+              {
+                agent_id: agentId,
+                component_id: whatsappComponent.id,
+                config: {
+                  whatsapp_instance_id: whatsappInstances[0].id,
+                },
+              },
+              {
+                onConflict: "agent_id,component_id",
+              }
+            );
 
-      if (error) {
-        console.error("Erro ao remover configuração do componente:", error);
+          if (error) {
+            throw new Error(
+              `Erro ao salvar configuração do componente: ${error.message}`
+            );
+          }
+        }
+      } else if (!hasWhatsappSelected && whatsappComponent) {
+        const { error } = await supabase
+          .from("agent_component_configurations")
+          .delete()
+          .eq("agent_id", agentId)
+          .eq("component_id", whatsappComponent.id);
+
+        if (error) {
+          console.error("Erro ao remover configuração do componente:", error);
+        }
       }
     }
+
   };
 
   const handleSave = async () => {
@@ -1176,6 +1200,7 @@ const AgentCreate = () => {
                       </div>
                     </Card>
                   )}
+
                 </div>
               )}
 
