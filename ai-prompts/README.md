@@ -15,6 +15,7 @@ ai-prompts/
     ├── meeting_scheduler.md
     ├── email_sender.md
     ├── artemis_vector_store.md
+    ├── media_sender.md
     └── psql_chat_message.md
 ```
 

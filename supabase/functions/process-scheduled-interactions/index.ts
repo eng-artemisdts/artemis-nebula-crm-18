@@ -203,6 +203,11 @@ serve(async (req) => {
               serverUrl: EVOLUTION_API_URL || null,
               instance: scheduledInteraction.instance_name || null,
             },
+            isScheduledInteraction: true,
+            scheduledInteraction: {
+              id: scheduledInteraction.id,
+              scheduled_at: scheduledInteraction.scheduled_at,
+            },
             timestamp: new Date().toISOString(),
           };
 
