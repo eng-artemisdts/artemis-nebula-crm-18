@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -9,13 +9,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Clock, Calendar, Eye, X, Search, RefreshCw, Bot, Users } from "lucide-react";
+import { ArrowLeft, Clock, Calendar, Eye, X, Search, RefreshCw, Bot, Users, Settings2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatPhoneDisplay } from "@/lib/utils";
 import { useOrganization } from "@/hooks/useOrganization";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { LeadsDragDrop } from "@/components/LeadsDragDrop";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
 
 interface ScheduledInteraction {
   leadId: string;
@@ -48,6 +51,14 @@ interface AIInteractionSetting {
   conversation_focus: string;
 }
 
+interface AvailableLead {
+  id: string;
+  name: string;
+  contact_whatsapp: string | null;
+  remote_jid: string | null;
+  whatsapp_verified: boolean;
+}
+
 const ScheduleInteractions = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -64,10 +75,113 @@ const ScheduleInteractions = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [aiInteractionSettings, setAiInteractionSettings] = useState<AIInteractionSetting[]>([]);
   const [loadingSettings, setLoadingSettings] = useState(false);
+  const [availableLeads, setAvailableLeads] = useState<AvailableLead[]>([]);
+  const [loadingAvailableLeads, setLoadingAvailableLeads] = useState(false);
+  const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
+  const [leadsSheetOpen, setLeadsSheetOpen] = useState(false);
+  const [searchAvailableLeads, setSearchAvailableLeads] = useState("");
 
   useEffect(() => {
     fetchAiInteractionSettings();
-  }, []);
+    if (activeTab === "schedule") {
+      fetchAvailableLeads();
+    }
+  }, [activeTab]);
+
+  const computedScheduledLeads = useMemo(() => {
+    if (availableLeads.length === 0 || selectedLeadIds.length === 0) {
+      return [];
+    }
+
+    const now = new Date();
+    return selectedLeadIds
+      .map((leadId, index) => {
+        const lead = availableLeads.find((l) => l.id === leadId);
+        if (!lead || !lead.remote_jid || !lead.whatsapp_verified) return null;
+
+        const scheduledDate = new Date(now);
+        scheduledDate.setMinutes(scheduledDate.getMinutes() + index * 5);
+
+        return {
+          leadId: lead.id,
+          leadName: lead.name,
+          leadWhatsApp: lead.contact_whatsapp || "",
+          remoteJid: lead.remote_jid || "",
+          scheduledDateTime: format(scheduledDate, "yyyy-MM-dd'T'HH:mm"),
+          aiInteractionId: defaultAiInteractionId || aiInteractionSettings[0]?.id || "",
+          instanceName: instanceName,
+        };
+      })
+      .filter((lead): lead is ScheduledInteraction => lead !== null);
+  }, [selectedLeadIds, availableLeads, defaultAiInteractionId, aiInteractionSettings, instanceName]);
+
+  useEffect(() => {
+    if (selectedLeadIds.length === 0) {
+      setLeads([]);
+      return;
+    }
+
+    setLeads((prevLeads) => {
+      const prevLeadIds = new Set(prevLeads.map((l) => l.leadId));
+      const newLeadIds = new Set(computedScheduledLeads.map((l) => l.leadId));
+      
+      if (
+        prevLeadIds.size === newLeadIds.size &&
+        [...prevLeadIds].every((id) => newLeadIds.has(id))
+      ) {
+        return prevLeads;
+      }
+      
+      return computedScheduledLeads;
+    });
+  }, [computedScheduledLeads, selectedLeadIds.length]);
+
+  const fetchAvailableLeads = async () => {
+    setLoadingAvailableLeads(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("organization_id")
+        .eq("id", user.id)
+        .single();
+
+      if (!profile?.organization_id) {
+        setLoadingAvailableLeads(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("leads")
+        .select("id, name, contact_whatsapp, remote_jid, whatsapp_verified")
+        .eq("organization_id", profile.organization_id)
+        .or("is_test.is.null,is_test.eq.false")
+        .not("contact_whatsapp", "is", null)
+        .not("remote_jid", "is", null)
+        .eq("whatsapp_verified", true)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      const leadsData: AvailableLead[] = (data || []).map((lead) => ({
+        id: lead.id,
+        name: lead.name,
+        contact_whatsapp: lead.contact_whatsapp,
+        remote_jid: lead.remote_jid,
+        whatsapp_verified: lead.whatsapp_verified || false,
+      }));
+
+      setAvailableLeads(leadsData);
+    } catch (error: any) {
+      console.error("Erro ao carregar leads disponíveis:", error);
+      toast.error("Erro ao carregar leads disponíveis");
+    } finally {
+      setLoadingAvailableLeads(false);
+    }
+  };
 
   const fetchAiInteractionSettings = async () => {
     setLoadingSettings(true);
@@ -125,22 +239,8 @@ const ScheduleInteractions = () => {
         }
 
         const now = new Date();
-        const scheduledLeads: ScheduledInteraction[] = state.leads.map((lead, index) => {
-          const scheduledDate = new Date(now);
-          scheduledDate.setMinutes(scheduledDate.getMinutes() + (index * 5));
-
-          return {
-            leadId: lead.id,
-            leadName: lead.name,
-            leadWhatsApp: lead.contact_whatsapp,
-            remoteJid: lead.remote_jid || "",
-            scheduledDateTime: format(scheduledDate, "yyyy-MM-dd'T'HH:mm"),
-            aiInteractionId: aiInteractionId,
-            instanceName: instance
-          };
-        });
-
-        setLeads(scheduledLeads);
+        const leadIds = state.leads.map((lead) => lead.id);
+        setSelectedLeadIds(leadIds);
         setActiveTab("schedule");
       } catch (error: any) {
         console.error("Erro ao carregar dados:", error);
@@ -347,6 +447,10 @@ const ScheduleInteractions = () => {
     return format(now, "yyyy-MM-dd'T'HH:mm");
   };
 
+  const removeLeadFromSchedule = (leadId: string) => {
+    setSelectedLeadIds((prev) => prev.filter((id) => id !== leadId));
+  };
+
   return (
     <Layout>
       <div className="space-y-6 animate-fade-in">
@@ -392,15 +496,119 @@ const ScheduleInteractions = () => {
                   <h3 className="text-lg font-semibold mb-2">Nenhum lead selecionado</h3>
                   <p className="text-muted-foreground text-center mb-6 max-w-md">
                     Para agendar interações, você precisa selecionar leads primeiro.
-                    Vá para a página de Leads, selecione os leads desejados e use a ação de agendar interações.
+                    Use o botão abaixo para abrir o seletor de leads.
                   </p>
-                  <Button onClick={() => navigate("/leads")} className="gap-2">
-                    <Users className="w-4 h-4" />
-                    Ir para Leads
-                  </Button>
+                  <Sheet open={leadsSheetOpen} onOpenChange={setLeadsSheetOpen}>
+                    <SheetTrigger asChild>
+                      <Button className="gap-2">
+                        <Users className="w-4 h-4" />
+                        Selecionar Leads
+                      </Button>
+                    </SheetTrigger>
+                    <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+                      <SheetHeader>
+                        <SheetTitle>Selecionar Leads</SheetTitle>
+                        <SheetDescription>
+                          Selecione os leads que deseja agendar. Você pode arrastar os leads selecionados para reordená-los.
+                        </SheetDescription>
+                      </SheetHeader>
+                      <div className="mt-6">
+                        {loadingAvailableLeads ? (
+                          <div className="text-center py-8 text-muted-foreground">
+                            Carregando leads...
+                          </div>
+                        ) : (
+                          <LeadsDragDrop
+                            leads={availableLeads}
+                            selectedLeadIds={selectedLeadIds}
+                            onSelectionChange={setSelectedLeadIds}
+                            filter={searchAvailableLeads}
+                            onFilterChange={setSearchAvailableLeads}
+                          />
+                        )}
+                      </div>
+                    </SheetContent>
+                  </Sheet>
                 </CardContent>
               </Card>
             ) : (
+              <>
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          <Users className="w-5 h-5" />
+                          Leads Selecionados ({leads.length})
+                        </CardTitle>
+                        <CardDescription>
+                          Leads que serão agendados para interações
+                        </CardDescription>
+                      </div>
+                      <Sheet open={leadsSheetOpen} onOpenChange={setLeadsSheetOpen}>
+                        <SheetTrigger asChild>
+                          <Button variant="outline" className="gap-2">
+                            <Settings2 className="w-4 h-4" />
+                            Gerenciar Leads
+                            {selectedLeadIds.length > 0 && (
+                              <Badge variant="secondary" className="ml-1">
+                                {selectedLeadIds.length}
+                              </Badge>
+                            )}
+                          </Button>
+                        </SheetTrigger>
+                        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+                          <SheetHeader>
+                            <SheetTitle>Selecionar Leads</SheetTitle>
+                            <SheetDescription>
+                              Selecione os leads que deseja agendar. Você pode arrastar os leads selecionados para reordená-los.
+                            </SheetDescription>
+                          </SheetHeader>
+                          <div className="mt-6">
+                            {loadingAvailableLeads ? (
+                              <div className="text-center py-8 text-muted-foreground">
+                                Carregando leads...
+                              </div>
+                            ) : (
+                              <LeadsDragDrop
+                                leads={availableLeads}
+                                selectedLeadIds={selectedLeadIds}
+                                onSelectionChange={setSelectedLeadIds}
+                                filter={searchAvailableLeads}
+                                onFilterChange={setSearchAvailableLeads}
+                              />
+                            )}
+                          </div>
+                        </SheetContent>
+                      </Sheet>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-2">
+                      {leads.map((lead) => (
+                        <Badge
+                          key={lead.leadId}
+                          variant="secondary"
+                          className="px-3 py-1.5 text-sm flex items-center gap-2"
+                        >
+                          <span>{lead.leadName}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeLeadFromSchedule(lead.leadId)}
+                            className="h-auto p-0 w-4 h-4 hover:bg-destructive/20 rounded-full"
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </Badge>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+
+            {leads.length > 0 && (
               <>
                 <Card>
                   <CardHeader>
@@ -439,15 +647,14 @@ const ScheduleInteractions = () => {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="start-time">Horário de Início</Label>
-                      <Input
-                        id="start-time"
-                        type="datetime-local"
-                        min={getMinDateTime()}
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            applyToAll("time", e.target.value);
+                      <DateTimePicker
+                        value={leads.length > 0 ? leads[0].scheduledDateTime : getMinDateTime()}
+                        onChange={(value) => {
+                          if (value) {
+                            applyToAll("time", value);
                           }
                         }}
+                        min={getMinDateTime()}
                       />
                     </div>
                   </CardContent>
@@ -472,6 +679,7 @@ const ScheduleInteractions = () => {
                             <TableHead>WhatsApp</TableHead>
                             <TableHead>Data e Hora</TableHead>
                             <TableHead className="min-w-[300px]">Configuração de IA</TableHead>
+                            <TableHead>Ações</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -484,12 +692,11 @@ const ScheduleInteractions = () => {
                                 {lead.leadWhatsApp ? formatPhoneDisplay(lead.leadWhatsApp) : "-"}
                               </TableCell>
                               <TableCell>
-                                <Input
-                                  type="datetime-local"
+                                <DateTimePicker
                                   value={lead.scheduledDateTime}
+                                  onChange={(value) => updateScheduledTime(lead.leadId, value)}
                                   min={getMinDateTime()}
-                                  onChange={(e) => updateScheduledTime(lead.leadId, e.target.value)}
-                                  className="w-[200px]"
+                                  className="w-[240px]"
                                 />
                               </TableCell>
                               <TableCell>
@@ -509,6 +716,16 @@ const ScheduleInteractions = () => {
                                     ))}
                                   </SelectContent>
                                 </Select>
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeLeadFromSchedule(lead.leadId)}
+                                  className="text-destructive hover:text-destructive"
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
                               </TableCell>
                             </TableRow>
                           ))}

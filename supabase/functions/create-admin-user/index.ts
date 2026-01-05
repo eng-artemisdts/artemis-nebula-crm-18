@@ -12,9 +12,27 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+    const isLocalEnvironment = supabaseUrl.includes('localhost') || 
+                               supabaseUrl.includes('127.0.0.1') ||
+                               supabaseUrl.includes('.local') ||
+                               Deno.env.get('ENVIRONMENT') === 'local'
+
+    if (!isLocalEnvironment) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'This function is only available in local environment'
+        }),
+        { 
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
 
     const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
+      supabaseUrl,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       {
         auth: {
@@ -37,8 +55,8 @@ Deno.serve(async (req) => {
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
-    }
-
+     }
+ 
 
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email: 'admin@email.com',
