@@ -19,6 +19,24 @@ interface WebhookMessage {
   };
 }
 
+const normalizePhoneNumber = (phone: string): string => {
+  const cleaned = phone.replace(/\D/g, '');
+
+  if (cleaned.startsWith('55')) {
+    return cleaned;
+  }
+
+  if (cleaned.length === 11 || cleaned.length === 10) {
+    return `55${cleaned}`;
+  }
+
+  if (cleaned.length > 11) {
+    return cleaned;
+  }
+
+  return `55${cleaned}`;
+};
+
 Deno.serve(async (req) => {
 
   if (req.method === 'OPTIONS') {
@@ -97,11 +115,7 @@ Deno.serve(async (req) => {
         console.log('Extracted WhatsApp JID:', whatsappJid);
 
         if (phoneNumber) {
-          let cleanedPhone = phoneNumber.replace(/\D/g, '');
-
-          if (cleanedPhone.startsWith('55') && cleanedPhone.length > 10) {
-            cleanedPhone = cleanedPhone.substring(2);
-          }
+          const cleanedPhone = normalizePhoneNumber(phoneNumber);
 
           if (cleanedPhone.length >= 10) {
             console.log('Updating instance with phone number:', cleanedPhone, 'and JID:', whatsappJid, 'for instance:', instanceName);
@@ -261,9 +275,7 @@ Deno.serve(async (req) => {
       phoneNumber = remoteJid.split('@')[0];
     }
 
-
-    phoneNumber = phoneNumber.replace(/\D/g, '');
-
+    phoneNumber = normalizePhoneNumber(phoneNumber);
 
     if (phoneNumber.length < 10) {
       console.log('Invalid phone number format:', phoneNumber);
@@ -275,26 +287,6 @@ Deno.serve(async (req) => {
         }
       );
     }
-
-    const normalizePhoneNumber = (phone: string): string => {
-      const cleaned = phone.replace(/\D/g, '');
-
-      if (cleaned.startsWith('55')) {
-        return cleaned;
-      }
-
-      if (cleaned.length === 11 || cleaned.length === 10) {
-        return `55${cleaned}`;
-      }
-
-      if (cleaned.length > 11) {
-        return cleaned;
-      }
-
-      return `55${cleaned}`;
-    };
-
-    phoneNumber = normalizePhoneNumber(phoneNumber);
 
     const contactName = payload.data?.pushName || '';
 

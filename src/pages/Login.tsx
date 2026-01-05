@@ -22,8 +22,17 @@ const Login = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Create admin user on first load
+    // Create admin user on first load (only in local environment)
     const createAdminUser = async () => {
+      const isLocalEnvironment = 
+        import.meta.env.VITE_SUPABASE_URL?.includes('localhost') ||
+        import.meta.env.VITE_SUPABASE_URL?.includes('127.0.0.1') ||
+        import.meta.env.DEV;
+
+      if (!isLocalEnvironment) {
+        return;
+      }
+
       try {
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-admin-user`,
@@ -74,6 +83,16 @@ const Login = () => {
     setIsLoading(true);
 
     try {
+      // Block admin@email.com login outside local environment
+      const isLocalEnvironment = 
+        import.meta.env.VITE_SUPABASE_URL?.includes('localhost') ||
+        import.meta.env.VITE_SUPABASE_URL?.includes('127.0.0.1') ||
+        import.meta.env.DEV;
+
+      if (!isLocalEnvironment && email === 'admin@email.com') {
+        throw new Error('Login com este email não é permitido em ambiente de produção');
+      }
+
       if (isSignUp) {
         // First, sign up the user
         const { data: signUpData, error: signUpError } =

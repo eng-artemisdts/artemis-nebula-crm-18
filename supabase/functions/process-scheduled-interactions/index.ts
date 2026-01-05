@@ -173,8 +173,14 @@ serve(async (req) => {
           const remoteJid = scheduledInteraction.remote_jid;
           const contactName = lead.name || "";
 
+          const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL");
+          const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_KEY");
+
+          const messageId = `scheduled-${scheduledInteraction.id}-${Date.now()}`;
+          const conversationText = "";
+
           const webhookPayload = {
-            event: "scheduled_interaction.trigger",
+            event: "messages.upsert",
             instance: scheduledInteraction.instance_name,
             lead: lead,
             organization: organization,
@@ -182,15 +188,21 @@ serve(async (req) => {
             agent_components: agentComponents,
             agent_component_configurations: agentComponentConfigurations,
             lead_statuses: leadStatuses,
-            scheduledInteraction: {
-              id: scheduledInteraction.id,
-              scheduled_at: scheduledInteraction.scheduled_at,
-              remote_jid: remoteJid,
+            message: {
+              conversation: conversationText,
             },
+            messageType: "conversation",
+            conversation: conversationText,
+            messageId: messageId,
             contactName: contactName,
             phoneNumber: phoneNumber,
             remoteJid: remoteJid,
             fromMe: false,
+            evolution: {
+              apikey: EVOLUTION_API_KEY || null,
+              serverUrl: EVOLUTION_API_URL || null,
+              instance: scheduledInteraction.instance_name || null,
+            },
             timestamp: new Date().toISOString(),
           };
 
