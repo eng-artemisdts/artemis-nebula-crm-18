@@ -87,8 +87,33 @@ serve(async (req) => {
       fileName = 'document.pdf';
     }
 
+    const hasMessage = message && typeof message === 'string' && message.trim().length > 0;
+    
     console.log(`Preparing to send ${mediaType}:`, finalMediaUrl);
     console.log(`Mimetype: ${mimetype}, FileName: ${fileName}`);
+    console.log(`Message provided: ${hasMessage ? 'Yes' : 'No'}`);
+    if (hasMessage) {
+      console.log(`Message content: "${message}"`);
+    }
+
+    const mediaPayload: {
+      number: string;
+      mediatype: string;
+      mimetype: string;
+      media: string;
+      fileName: string;
+      caption?: string;
+    } = {
+      number: remoteJid,
+      mediatype: mediaType,
+      mimetype: mimetype,
+      media: finalMediaUrl,
+      fileName: fileName
+    };
+
+    if (hasMessage) {
+      mediaPayload.caption = message.trim();
+    }
 
     const mediaResponse = await fetch(`${EVOLUTION_API_URL}/message/sendMedia/${instanceName}`, {
       method: "POST",
@@ -96,13 +121,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
         "apikey": EVOLUTION_API_KEY,
       },
-      body: JSON.stringify({
-        number: remoteJid,
-        mediatype: mediaType,
-        mimetype: mimetype,
-        media: finalMediaUrl,
-        fileName: fileName
-      }),
+      body: JSON.stringify(mediaPayload),
     });
 
     if (!mediaResponse.ok) {
@@ -119,35 +138,8 @@ serve(async (req) => {
     const mediaResult = await mediaResponse.json();
     console.log(`${mediaType} sent successfully:`, mediaResult);
 
-    if (message) {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      console.log("Sending text message to:", remoteJid);
-      const textResponse = await fetch(`${EVOLUTION_API_URL}/message/sendText/${instanceName}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": EVOLUTION_API_KEY,
-        },
-        body: JSON.stringify({
-          number: remoteJid,
-          text: message,
-        }),
-      });
-
-      if (!textResponse.ok) {
-        const errorData = await textResponse.text();
-        console.error("Error sending text message:", errorData);
-
-        if (textResponse.status === 404) {
-          throw new Error("A instância WhatsApp não está mais ativa. Por favor, reconecte no menu WhatsApp.");
-        }
-
-        throw new Error(`Failed to send text message: ${textResponse.status}`);
-      }
-
-      const textResult = await textResponse.json();
-      console.log("Text message sent successfully:", textResult);
+    if (!hasMessage) {
+      console.log("No message provided, skipping text message");
     }
 
     return new Response(

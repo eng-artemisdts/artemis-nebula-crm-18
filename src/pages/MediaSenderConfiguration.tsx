@@ -97,7 +97,9 @@ export default function MediaSenderConfiguration() {
     }
   };
 
-  const detectMediaType = (file: File): "image" | "video" | "document" | null => {
+  const detectMediaType = (
+    file: File
+  ): "image" | "video" | "document" | null => {
     const validImageTypes = [
       "image/jpeg",
       "image/jpg",
@@ -547,11 +549,7 @@ export default function MediaSenderConfiguration() {
                                   {media.fileName}
                                 </span>
                               </div>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                asChild
-                              >
+                              <Button variant="outline" size="sm" asChild>
                                 <a
                                   href={media.url}
                                   target="_blank"

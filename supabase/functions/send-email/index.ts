@@ -57,8 +57,11 @@ serve(async (req) => {
       .single();
 
     if (componentError || !componentData) {
+      console.error("❌ Componente email_sender não encontrado:", componentError);
       throw new Error("Componente de envio de email não encontrado");
     }
+
+    console.log("📧 Componente email_sender encontrado:", componentData.id);
 
     const { data: orgComponentData, error: orgComponentError } = await supabase
       .from("organization_components")
@@ -76,11 +79,72 @@ serve(async (req) => {
       throw new Error("Componente não está disponível para esta organização");
     }
 
-    const { data: configData, error: configError } = await supabase
-      .from("component_configurations")
-      .select("id, config")
-      .eq("component_id", componentData.id)
-      .maybeSingle();
+    // Buscar o usuário que está fazendo a requisição (se autenticado)
+    const authHeader = req.headers.get("Authorization");
+    let requestingUserId: string | null = null;
+    
+    if (authHeader) {
+      try {
+        const token = authHeader.replace("Bearer ", "");
+        const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+        if (!userError && user) {
+          requestingUserId = user.id;
+          console.log("📧 Usuário autenticado fazendo requisição:", requestingUserId);
+        }
+      } catch (error) {
+        console.log("⚠️ Não foi possível obter usuário da requisição, buscando qualquer configuração da organização");
+      }
+    }
+
+    // Buscar configuração: primeiro do usuário que está fazendo a requisição, depois de qualquer usuário da organização
+    let configData: any = null;
+    let configError: any = null;
+
+    if (requestingUserId) {
+      const { data, error } = await supabase
+        .from("component_configurations")
+        .select("id, config, user_id")
+        .eq("component_id", componentData.id)
+        .eq("user_id", requestingUserId)
+        .maybeSingle();
+      
+      configData = data;
+      configError = error;
+      
+      if (data) {
+        console.log("✅ Configuração encontrada para o usuário que está fazendo a requisição");
+      }
+    }
+
+    // Se não encontrou configuração do usuário, busca de qualquer usuário da organização
+    if (!configData) {
+      console.log("🔍 Buscando configuração de qualquer usuário da organização");
+      
+      const { data: orgProfiles, error: orgProfilesError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("organization_id", requestData.organizationId)
+        .limit(10);
+
+      if (!orgProfilesError && orgProfiles && orgProfiles.length > 0) {
+        const userIds = orgProfiles.map(p => p.id);
+        
+        const { data, error } = await supabase
+          .from("component_configurations")
+          .select("id, config, user_id")
+          .eq("component_id", componentData.id)
+          .in("user_id", userIds)
+          .limit(1)
+          .maybeSingle();
+        
+        configData = data;
+        configError = error;
+        
+        if (data) {
+          console.log(`✅ Configuração encontrada para usuário ${data.user_id} da organização`);
+        }
+      }
+    }
 
     if (configError) {
       console.error("Erro ao buscar configuração:", configError);
@@ -88,51 +152,85 @@ serve(async (req) => {
     }
 
     if (!configData?.config) {
-      throw new Error("Email não conectado. Por favor, conecte sua conta de email na página de configuração.");
+      console.error("❌ Configuração do componente email_sender não encontrada");
+      console.error("💡 O componente email_sender precisa ser configurado separadamente do meeting_scheduler");
+      throw new Error(`Email não conectado. Por favor, conecte sua conta de email na página de configuração. Acesse: /components/${componentData.id}/configure`);
     }
 
     const config = configData.config;
     
+    console.log("📧 Configuração do email encontrada:", {
+      hasOAuthToken: !!config.oauth_token,
+      hasOAuthProvider: !!config.oauth_provider,
+      provider: config.oauth_provider,
+      connectedEmail: config.connected_email,
+      connected: config.connected,
+    });
+    
     if (!config.oauth_token || !config.oauth_provider) {
-      throw new Error("Token OAuth inválido ou provedor não configurado. Por favor, reconecte sua conta de email.");
+      console.error("❌ Token OAuth ou provedor não configurado:", {
+        hasOAuthToken: !!config.oauth_token,
+        hasOAuthProvider: !!config.oauth_provider,
+        configKeys: Object.keys(config),
+        componentId: componentData.id,
+      });
+      console.error("💡 IMPORTANTE: email_sender e meeting_scheduler são componentes separados e precisam ser configurados independentemente");
+      throw new Error(`Token OAuth inválido ou provedor não configurado. Por favor, reconecte sua conta de email. Acesse: /components/${componentData.id}/configure`);
     }
 
     console.log(`Enviando email para organização: ${requestData.organizationId}`);
     
-    const { data: orgProfiles, error: orgProfilesError } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("organization_id", requestData.organizationId)
-      .limit(1);
+    // Se temos a configuração, usar o email do usuário que tem a configuração
+    let targetUserEmail: string | null = null;
+    
+    if (configData?.user_id) {
+      const { data: authUser, error: authUserError } = await supabase.auth.admin.getUserById(
+        configData.user_id
+      );
 
-    if (orgProfilesError) {
-      console.error("Erro ao buscar profiles:", orgProfilesError);
-      throw new Error(`Erro ao buscar usuários da organização: ${orgProfilesError.message}`);
+      if (!authUserError && authUser?.user?.email) {
+        targetUserEmail = authUser.user.email;
+        console.log(`📧 Usando email do usuário com configuração: ${targetUserEmail}`);
+      }
     }
 
-    if (!orgProfiles || orgProfiles.length === 0) {
-      console.error(`Nenhum profile encontrado para organização: ${requestData.organizationId}`);
-      throw new Error("Nenhum usuário encontrado para esta organização");
-    }
-
-    const targetProfile = orgProfiles[0];
-    console.log(`Profile encontrado: ${targetProfile.id}`);
-
-    const { data: authUser, error: authUserError } = await supabase.auth.admin.getUserById(
-      targetProfile.id
-    );
-
-    if (authUserError || !authUser?.user) {
-      console.error("Erro ao buscar usuário do auth:", authUserError);
-      throw new Error(`Erro ao buscar email do usuário: ${authUserError?.message || "Usuário não encontrado"}`);
-    }
-
-    const targetUserEmail = authUser.user.email;
+    // Se não encontrou, buscar de qualquer usuário da organização
     if (!targetUserEmail) {
-      throw new Error("Usuário não possui email cadastrado");
-    }
+      const { data: orgProfiles, error: orgProfilesError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("organization_id", requestData.organizationId)
+        .limit(1);
 
-    console.log(`Usuário alvo da organização: ${targetUserEmail}`);
+      if (orgProfilesError) {
+        console.error("Erro ao buscar profiles:", orgProfilesError);
+        throw new Error(`Erro ao buscar usuários da organização: ${orgProfilesError.message}`);
+      }
+
+      if (!orgProfiles || orgProfiles.length === 0) {
+        console.error(`Nenhum profile encontrado para organização: ${requestData.organizationId}`);
+        throw new Error("Nenhum usuário encontrado para esta organização");
+      }
+
+      const targetProfile = orgProfiles[0];
+      console.log(`Profile encontrado: ${targetProfile.id}`);
+
+      const { data: authUser, error: authUserError } = await supabase.auth.admin.getUserById(
+        targetProfile.id
+      );
+
+      if (authUserError || !authUser?.user) {
+        console.error("Erro ao buscar usuário do auth:", authUserError);
+        throw new Error(`Erro ao buscar email do usuário: ${authUserError?.message || "Usuário não encontrado"}`);
+      }
+
+      targetUserEmail = authUser.user.email;
+      if (!targetUserEmail) {
+        throw new Error("Usuário não possui email cadastrado");
+      }
+
+      console.log(`Usuário alvo da organização: ${targetUserEmail}`);
+    }
     
     if (config.connected_email && config.connected_email !== targetUserEmail) {
       console.warn(`Aviso: Email conectado com conta diferente. Config: ${config.connected_email}, Target User: ${targetUserEmail}`);
@@ -145,6 +243,13 @@ serve(async (req) => {
     let result: EmailResult;
 
     try {
+      console.log("📧 Iniciando envio de email:", {
+        provider,
+        to: requestData.to,
+        subject: requestData.subject,
+        fromEmail: targetUserEmail,
+      });
+
       if (provider === "gmail") {
         result = await sendGmailEmail(accessToken, requestData, targetUserEmail);
       } else if (provider === "outlook") {
@@ -152,17 +257,41 @@ serve(async (req) => {
       } else {
         throw new Error(`Provedor não suportado: ${provider}`);
       }
+
+      console.log("✅ Email enviado com sucesso:", {
+        provider,
+        messageId: result.messageId,
+        to: requestData.to,
+      });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("❌ Erro ao enviar email:", {
+        error: errorMessage,
+        provider,
+        hasRefreshToken: !!refreshToken,
+        statusCode: errorMessage.includes("401") ? "401" : "outro",
+      });
       
       if (errorMessage.includes("401") && refreshToken && provider === "gmail") {
-        console.log("Token expirado, renovando com refresh_token...");
-        accessToken = await refreshGmailToken(refreshToken, configData.id, supabase);
-        result = await sendGmailEmail(accessToken, requestData, targetUserEmail);
+        console.log("🔄 Token expirado, renovando com refresh_token...");
+        try {
+          accessToken = await refreshGmailToken(refreshToken, configData.id, supabase);
+          result = await sendGmailEmail(accessToken, requestData, targetUserEmail);
+        } catch (refreshError) {
+          console.error("❌ Erro ao renovar token Gmail:", refreshError);
+          throw new Error("Token OAuth expirado e não foi possível renovar. Por favor, reconecte sua conta de email na página de configuração.");
+        }
       } else if (errorMessage.includes("401") && refreshToken && provider === "outlook") {
-        console.log("Token expirado, renovando com refresh_token...");
-        accessToken = await refreshOutlookToken(refreshToken, configData.id, supabase);
-        result = await sendOutlookEmail(accessToken, requestData, targetUserEmail);
+        console.log("🔄 Token expirado, renovando com refresh_token...");
+        try {
+          accessToken = await refreshOutlookToken(refreshToken, configData.id, supabase);
+          result = await sendOutlookEmail(accessToken, requestData, targetUserEmail);
+        } catch (refreshError) {
+          console.error("❌ Erro ao renovar token Outlook:", refreshError);
+          throw new Error("Token OAuth expirado e não foi possível renovar. Por favor, reconecte sua conta de email na página de configuração.");
+        }
+      } else if (errorMessage.includes("401") || errorMessage.includes("403")) {
+        throw new Error("Token OAuth expirado ou sem permissão. Por favor, reconecte sua conta de email na página de configuração do componente 'email_sender'.");
       } else {
         throw error;
       }
@@ -400,6 +529,14 @@ async function sendOutlookEmail(
   request: SendEmailRequest,
   fromEmail: string
 ): Promise<EmailResult> {
+  console.log("📧 Enviando email via Outlook:", {
+    to: request.to,
+    subject: request.subject,
+    fromEmail,
+    hasCc: !!(request.cc && request.cc.length > 0),
+    hasBcc: !!(request.bcc && request.bcc.length > 0),
+  });
+
   const message = {
     message: {
       subject: request.subject,
@@ -440,15 +577,70 @@ async function sendOutlookEmail(
     }
   );
 
+  const responseText = await response.text();
+  
+  console.log("📧 Outlook API Response:", {
+    status: response.status,
+    statusText: response.statusText,
+    headers: Object.fromEntries(response.headers.entries()),
+    body: responseText.substring(0, 500), // Primeiros 500 caracteres para não poluir logs
+  });
+
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error("Outlook API error:", response.status, errorText);
-    throw new Error(`Erro ao enviar email via Outlook: ${response.status}`);
+    console.error("❌ Outlook API error:", {
+      status: response.status,
+      statusText: response.statusText,
+      error: responseText,
+    });
+    throw new Error(`Erro ao enviar email via Outlook: ${response.status} - ${responseText.substring(0, 200)}`);
   }
 
-  return {
-    messageId: `outlook-${Date.now()}`,
-    success: true,
-  };
+  // A API do Microsoft Graph retorna 202 (Accepted) quando o email é aceito para envio
+  // ou 200 quando enviado imediatamente. Ambos são sucesso.
+  if (response.status === 202 || response.status === 200 || response.status === 204) {
+    console.log("✅ Email aceito pela API do Outlook");
+    console.log("ℹ️ Status 202 significa que o email foi aceito para processamento.");
+    console.log("ℹ️ O email será enviado em breve. Verifique:");
+    console.log("   1. A caixa de saída (Sent Items) da conta Outlook conectada");
+    console.log("   2. A pasta de spam do destinatário");
+    console.log("   3. Aguarde alguns minutos - pode haver um pequeno atraso");
+    
+    // Tenta extrair o ID da mensagem se disponível
+    let messageId = `outlook-${Date.now()}`;
+    try {
+      if (responseText) {
+        const parsed = JSON.parse(responseText);
+        if (parsed.id) {
+          messageId = parsed.id;
+        }
+      }
+    } catch {
+      // Se não conseguir parsear, usa o ID gerado
+    }
+
+    // Log adicional com informações úteis
+    console.log("📋 Informações do envio:", {
+      messageId,
+      to: request.to,
+      subject: request.subject,
+      fromEmail,
+      requestId: response.headers.get("request-id"),
+      clientRequestId: response.headers.get("client-request-id"),
+      note: "Status 202 é normal - email aceito para processamento",
+    });
+
+    return {
+      messageId,
+      success: true,
+    };
+  }
+
+  // Se chegou aqui, algo inesperado aconteceu
+  console.error("⚠️ Resposta inesperada da API do Outlook:", {
+    status: response.status,
+    body: responseText,
+  });
+  
+  throw new Error(`Resposta inesperada da API do Outlook: ${response.status}`);
 }
 

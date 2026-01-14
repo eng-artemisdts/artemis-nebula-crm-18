@@ -67,11 +67,72 @@ serve(async (req) => {
       throw new Error("Componente não está disponível para esta organização");
     }
 
-    const { data: configData, error: configError } = await supabase
-      .from("component_configurations")
-      .select("config")
-      .eq("component_id", componentData.id)
-      .maybeSingle();
+    // Buscar o usuário que está fazendo a requisição (se autenticado)
+    const authHeader = req.headers.get("Authorization");
+    let requestingUserId: string | null = null;
+    
+    if (authHeader) {
+      try {
+        const token = authHeader.replace("Bearer ", "");
+        const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+        if (!userError && user) {
+          requestingUserId = user.id;
+          console.log("📅 Usuário autenticado fazendo requisição:", requestingUserId);
+        }
+      } catch (error) {
+        console.log("⚠️ Não foi possível obter usuário da requisição, buscando qualquer configuração da organização");
+      }
+    }
+
+    // Buscar configuração: primeiro do usuário que está fazendo a requisição, depois de qualquer usuário da organização
+    let configData: any = null;
+    let configError: any = null;
+
+    if (requestingUserId) {
+      const { data, error } = await supabase
+        .from("component_configurations")
+        .select("config, user_id")
+        .eq("component_id", componentData.id)
+        .eq("user_id", requestingUserId)
+        .maybeSingle();
+      
+      configData = data;
+      configError = error;
+      
+      if (data) {
+        console.log("✅ Configuração encontrada para o usuário que está fazendo a requisição");
+      }
+    }
+
+    // Se não encontrou configuração do usuário, busca de qualquer usuário da organização
+    if (!configData) {
+      console.log("🔍 Buscando configuração de qualquer usuário da organização");
+      
+      const { data: orgProfiles, error: orgProfilesError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("organization_id", requestData.organizationId)
+        .limit(10);
+
+      if (!orgProfilesError && orgProfiles && orgProfiles.length > 0) {
+        const userIds = orgProfiles.map(p => p.id);
+        
+        const { data, error } = await supabase
+          .from("component_configurations")
+          .select("config, user_id")
+          .eq("component_id", componentData.id)
+          .in("user_id", userIds)
+          .limit(1)
+          .maybeSingle();
+        
+        configData = data;
+        configError = error;
+        
+        if (data) {
+          console.log(`✅ Configuração encontrada para usuário ${data.user_id} da organização`);
+        }
+      }
+    }
 
     if (configError) {
       console.error("Erro ao buscar configuração:", configError);
@@ -90,40 +151,57 @@ serve(async (req) => {
 
     console.log(`Agendando evento para organização: ${requestData.organizationId}`);
     
-    const { data: orgProfiles, error: orgProfilesError } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("organization_id", requestData.organizationId)
-      .limit(1);
+    // Se temos a configuração, usar o email do usuário que tem a configuração
+    let targetUserEmail: string | null = null;
+    
+    if (configData?.user_id) {
+      const { data: authUser, error: authUserError } = await supabase.auth.admin.getUserById(
+        configData.user_id
+      );
 
-    if (orgProfilesError) {
-      console.error("Erro ao buscar profiles:", orgProfilesError);
-      throw new Error(`Erro ao buscar usuários da organização: ${orgProfilesError.message}`);
+      if (!authUserError && authUser?.user?.email) {
+        targetUserEmail = authUser.user.email;
+        console.log(`📅 Usando email do usuário com configuração: ${targetUserEmail}`);
+      }
     }
 
-    if (!orgProfiles || orgProfiles.length === 0) {
-      console.error(`Nenhum profile encontrado para organização: ${requestData.organizationId}`);
-      throw new Error("Nenhum usuário encontrado para esta organização");
-    }
-
-    const targetProfile = orgProfiles[0];
-    console.log(`Profile encontrado: ${targetProfile.id}`);
-
-    const { data: authUser, error: authUserError } = await supabase.auth.admin.getUserById(
-      targetProfile.id
-    );
-
-    if (authUserError || !authUser?.user) {
-      console.error("Erro ao buscar usuário do auth:", authUserError);
-      throw new Error(`Erro ao buscar email do usuário: ${authUserError?.message || "Usuário não encontrado"}`);
-    }
-
-    const targetUserEmail = authUser.user.email;
+    // Se não encontrou, buscar de qualquer usuário da organização
     if (!targetUserEmail) {
-      throw new Error("Usuário não possui email cadastrado");
-    }
+      const { data: orgProfiles, error: orgProfilesError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("organization_id", requestData.organizationId)
+        .limit(1);
 
-    console.log(`Usuário alvo da organização: ${targetUserEmail}`);
+      if (orgProfilesError) {
+        console.error("Erro ao buscar profiles:", orgProfilesError);
+        throw new Error(`Erro ao buscar usuários da organização: ${orgProfilesError.message}`);
+      }
+
+      if (!orgProfiles || orgProfiles.length === 0) {
+        console.error(`Nenhum profile encontrado para organização: ${requestData.organizationId}`);
+        throw new Error("Nenhum usuário encontrado para esta organização");
+      }
+
+      const targetProfile = orgProfiles[0];
+      console.log(`Profile encontrado: ${targetProfile.id}`);
+
+      const { data: authUser, error: authUserError } = await supabase.auth.admin.getUserById(
+        targetProfile.id
+      );
+
+      if (authUserError || !authUser?.user) {
+        console.error("Erro ao buscar usuário do auth:", authUserError);
+        throw new Error(`Erro ao buscar email do usuário: ${authUserError?.message || "Usuário não encontrado"}`);
+      }
+
+      targetUserEmail = authUser.user.email;
+      if (!targetUserEmail) {
+        throw new Error("Usuário não possui email cadastrado");
+      }
+
+      console.log(`Usuário alvo da organização: ${targetUserEmail}`);
+    }
     
     if (config.connected_email && config.connected_email !== targetUserEmail) {
       console.warn(`Aviso: Calendário conectado com email diferente. Config: ${config.connected_email}, Target User: ${targetUserEmail}`);

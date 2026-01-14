@@ -48,9 +48,24 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || null;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const payload: any = await req.json();
+    
+    // Extrair token do header Authorization se existir (formato: "Bearer {token}")
+    const authHeader = req.headers.get('Authorization');
+    let accessToken: string | null = null;
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      accessToken = authHeader.replace('Bearer ', '');
+    } else if (authHeader) {
+      // Se vier sem "Bearer ", usar direto
+      accessToken = authHeader;
+    } else {
+      // Fallback: usar anon key (formato esperado pelas outras rotas)
+      accessToken = supabaseAnonKey;
+    }
     const instanceName =
       payload.instance ||
       payload.instanceName ||
@@ -538,6 +553,7 @@ Deno.serve(async (req) => {
       conversation: conversation,
       messageId: messageId,
       fromMe: fromMe,
+      access_token: accessToken,
       evolution: {
         apikey: payload.apikey || null,
         serverUrl: payload.server_url || null,
@@ -553,10 +569,6 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (settings?.n8n_webhook_url) {
-        // Extrair token de acesso do header da requisição recebida
-        const authHeader = req.headers.get('Authorization');
-        const accessToken = authHeader?.replace('Bearer ', '') || null;
-
         const headers: HeadersInit = {
           'Content-Type': 'application/json',
         };
@@ -586,6 +598,7 @@ Deno.serve(async (req) => {
             phoneNumber: phoneNumber,
             remoteJid: remoteJid,
             fromMe: fromMe,
+            access_token: accessToken,
             evolution: {
               apikey: payload.apikey || null,
               serverUrl: payload.server_url || null,

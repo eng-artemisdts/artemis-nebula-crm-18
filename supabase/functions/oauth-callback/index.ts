@@ -189,13 +189,19 @@ serve(async (req) => {
 
     const { component_id, provider, user_id } = stateData;
 
+    console.log("📋 Processando callback OAuth:", {
+      component_id,
+      provider,
+      user_id,
+    });
+
     const { data: usersData, error: userError } = await supabase.auth.admin.listUsers();
     if (userError) {
-      console.error("Erro ao verificar usuário:", userError);
+      console.error("❌ Erro ao verificar usuário:", userError);
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: "Erro ao verificar usuário" 
+          error: `Erro ao verificar usuário: ${userError.message}` 
         }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -206,10 +212,11 @@ serve(async (req) => {
 
     const user = usersData?.users?.find((u) => u.id === user_id);
     if (!user) {
+      console.error("❌ Usuário não encontrado:", user_id);
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: "Usuário não encontrado" 
+          error: `Usuário não encontrado: ${user_id}` 
         }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -218,13 +225,34 @@ serve(async (req) => {
       );
     }
 
+    console.log("✅ Usuário encontrado:", {
+      id: user.id,
+      email: user.email,
+    });
+
     const referer = req.headers.get("referer");
     const origin = req.headers.get("origin");
     const frontendUrl = referer ? new URL(referer).origin : origin;
     
+    console.log("🔗 URLs do callback:", {
+      referer,
+      origin,
+      frontendUrl,
+      supabaseUrl,
+    });
+    
     const oauthConfig = getOAuthConfig(provider, supabaseUrl, frontendUrl || undefined);
+    
+    console.log("🔄 Trocando código por token...");
     const tokenData = await exchangeCodeForToken(code, oauthConfig, provider);
+    console.log("✅ Token obtido com sucesso");
+    
+    console.log("👤 Obtendo informações do usuário...");
     const userInfo = await getUserInfo(tokenData.access_token, provider);
+    console.log("✅ Informações do usuário obtidas:", {
+      email: userInfo.email,
+      name: userInfo.name,
+    });
 
     const configData = {
       oauth_provider: provider,
@@ -236,13 +264,58 @@ serve(async (req) => {
       connected: true,
     };
 
-    console.log("Salvando configuração OAuth:", { component_id, provider, email: userInfo.email });
+    console.log("Salvando configuração OAuth:", { component_id, provider, email: userInfo.email, user_id });
 
-    const { data: existingConfig, error: selectError } = await supabase
-      .from("component_configurations")
-      .select("id")
-      .eq("component_id", component_id)
-      .maybeSingle();
+    // Tentar primeiro com user_id, se falhar (coluna não existe), usar modo compatibilidade
+    let hasUserIdColumn = false;
+    let existingConfig: any = null;
+    let selectError: any = null;
+
+    // Primeiro, tentar verificar se a coluna existe fazendo uma query simples
+    try {
+      const { data, error } = await supabase
+        .from("component_configurations")
+        .select("id")
+        .eq("component_id", component_id)
+        .eq("user_id", user_id)
+        .maybeSingle();
+      
+      // Se não deu erro, a coluna existe
+      if (!error || (error && error.code !== "42703")) {
+        hasUserIdColumn = true;
+        existingConfig = data;
+        selectError = error;
+        console.log("✅ Coluna user_id existe, usando configuração por usuário");
+      } else {
+        // Erro 42703 = coluna não existe
+        console.log("⚠️ Coluna user_id não existe (código 42703), usando modo compatibilidade");
+        hasUserIdColumn = false;
+      }
+    } catch (error: any) {
+      // Se der erro de coluna não encontrada, usar modo compatibilidade
+      if (error?.code === "42703" || error?.message?.includes("column") || error?.message?.includes("user_id")) {
+        console.log("⚠️ Coluna user_id não existe, usando modo compatibilidade");
+        hasUserIdColumn = false;
+      } else {
+        // Outro tipo de erro, propagar
+        throw error;
+      }
+    }
+
+    // Modo compatibilidade: se user_id não existe, usar apenas component_id
+    if (!hasUserIdColumn) {
+      console.log("🔄 Usando modo compatibilidade (sem user_id)");
+      console.log("💡 Para habilitar configuração por usuário, execute: apply-user-id-migration.sql");
+      
+      const { data, error } = await supabase
+        .from("component_configurations")
+        .select("id")
+        .eq("component_id", component_id)
+        .maybeSingle();
+      
+      existingConfig = data;
+      selectError = error;
+    }
 
     if (selectError) {
       console.error("Erro ao verificar configuração existente:", selectError);
@@ -260,13 +333,27 @@ serve(async (req) => {
 
     if (existingConfig) {
       console.log("Atualizando configuração existente:", existingConfig.id);
-      const { error: updateError } = await supabase
+      
+      const updateData: any = {
+        config: configData,
+        updated_at: new Date().toISOString(),
+      };
+      
+      // Só adiciona user_id se a coluna existir
+      if (hasUserIdColumn) {
+        updateData.user_id = user_id;
+      }
+      
+      const updateQuery = supabase
         .from("component_configurations")
-        .update({
-          config: configData,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq("component_id", component_id);
+      
+      if (hasUserIdColumn) {
+        updateQuery.eq("user_id", user_id);
+      }
+      
+      const { error: updateError } = await updateQuery;
 
       if (updateError) {
         console.error("Erro ao atualizar configuração:", updateError);
@@ -284,25 +371,58 @@ serve(async (req) => {
       console.log("Configuração atualizada com sucesso");
     } else {
       console.log("Criando nova configuração");
+      
+      const insertData: any = {
+        component_id,
+        config: configData,
+      };
+      
+      // Só adiciona user_id se a coluna existir
+      if (hasUserIdColumn) {
+        insertData.user_id = user_id;
+      }
+      
       const { error: insertError } = await supabase
         .from("component_configurations")
-        .insert({
-          component_id,
-          config: configData,
-        });
+        .insert(insertData);
 
       if (insertError) {
         console.error("Erro ao inserir configuração:", insertError);
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: insertError.message 
-          }),
-          {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-            status: 200,
+        
+        // Se o erro for sobre user_id não nulo, tenta sem user_id
+        if (insertError.message?.includes("user_id") && hasUserIdColumn) {
+          console.log("🔄 Tentando inserir sem user_id (modo compatibilidade)");
+          const { error: retryError } = await supabase
+            .from("component_configurations")
+            .insert({
+              component_id,
+              config: configData,
+            });
+          
+          if (retryError) {
+            return new Response(
+              JSON.stringify({ 
+                success: false, 
+                error: retryError.message 
+              }),
+              {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+                status: 200,
+              }
+            );
           }
-        );
+        } else {
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: insertError.message 
+            }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 200,
+            }
+          );
+        }
       }
       console.log("Configuração criada com sucesso");
     }
@@ -321,11 +441,23 @@ serve(async (req) => {
     );
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("OAuth callback error:", errorMessage);
+    console.error("❌ OAuth callback error:", errorMessage);
+    console.error("📋 Stack trace:", error instanceof Error ? error.stack : "N/A");
+    
+    // Log detalhado para diagnóstico
+    console.error("🔍 Detalhes do erro:", {
+      message: errorMessage,
+      type: error?.constructor?.name,
+      component_id: stateData?.component_id,
+      provider: stateData?.provider,
+      user_id: stateData?.user_id,
+    });
+    
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: errorMessage 
+        error: errorMessage,
+        details: "Verifique os logs do Supabase para mais informações"
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

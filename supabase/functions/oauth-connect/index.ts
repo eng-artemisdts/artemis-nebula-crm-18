@@ -121,10 +121,12 @@ serve(async (req) => {
       throw new Error(`Credenciais OAuth não configuradas para ${provider}. Configure as variáveis de ambiente necessárias.`);
     }
 
-    console.log("OAuth Config:", {
+    console.log("🔗 OAuth Config:", {
       provider,
       redirectUri: oauthConfig.redirectUri,
       frontendUrl,
+      clientId: oauthConfig.clientId.substring(0, 20) + "...",
+      message: `⚠️ IMPORTANTE: Certifique-se de que o redirect_uri '${oauthConfig.redirectUri}' está registrado no console OAuth do provedor.`,
     });
 
     const state = generateState(component_id, provider, user.id);
@@ -141,7 +143,7 @@ serve(async (req) => {
 
     const authUrl = `${oauthConfig.authUrl}?${params.toString()}`;
     
-    console.log("Generated OAuth URL with redirect_uri:", oauthConfig.redirectUri);
+    console.log("✅ Generated OAuth URL with redirect_uri:", oauthConfig.redirectUri);
 
     return new Response(
       JSON.stringify({ auth_url: authUrl }),
@@ -152,9 +154,20 @@ serve(async (req) => {
     );
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("OAuth connect error:", errorMessage);
+    console.error("❌ OAuth connect error:", errorMessage);
+    
+    let userFriendlyMessage = errorMessage;
+    
+    if (errorMessage.includes("redirect_uri") || errorMessage.includes("redirect URI") || errorMessage.includes("invalid_request")) {
+      userFriendlyMessage = `O redirect_uri não está registrado no console OAuth. Verifique os logs para ver qual URL precisa ser adicionada.`;
+    }
+    
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ 
+        error: userFriendlyMessage,
+        details: errorMessage,
+        help: "Verifique os logs da função para ver o redirect_uri que precisa ser registrado no console OAuth do provedor."
+      }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500,

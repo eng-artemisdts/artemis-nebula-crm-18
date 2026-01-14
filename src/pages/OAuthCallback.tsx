@@ -72,6 +72,20 @@ export const OAuthCallback = () => {
           return;
         }
 
+        console.log("📋 Processando callback OAuth:", {
+          code: code ? "presente" : "ausente",
+          state: state ? "presente" : "ausente",
+          stateData,
+        });
+
+        const session = await supabase.auth.getSession();
+        const accessToken = session.data.session?.access_token;
+
+        if (!accessToken) {
+          console.error("❌ Token de autenticação não encontrado");
+          throw new Error("Você precisa estar autenticado para conectar OAuth");
+        }
+
         const response = await fetch(
           `${
             import.meta.env.VITE_SUPABASE_URL
@@ -81,19 +95,29 @@ export const OAuthCallback = () => {
           {
             method: "GET",
             headers: {
-              Authorization: `Bearer ${
-                (await supabase.auth.getSession()).data.session?.access_token ||
-                ""
-              }`,
+              Authorization: `Bearer ${accessToken}`,
             },
           }
         );
 
         const data = await response.json();
-        const callbackError = !data.success ? data : null;
 
-        if (callbackError) {
-          throw callbackError;
+        console.log("📥 Resposta do callback:", {
+          success: data.success,
+          error: data.error,
+          details: data.details,
+        });
+
+        if (!data.success) {
+          const errorMessage =
+            data.error ||
+            data.details ||
+            "Erro desconhecido ao processar callback";
+          console.error("❌ Erro no callback:", {
+            error: errorMessage,
+            fullResponse: data,
+          });
+          throw new Error(errorMessage);
         }
 
         setStatus("success");
@@ -119,21 +143,36 @@ export const OAuthCallback = () => {
           }
         }, 2000);
       } catch (error: unknown) {
-        console.error("Erro ao processar callback OAuth:", error);
+        console.error("❌ Erro ao processar callback OAuth:", error);
+
+        let errorMessage = "Erro ao processar callback OAuth";
+
+        if (error instanceof Error) {
+          errorMessage = error.message;
+        } else if (typeof error === "object" && error !== null) {
+          const errorObj = error as { error?: string; message?: string };
+          errorMessage = errorObj.error || errorObj.message || errorMessage;
+        }
+
+        console.error("📋 Detalhes do erro:", {
+          message: errorMessage,
+          error,
+          code: searchParams.get("code"),
+          state: searchParams.get("state"),
+        });
+
         setStatus("error");
-        setMessage(
-          error instanceof Error
-            ? error.message
-            : "Erro ao processar callback OAuth"
-        );
-        toast.error("Erro ao processar callback OAuth");
+        setMessage(errorMessage);
+        toast.error(errorMessage, {
+          duration: 5000,
+        });
         setTimeout(() => {
           if (window.opener) {
             window.close();
           } else {
             navigate("/ai-interaction");
           }
-        }, 3000);
+        }, 5000);
       }
     };
 
