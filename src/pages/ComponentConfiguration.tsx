@@ -77,7 +77,9 @@ export const ComponentConfiguration = () => {
   const loadConfiguration = async () => {
     if (!id) return;
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         console.error("Usuário não autenticado");
         return;
@@ -184,8 +186,11 @@ export const ComponentConfiguration = () => {
 
       if (error) {
         console.error("❌ Erro ao conectar OAuth:", error);
-        
-        if (error.message?.includes("redirect_uri") || error.message?.includes("invalid_request")) {
+
+        if (
+          error.message?.includes("redirect_uri") ||
+          error.message?.includes("invalid_request")
+        ) {
           toast.error(
             `Erro de redirect_uri: Verifique o console do navegador para ver qual URL precisa ser registrada no Google Cloud Console ou Azure AD.`,
             { duration: 8000 }
@@ -193,7 +198,7 @@ export const ComponentConfiguration = () => {
         } else {
           toast.error(error.message || "Erro ao conectar OAuth");
         }
-        
+
         setConnecting(false);
         return;
       }
@@ -202,8 +207,11 @@ export const ComponentConfiguration = () => {
         console.error("❌ Erro retornado pela função:", data.error);
         console.error("📋 Detalhes:", data.details);
         console.error("💡 Ajuda:", data.help);
-        
-        if (data.error.includes("redirect_uri") || data.error.includes("invalid_request")) {
+
+        if (
+          data.error.includes("redirect_uri") ||
+          data.error.includes("invalid_request")
+        ) {
           toast.error(
             `Erro de redirect_uri: ${data.error}. Verifique os logs para ver qual URL precisa ser registrada.`,
             { duration: 10000 }
@@ -211,7 +219,7 @@ export const ComponentConfiguration = () => {
         } else {
           toast.error(data.error || "Erro ao conectar OAuth");
         }
-        
+
         setConnecting(false);
         return;
       }
@@ -290,7 +298,9 @@ export const ComponentConfiguration = () => {
     if (!id) return;
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         toast.error("Usuário não autenticado");
         return;

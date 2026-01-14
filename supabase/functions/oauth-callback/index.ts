@@ -266,55 +266,58 @@ serve(async (req) => {
 
     console.log("Salvando configuração OAuth:", { component_id, provider, email: userInfo.email, user_id });
 
-    // Tentar primeiro com user_id, se falhar (coluna não existe), usar modo compatibilidade
+    // Primeiro, tentar sem user_id (modo compatibilidade)
+    // Se a migration foi aplicada, vamos detectar e usar user_id depois
     let hasUserIdColumn = false;
     let existingConfig: any = null;
     let selectError: any = null;
 
-    // Primeiro, tentar verificar se a coluna existe fazendo uma query simples
-    try {
-      const { data, error } = await supabase
-        .from("component_configurations")
-        .select("id")
-        .eq("component_id", component_id)
-        .eq("user_id", user_id)
-        .maybeSingle();
-      
-      // Se não deu erro, a coluna existe
-      if (!error || (error && error.code !== "42703")) {
-        hasUserIdColumn = true;
-        existingConfig = data;
-        selectError = error;
-        console.log("✅ Coluna user_id existe, usando configuração por usuário");
-      } else {
-        // Erro 42703 = coluna não existe
-        console.log("⚠️ Coluna user_id não existe (código 42703), usando modo compatibilidade");
-        hasUserIdColumn = false;
-      }
-    } catch (error: any) {
-      // Se der erro de coluna não encontrada, usar modo compatibilidade
-      if (error?.code === "42703" || error?.message?.includes("column") || error?.message?.includes("user_id")) {
-        console.log("⚠️ Coluna user_id não existe, usando modo compatibilidade");
-        hasUserIdColumn = false;
-      } else {
-        // Outro tipo de erro, propagar
-        throw error;
-      }
-    }
+    // Tentar primeiro sem user_id (modo compatibilidade)
+    console.log("🔍 Buscando configuração existente (modo compatibilidade)...");
+    const { data: compatData, error: compatError } = await supabase
+      .from("component_configurations")
+      .select("id")
+      .eq("component_id", component_id)
+      .maybeSingle();
+    
+    existingConfig = compatData;
+    selectError = compatError;
 
-    // Modo compatibilidade: se user_id não existe, usar apenas component_id
-    if (!hasUserIdColumn) {
-      console.log("🔄 Usando modo compatibilidade (sem user_id)");
-      console.log("💡 Para habilitar configuração por usuário, execute: apply-user-id-migration.sql");
-      
-      const { data, error } = await supabase
-        .from("component_configurations")
-        .select("id")
-        .eq("component_id", component_id)
-        .maybeSingle();
-      
-      existingConfig = data;
-      selectError = error;
+    // Se não deu erro, tentar verificar se podemos usar user_id
+    // Fazendo uma query de teste para ver se a coluna existe
+    if (!selectError) {
+      try {
+        // Tentar fazer uma query simples que só funciona se user_id existir
+        const testQuery = await supabase
+          .from("component_configurations")
+          .select("user_id")
+          .limit(1);
+        
+        // Se não deu erro de coluna não encontrada, user_id existe
+        if (!testQuery.error || testQuery.error.code !== "42703") {
+          hasUserIdColumn = true;
+          console.log("✅ Coluna user_id existe, buscando configuração específica do usuário");
+          
+          // Buscar novamente com user_id
+          const { data: userData, error: userError } = await supabase
+            .from("component_configurations")
+            .select("id")
+            .eq("component_id", component_id)
+            .eq("user_id", user_id)
+            .maybeSingle();
+          
+          existingConfig = userData;
+          selectError = userError;
+        } else {
+          console.log("⚠️ Coluna user_id não existe, usando modo compatibilidade");
+          console.log("💡 Para habilitar configuração por usuário, execute: apply-user-id-migration.sql");
+        }
+      } catch (error: any) {
+        // Se der erro, assumir que user_id não existe
+        if (error?.code === "42703") {
+          console.log("⚠️ Coluna user_id não existe, usando modo compatibilidade");
+        }
+      }
     }
 
     if (selectError) {
