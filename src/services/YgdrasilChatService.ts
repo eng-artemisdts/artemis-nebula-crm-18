@@ -8,7 +8,7 @@ export interface IYgdrasilChatMessage {
 
 export interface IYgdrasilMediaMessage {
   url: string;
-  type: "image" | "video";
+  type: "image" | "video" | "document";
   caption?: string;
 }
 
@@ -111,7 +111,7 @@ export interface IYgdrasilChatRequest {
   component_configurations?: Record<string, {
     mediaItems?: Array<{
       id: string;
-      type: "image" | "video";
+      type: "image" | "video" | "document";
       url: string;
       fileName: string;
       usageDescription: string;
@@ -272,7 +272,10 @@ class YgdrasilChatService implements IYgdrasilChatService {
             const type = media.type || media.mediaType;
             const caption = media.caption || media.text || undefined;
 
-            if (!url || (type !== "image" && type !== "video")) {
+            if (
+              !url ||
+              (type !== "image" && type !== "video" && type !== "document")
+            ) {
               return null;
             }
 

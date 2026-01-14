@@ -82,7 +82,7 @@ interface ChatMessage {
   content: string;
   timestamp: Date;
   mediaUrl?: string;
-  mediaType?: "image" | "video";
+  mediaType?: "image" | "video" | "document";
   mediaCaption?: string;
 }
 
@@ -229,7 +229,24 @@ const SortableMessage = ({ message, agentColor }: SortableMessageProps) => {
                     />
                   </div>
                 )}
-                {message.mediaCaption && (
+                {message.mediaType === "document" && (
+                  <div className="w-full max-w-xs overflow-hidden rounded-xl border border-border/70 bg-background p-3">
+                    <a
+                      href={message.mediaUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+                    >
+                      Abrir PDF
+                    </a>
+                    {message.mediaCaption && (
+                      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                        {message.mediaCaption}
+                      </p>
+                    )}
+                  </div>
+                )}
+                {message.mediaCaption && message.mediaType !== "document" && (
                   <p className="text-xs leading-relaxed text-muted-foreground">
                     {message.mediaCaption}
                   </p>

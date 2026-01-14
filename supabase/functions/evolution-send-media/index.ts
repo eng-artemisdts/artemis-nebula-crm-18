@@ -17,8 +17,8 @@ serve(async (req) => {
       throw new Error("Missing required parameters: instanceName, remoteJid, mediaUrl, and mediaType are required");
     }
 
-    if (mediaType !== 'image' && mediaType !== 'video') {
-      throw new Error("mediaType must be 'image' or 'video'");
+    if (mediaType !== 'image' && mediaType !== 'video' && mediaType !== 'document') {
+      throw new Error("mediaType must be 'image', 'video' or 'document'");
     }
 
     const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL");
@@ -72,6 +72,19 @@ serve(async (req) => {
       };
       mimetype = mimetypeMap[extension || 'mp4'] || 'video/mp4';
       fileName = `media.${extension || 'mp4'}`;
+    } else if (mediaType === 'document') {
+      if (!mediaUrl.match(/\.pdf(\?.*)?$/i)) {
+        if (mediaUrl.includes('?')) {
+          const [base, query] = mediaUrl.split('?');
+          finalMediaUrl = `${base}.pdf?${query}`;
+        } else {
+          finalMediaUrl = `${mediaUrl}.pdf`;
+        }
+        console.log("URL without PDF extension detected, modified to:", finalMediaUrl);
+      }
+
+      mimetype = 'application/pdf';
+      fileName = 'document.pdf';
     }
 
     console.log(`Preparing to send ${mediaType}:`, finalMediaUrl);

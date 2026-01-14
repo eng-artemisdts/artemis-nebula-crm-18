@@ -72,7 +72,7 @@ class EvolutionChatService {
     instanceName: string;
     remoteJid: string;
     mediaUrl: string;
-    mediaType: "image" | "video";
+    mediaType: "image" | "video" | "document";
     message?: string;
   }): Promise<void> {
     const { error } = await supabase.functions.invoke("evolution-send-media", {
