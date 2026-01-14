@@ -1,7 +1,15 @@
+import { supabase } from '@/integrations/supabase/client';
+
 export interface IYgdrasilChatMessage {
   role: "user" | "assistant";
   content: string;
   timestamp: string;
+}
+
+export interface IYgdrasilMediaMessage {
+  url: string;
+  type: "image" | "video";
+  caption?: string;
 }
 
 export interface IYgdrasilChatRequest {
@@ -139,6 +147,7 @@ export interface IYgdrasilChatResponse {
   message?: string;
   response?: string;
   error?: string;
+  mediaMessages?: IYgdrasilMediaMessage[];
 }
 
 export interface IYgdrasilChatService {
@@ -157,19 +166,31 @@ class YgdrasilChatService implements IYgdrasilChatService {
     try {
       const payload = [request];
 
+      // Obter token de acesso do Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token || '';
+
       console.log('Enviando mensagem para Ygdrasil:', {
         url: this.endpointUrl,
         msg_content: request.msg_content,
         conversation: request.conversation,
         message: request.message,
         payload: payload,
+        hasToken: !!accessToken,
       });
+
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+
+      // Adicionar token de acesso se disponível
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+      }
 
       const response = await fetch(this.endpointUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(payload),
       });
 
@@ -210,19 +231,86 @@ class YgdrasilChatService implements IYgdrasilChatService {
         };
       }
 
+      const extractMediaMessages = (item: unknown): IYgdrasilMediaMessage[] | undefined => {
+        if (!item) return undefined;
+
+        if (typeof item !== "object" || item === null) {
+          return undefined;
+        }
+
+        const typedItem = item as {
+          mediaMessages?: unknown;
+          media_messages?: unknown;
+          media?: unknown;
+          media_to_send?: unknown;
+        };
+
+        const raw =
+          typedItem.mediaMessages ||
+          typedItem.media_messages ||
+          typedItem.media ||
+          typedItem.media_to_send;
+
+        if (!raw || !Array.isArray(raw)) return undefined;
+
+        const mapped = (raw as unknown[])
+          .map((m) => {
+            if (!m || typeof m !== "object") {
+              return null;
+            }
+
+            const media = m as {
+              url?: string;
+              mediaUrl?: string;
+              type?: string;
+              mediaType?: string;
+              caption?: string;
+              text?: string;
+            };
+
+            const url = media.url || media.mediaUrl;
+            const type = media.type || media.mediaType;
+            const caption = media.caption || media.text || undefined;
+
+            if (!url || (type !== "image" && type !== "video")) {
+              return null;
+            }
+
+            return { url, type, caption } as IYgdrasilMediaMessage;
+          })
+          .filter(
+            (m: IYgdrasilMediaMessage | null): m is IYgdrasilMediaMessage =>
+              m !== null
+          );
+
+        return mapped.length > 0 ? mapped : undefined;
+      };
+
       if (Array.isArray(data) && data.length > 0) {
         const firstItem = data[0];
+        const mediaMessages = extractMediaMessages(firstItem);
+
         return {
           success: true,
           message: firstItem.message || 'Mensagem enviada com sucesso',
-          response: firstItem.output || firstItem.response || firstItem.message || firstItem.text || '',
+          response:
+            firstItem.output ||
+            firstItem.response ||
+            firstItem.message ||
+            firstItem.text ||
+            '',
+          mediaMessages,
         };
       }
+
+      const mediaMessages = extractMediaMessages(data);
 
       return {
         success: true,
         message: data.message || 'Mensagem enviada com sucesso',
-        response: data.output || data.response || data.message || data.text || '',
+        response:
+          data.output || data.response || data.message || data.text || '',
+        mediaMessages,
       };
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';

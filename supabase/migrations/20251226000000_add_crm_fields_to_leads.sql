@@ -42,3 +42,4 @@ COMMENT ON COLUMN public.leads.number_of_employees IS 'Número de funcionários 
 
 
 
+

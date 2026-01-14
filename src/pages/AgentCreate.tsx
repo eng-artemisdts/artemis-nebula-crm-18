@@ -1249,7 +1249,7 @@ const AgentCreate = () => {
                         onChange={(value) =>
                           handleFieldChange("communication_style", value)
                         }
-                        tooltip="Define a abordagem geral de comunicação do agente. Direto foca em objetividade, Consultivo em entender necessidades, Suportivo em empatia, e Equilibrado combina diferentes estilos conforme a situação."
+                        tooltip="Define a abordagem geral de comunicação do agente. Direto foca em objetividade, Consultivo em entender necessidades (fazendo mais perguntas quando necessário, inclusive ao buscar mídias), Suportivo em empatia (evitando muitas perguntas e escolhendo recursos automaticamente com base na conversa), e Equilibrado combina diferentes estilos conforme a situação."
                         options={[
                           {
                             value: "direct",
@@ -1344,7 +1344,7 @@ const AgentCreate = () => {
                         onChange={(value) =>
                           handleFieldChange("empathy_level", value)
                         }
-                        tooltip="Define o quanto o agente demonstra compreensão e sensibilidade às emoções e necessidades do cliente. Níveis mais altos resultam em respostas mais calorosas e acolhedoras."
+                        tooltip="Define o quanto o agente demonstra compreensão e sensibilidade às emoções e necessidades do cliente. Níveis mais altos resultam em respostas mais calorosas e acolhedoras e, combinados com um estilo mais Suportivo, tendem a reduzir a quantidade de perguntas extras (por exemplo, ao enviar mídias, o agente prefere escolher sozinho algo acolhedor em vez de pedir muitos detalhes)."
                         options={[
                           { value: "low", label: "Baixa", emoji: "😐" },
                           { value: "moderate", label: "Moderada", emoji: "🙂" },
@@ -1391,7 +1391,7 @@ const AgentCreate = () => {
                         onChange={(value) =>
                           handleFieldChange("proactivity_level", value)
                         }
-                        tooltip="Define o quanto o agente toma iniciativa nas conversas. Agentes proativos fazem perguntas, sugerem próximos passos e conduzem a conversa, enquanto passivos respondem principalmente às solicitações do cliente."
+                        tooltip="Define o quanto o agente toma iniciativa nas conversas. Agentes mais proativos fazem perguntas, sugerem próximos passos e conduzem a conversa (por exemplo, em estilo mais Consultivo podem conduzir uma ‘busca guiada’ ao escolher mídias), enquanto níveis mais baixos focam em responder de forma simples e com menos perguntas extras."
                         options={[
                           { value: "passive", label: "Passivo", emoji: "⏸️" },
                           { value: "moderate", label: "Moderado", emoji: "▶️" },

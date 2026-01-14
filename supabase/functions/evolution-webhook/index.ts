@@ -553,11 +553,22 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (settings?.n8n_webhook_url) {
+        // Extrair token de acesso do header da requisição recebida
+        const authHeader = req.headers.get('Authorization');
+        const accessToken = authHeader?.replace('Bearer ', '') || null;
+
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+        };
+
+        // Adicionar token de acesso se disponível
+        if (accessToken) {
+          headers['Authorization'] = `Bearer ${accessToken}`;
+        }
+
         fetch(settings.n8n_webhook_url, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers,
           body: JSON.stringify({
             event: payload.event,
             instance: payload.instance,

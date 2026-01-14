@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ import { useOrganization } from "@/hooks/useOrganization";
 import {
   ygdrasilChatService,
   IYgdrasilChatRequest,
+  IYgdrasilMediaMessage,
 } from "@/services/YgdrasilChatService";
 import { AgentWithComponents } from "@/components/agents/types";
 import { ComponentRepository } from "@/services/components/ComponentRepository";
@@ -54,6 +55,8 @@ import {
   Calendar,
   DollarSign,
   CheckCircle,
+  Play,
+  Pause,
 } from "lucide-react";
 import {
   DndContext,
@@ -78,6 +81,9 @@ interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  mediaUrl?: string;
+  mediaType?: "image" | "video";
+  mediaCaption?: string;
 }
 
 interface AgentComponent {
@@ -132,6 +138,22 @@ const SortableMessage = ({ message, agentColor }: SortableMessageProps) => {
   };
 
   const isUser = message.role === "user";
+  const hasMedia = !!message.mediaUrl && !!message.mediaType;
+
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  const handleToggleVideo = () => {
+    if (!videoRef.current) return;
+
+    if (videoRef.current.paused) {
+      void videoRef.current.play();
+      setIsPlaying(true);
+    } else {
+      videoRef.current.pause();
+      setIsPlaying(false);
+    }
+  };
 
   return (
     <div
@@ -170,7 +192,56 @@ const SortableMessage = ({ message, agentColor }: SortableMessageProps) => {
               <GripVertical className="w-4 h-4 text-muted-foreground" />
             </button>
           )}
-          <p className="text-sm leading-relaxed flex-1">{message.content}</p>
+          <div className="flex-1 space-y-2">
+            {hasMedia ? (
+              <>
+                {message.mediaType === "video" && (
+                  <div className="relative w-full max-w-xs overflow-hidden rounded-xl bg-black/80">
+                    <video
+                      ref={videoRef}
+                      src={message.mediaUrl}
+                      className="w-full h-48 object-cover"
+                      playsInline
+                      muted
+                      onEnded={() => setIsPlaying(false)}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleToggleVideo}
+                      className="absolute inset-0 flex items-center justify-center bg-black/30 hover:bg-black/40 transition-colors"
+                    >
+                      <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-white/90 text-black shadow-lg">
+                        {isPlaying ? (
+                          <Pause className="w-5 h-5" />
+                        ) : (
+                          <Play className="w-5 h-5 ml-0.5" />
+                        )}
+                      </span>
+                    </button>
+                  </div>
+                )}
+                {message.mediaType === "image" && (
+                  <div className="w-full max-w-xs overflow-hidden rounded-xl border border-border/70 bg-background">
+                    <img
+                      src={message.mediaUrl}
+                      alt={message.mediaCaption || "Mídia enviada"}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+                {message.mediaCaption && (
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    {message.mediaCaption}
+                  </p>
+                )}
+                {message.content && (
+                  <p className="text-sm leading-relaxed">{message.content}</p>
+                )}
+              </>
+            ) : (
+              <p className="text-sm leading-relaxed">{message.content}</p>
+            )}
+          </div>
         </div>
         <span
           className={`text-[11px] block mt-1 ${
@@ -583,7 +654,6 @@ const Playground = () => {
       if (!organization?.id) return;
 
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: componentsData, error: componentsError } = await (
           supabase as any
         )
@@ -603,7 +673,6 @@ const Playground = () => {
           setAgentComponents((componentsData || []) as AgentComponent[]);
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: configsData, error: configsError } = await (
           supabase as any
         )
@@ -662,7 +731,6 @@ const Playground = () => {
       console.log("Buscando componentes do agente antes de enviar mensagem...");
 
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: componentsData, error: componentsError } = await (
           supabase as any
         )
@@ -687,7 +755,6 @@ const Playground = () => {
           });
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: configsData, error: configsError } = await (
           supabase as any
         )
@@ -912,7 +979,6 @@ const Playground = () => {
           );
 
           if (mediaComponent) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const { data: mediaData, error: mediaError } = await (
               supabase as any
             )
@@ -1043,23 +1109,43 @@ const Playground = () => {
       setIsTyping(true);
       const response = await ygdrasilChatService.sendMessage(request);
 
-      if (response.success && response.response) {
-        const messageParts = splitResponse(response.response, 300);
+      if (response.success) {
+        if (response.mediaMessages && response.mediaMessages.length > 0) {
+          response.mediaMessages.forEach(
+            (media: IYgdrasilMediaMessage, index: number) => {
+              const mediaMessage: ChatMessage = {
+                id: `assistant-media-${Date.now()}-${index}`,
+                role: "assistant",
+                content: "",
+                timestamp: new Date(),
+                mediaUrl: media.url,
+                mediaType: media.type,
+                mediaCaption: media.caption || "",
+              };
 
-        for (let i = 0; i < messageParts.length; i++) {
-          const part = messageParts[i];
-          const delay = i * 500;
+              setMessages((prev) => [...prev, mediaMessage]);
+            }
+          );
+        }
 
-          await new Promise((resolve) => setTimeout(resolve, delay));
+        if (response.response) {
+          const messageParts = splitResponse(response.response, 300);
 
-          const assistantMessage: ChatMessage = {
-            id: `assistant-${Date.now()}-${i}`,
-            role: "assistant",
-            content: part,
-            timestamp: new Date(),
-          };
+          for (let i = 0; i < messageParts.length; i++) {
+            const part = messageParts[i];
+            const delay = i * 500;
 
-          setMessages((prev) => [...prev, assistantMessage]);
+            await new Promise((resolve) => setTimeout(resolve, delay));
+
+            const assistantMessage: ChatMessage = {
+              id: `assistant-${Date.now()}-${i}`,
+              role: "assistant",
+              content: part,
+              timestamp: new Date(),
+            };
+
+            setMessages((prev) => [...prev, assistantMessage]);
+          }
         }
       } else {
         toast.error(response.error || "Erro ao enviar mensagem");
