@@ -77,10 +77,17 @@ export const ComponentConfiguration = () => {
   const loadConfiguration = async () => {
     if (!id) return;
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error("Usuário não autenticado");
+        return;
+      }
+
       const { data, error } = await supabase
         .from("component_configurations")
         .select("*")
         .eq("component_id", id)
+        .eq("user_id", user.id)
         .maybeSingle();
 
       if (error) {
@@ -175,7 +182,39 @@ export const ComponentConfiguration = () => {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("❌ Erro ao conectar OAuth:", error);
+        
+        if (error.message?.includes("redirect_uri") || error.message?.includes("invalid_request")) {
+          toast.error(
+            `Erro de redirect_uri: Verifique o console do navegador para ver qual URL precisa ser registrada no Google Cloud Console ou Azure AD.`,
+            { duration: 8000 }
+          );
+        } else {
+          toast.error(error.message || "Erro ao conectar OAuth");
+        }
+        
+        setConnecting(false);
+        return;
+      }
+
+      if (data?.error) {
+        console.error("❌ Erro retornado pela função:", data.error);
+        console.error("📋 Detalhes:", data.details);
+        console.error("💡 Ajuda:", data.help);
+        
+        if (data.error.includes("redirect_uri") || data.error.includes("invalid_request")) {
+          toast.error(
+            `Erro de redirect_uri: ${data.error}. Verifique os logs para ver qual URL precisa ser registrada.`,
+            { duration: 10000 }
+          );
+        } else {
+          toast.error(data.error || "Erro ao conectar OAuth");
+        }
+        
+        setConnecting(false);
+        return;
+      }
 
       if (data?.auth_url) {
         const popup = window.open(
@@ -251,6 +290,12 @@ export const ComponentConfiguration = () => {
     if (!id) return;
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Usuário não autenticado");
+        return;
+      }
+
       const { error } = await supabase
         .from("component_configurations")
         .update({
@@ -264,7 +309,8 @@ export const ComponentConfiguration = () => {
           },
           updated_at: new Date().toISOString(),
         })
-        .eq("component_id", id);
+        .eq("component_id", id)
+        .eq("user_id", user.id);
 
       if (error) throw error;
 
