@@ -1,18 +1,17 @@
 # Prompt de Usuário - Nebula CRM AI Agent
 
-Você recebeu uma nova mensagem do lead **{{ $json.contactName }}** ({{ $json.phoneNumber }}):
+{{ $json.processed.user_prompt_header }}
 
-**Mensagem recebida:**
-{{ $json.msg_content }}
+{{ $json.processed.user_prompt_attention }}
 
 **Contexto adicional:**
 - Tipo de mensagem: {{ $json.messageType }}
 - Timestamp: {{ $json.timestamp }}
-- Enviada por: {{ $json.fromMe === true ? 'Você' : 'Lead' }}
+{{ $json.processed.user_prompt_context }}
 
 ## Tarefa
 
-Analise a mensagem recebida, considere todo o contexto fornecido (configurações do agente, histórico da conversa, informações do lead, status atual, componentes disponíveis) e gere uma resposta apropriada que:
+{{ $json.processed.user_prompt_task }}
 
 1. Seja consistente com a personalidade e estilo de comunicação configurados
 2. Avance em direção ao objetivo principal do agente
@@ -24,7 +23,9 @@ Analise a mensagem recebida, considere todo o contexto fornecido (configuraçõe
 
 ## Instruções Importantes
 
-**Apresentação:** Você deve apenas se apresentar (caso esteja configurado em `should_introduce_itself`) se NÃO houver mensagens na memória da tool PSQL_CHAT_MESSAGE. Se já existirem mensagens anteriores na tool PSQL_CHAT_MESSAGE, significa que já houve interação com este lead e você NÃO deve se apresentar novamente, mesmo que seja a primeira vez que você está processando esta mensagem específica. Verifique sempre a existência de mensagens na tool PSQL_CHAT_MESSAGE antes de decidir se deve se apresentar.
+**Interações Agendadas:** Se `isScheduledInteraction` for `true`, você DEVE iniciar a conversa proativamente. Apresente-se usando o nickname (se `ai_config.nickname` existir) ou nome do agente, e explique o motivo do contato baseado no `main_objective`. Mesmo em interações agendadas, verifique o histórico na tool PSQL_CHAT_MESSAGE para adaptar sua abordagem ao contexto existente.
+
+**Apresentação:** Para interações normais (não agendadas), você deve apenas se apresentar (caso esteja configurado em `should_introduce_itself`) se NÃO houver mensagens na memória da tool PSQL_CHAT_MESSAGE. Se já existirem mensagens anteriores na tool PSQL_CHAT_MESSAGE, significa que já houve interação com este lead e você NÃO deve se apresentar novamente, mesmo que seja a primeira vez que você está processando esta mensagem específica. Verifique sempre a existência de mensagens na tool PSQL_CHAT_MESSAGE antes de decidir se deve se apresentar.
 
 **Tratamento de Erros:** Se qualquer ferramenta ou componente retornar erro HTTP 401 (Unauthorized), responda ao lead de forma educada informando que não possui essa habilidade ativada no momento. NÃO mencione códigos de erro técnicos ao lead. Adapte a mensagem ao tom e estilo configurado para o agente e continue a conversa normalmente, focando em outras formas de ajudar.
 

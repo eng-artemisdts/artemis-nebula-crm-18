@@ -90,21 +90,43 @@ serve(async (req) => {
 
     console.log(`Agendando evento para organização: ${requestData.organizationId}`);
     
-    const { data: orgUsers, error: orgUsersError } = await supabase
+    const { data: orgProfiles, error: orgProfilesError } = await supabase
       .from("profiles")
-      .select("id, email")
+      .select("id")
       .eq("organization_id", requestData.organizationId)
       .limit(1);
 
-    if (orgUsersError || !orgUsers || orgUsers.length === 0) {
+    if (orgProfilesError) {
+      console.error("Erro ao buscar profiles:", orgProfilesError);
+      throw new Error(`Erro ao buscar usuários da organização: ${orgProfilesError.message}`);
+    }
+
+    if (!orgProfiles || orgProfiles.length === 0) {
+      console.error(`Nenhum profile encontrado para organização: ${requestData.organizationId}`);
       throw new Error("Nenhum usuário encontrado para esta organização");
     }
 
-    const targetUser = orgUsers[0];
-    console.log(`Usuário alvo da organização: ${targetUser.email}`);
+    const targetProfile = orgProfiles[0];
+    console.log(`Profile encontrado: ${targetProfile.id}`);
+
+    const { data: authUser, error: authUserError } = await supabase.auth.admin.getUserById(
+      targetProfile.id
+    );
+
+    if (authUserError || !authUser?.user) {
+      console.error("Erro ao buscar usuário do auth:", authUserError);
+      throw new Error(`Erro ao buscar email do usuário: ${authUserError?.message || "Usuário não encontrado"}`);
+    }
+
+    const targetUserEmail = authUser.user.email;
+    if (!targetUserEmail) {
+      throw new Error("Usuário não possui email cadastrado");
+    }
+
+    console.log(`Usuário alvo da organização: ${targetUserEmail}`);
     
-    if (config.connected_email && config.connected_email !== targetUser.email) {
-      console.warn(`Aviso: Calendário conectado com email diferente. Config: ${config.connected_email}, Target User: ${targetUser.email}`);
+    if (config.connected_email && config.connected_email !== targetUserEmail) {
+      console.warn(`Aviso: Calendário conectado com email diferente. Config: ${config.connected_email}, Target User: ${targetUserEmail}`);
     }
 
     const accessToken = config.oauth_token;

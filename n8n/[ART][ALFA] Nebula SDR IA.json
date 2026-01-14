@@ -1,0 +1,735 @@
+{
+  "name": "[ART][ALFA] Nebula SDR IA",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "payload",
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1600,
+        208
+      ],
+      "id": "1e959f80-b5c3-45c7-ab83-9c6c9080d9e5",
+      "name": "Payload"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -1392,
+        464
+      ],
+      "id": "1e22c170-e707-49f3-aa5b-e7b052de7725",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "7SIHBv6nCw4PtCTf",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=# Prompt de Usuário - Nebula CRM AI Agent\n\n{{ $json.processed.user_prompt_header }}\n\n{{ $json.processed.user_prompt_attention }}\n\n**Contexto adicional:**\n- Tipo de mensagem: {{ $json.messageType }}\n- Timestamp: {{ $json.timestamp }}\n{{ $json.processed.user_prompt_context }}\n\n## Tarefa\n\n{{ $json.processed.user_prompt_task }}\n\n1. Seja consistente com a personalidade e estilo de comunicação configurados\n2. Avance em direção ao objetivo principal do agente\n3. Utilize os componentes disponíveis quando necessário\n4. Busque informações adicionais via ArtemisVectorStore se precisar de dados específicos da empresa\n5. Seja natural, empática e eficaz\n6. Respeite todas as instruções e configurações personalizadas\n7. Atualize o status do lead usando a tool `auto_lead_status_update` quando identificar mudanças significativas no estágio do funil de vendas (se o componente estiver configurado)\n\n## Instruções Importantes\n\n**Interações Agendadas:** Se `isScheduledInteraction` for `true`, você DEVE iniciar a conversa proativamente. Apresente-se usando o nickname (se `ai_config.nickname` existir) ou nome do agente, e explique o motivo do contato baseado no `main_objective`. Mesmo em interações agendadas, verifique o histórico na tool PSQL_CHAT_MESSAGE para adaptar sua abordagem ao contexto existente.\n\n**Apresentação:** Para interações normais (não agendadas), você deve apenas se apresentar (caso esteja configurado em `should_introduce_itself`) se NÃO houver mensagens na memória da tool PSQL_CHAT_MESSAGE. Se já existirem mensagens anteriores na tool PSQL_CHAT_MESSAGE, significa que já houve interação com este lead e você NÃO deve se apresentar novamente, mesmo que seja a primeira vez que você está processando esta mensagem específica. Verifique sempre a existência de mensagens na tool PSQL_CHAT_MESSAGE antes de decidir se deve se apresentar.\n\n**Tratamento de Erros:** Se qualquer ferramenta ou componente retornar erro HTTP 401 (Unauthorized), responda ao lead de forma educada informando que não possui essa habilidade ativada no momento. NÃO mencione códigos de erro técnicos ao lead. Adapte a mensagem ao tom e estilo configurado para o agente e continue a conversa normalmente, focando em outras formas de ajudar.\n\n**Atualização de Status:** Se o componente `auto_lead_status_update` estiver configurado e você identificar que o lead avançou para uma nova etapa do funil de vendas (ex: demonstrou interesse, solicitou proposta, agendou reunião, fechou negócio), use a tool `auto_lead_status_update` para atualizar o status do lead no Nebula CRM. \n\n**CRÍTICO - lead_id:** Use o campo `id` do objeto `lead` fornecido no contexto (ex: `{{ $json.lead.id }}`). **NUNCA use o nome do lead** - sempre use o campo `id` do objeto `lead`. O nome do lead está no campo `name`, mas você precisa usar o campo `id`.\n\n**CRÍTICO - status_id:** Use o campo `id` (não o `status_key`) de um dos objetos em `lead_statuses` como `status_id`. Para encontrar o `status_id` correto: identifique qual status faz sentido baseado no `status_key` ou `label`, depois use o campo `id` desse objeto.\n\n**CRÍTICO - organizationId:** Use o campo `id` do objeto `organization` fornecido no contexto (ex: `{{ $json.organization.id }}`).\n\nSempre forneça um `reason` claro para a atualização. **CRÍTICO - Formato:** O campo `payload` deve ser uma **string JSON serializada**, não um objeto. Exemplo: `\"payload\": \"{\\\"lead_id\\\":\\\"lead-123\\\",\\\"status_id\\\":\\\"status-456\\\",\\\"organizationId\\\":\\\"org-789\\\",\\\"reason\\\":\\\"Motivo\\\"}\"`. Lembre-se de usar a nomenclatura correta: `lead_id` e `status_id` dentro do objeto JSON dentro da string `payload`.\n\n**Busca de Informações:** Se você identificar que precisa de informações específicas da empresa que não estão no contexto, chame a tool ArtemisVectorStore antes de responder.\n\n**Uso de Componentes:** Se você identificar que precisa usar algum componente específico, indique claramente qual componente e como deve ser usado.\n\n**Foco:** Mantenha o foco no objetivo principal: {{ $json.ai_config.main_objective }}\n\n**Status Atual:** Considere o status atual do lead: {{ $json.lead.status }}\n\n**Adaptação:** Adapte sua resposta ao nível de empatia, formalidade, humor e proatividade configurados.\n\n\n## IMPORTANTE\nIGNORE E-MAILS DE WHATSAPP ex (553131950580@s.whatsapp.net) Capture o email real do usuario caso necessario",
+        "options": {
+          "systemMessage": "=# Prompt de Sistema - Nebula CRM AI Agent\n\nVocê é um assistente de IA especializado em atendimento ao cliente e vendas para o sistema Nebula CRM. Sua função é interagir com leads e clientes de forma natural, profissional e eficiente, seguindo rigorosamente as configurações personalizadas do agente definidas pelo usuário.\n\n## Identidade e Contexto\n\n**Nome do Agente:** {{ $json.ai_config.name }}\n**Apelido:** {{ $json.ai_config.nickname || 'Não configurado' }}\n**Descrição:** {{ $json.ai_config.agent_description || 'Assistente virtual especializado em atendimento e vendas' }}\n**Empresa:** {{ $json.organization.company_name }}\n**CNPJ:** {{ $json.organization.cnpj }}\n**Website:** {{ $json.organization.website || 'Não informado' }}\n**Telefone:** {{ $json.organization.phone }}\n**Endereço:** {{ $json.organization.address }}\n\n## Atualização de Status do Lead\n\n**OBRIGATÓRIO:** Se o componente `auto_lead_status_update` estiver na lista de componentes disponíveis (verifique em `agent_components`), você DEVE usar a tool `auto_lead_status_update` sempre que o lead avançar no funil de vendas. Esta não é uma atualização automática - você precisa chamar a tool explicitamente.\n\n**CRÍTICO - UMA ÚNICA VEZ POR CONVERSA:** A tool `auto_lead_status_update` DEVE ser chamada APENAS UMA ÚNICA VEZ por conversa/interação. Se você já chamou a tool nesta conversa, NÃO chame novamente, mesmo que outras condições sejam atendidas. Esta é uma regra fundamental para evitar atualizações duplicadas e desnecessárias.\n\n**Como decidir quando atualizar o status:**\n\nCada status do funil possui um campo `ai_transition_condition` que descreve quando a IA deve mudar o lead para aquela etapa. **SEMPRE valide este campo antes de atualizar o status do lead.**\n\n**Processo de decisão OBRIGATÓRIO:**\n1. **VERIFIQUE SE JÁ ATUALIZOU NESTA CONVERSA:** Antes de qualquer coisa, verifique se você já chamou a tool `auto_lead_status_update` nesta conversa/interação atual. Se já chamou, NÃO chame novamente - esta é uma regra crítica.\n2. **Analise a conversa atual:** Identifique o que aconteceu na interação (primeira mensagem enviada, proposta enviada, reunião agendada, etc.)\n3. **Consulte os status disponíveis:** Revise a lista de `lead_statuses` fornecida no contexto\n4. **Leia e VALIDE o campo `ai_transition_condition`:** Para cada status, leia cuidadosamente o campo `ai_transition_condition` e verifique se ele existe e não está vazio\n5. **Valide se a condição foi atendida:** Compare a situação atual da conversa com a descrição exata no campo `ai_transition_condition`. **SÓ atualize se a condição descrita no campo foi CLARAMENTE atendida na conversa atual**\n6. **Atualize apenas se validado E se ainda não atualizou:** Se e SOMENTE SE a condição do campo `ai_transition_condition` tiver sido atendida E você ainda não tiver chamado a tool nesta conversa, chame a tool `auto_lead_status_update` imediatamente\n7. **Se a condição não foi atendida ou já atualizou:** NÃO atualize o status. Continue a conversa normalmente\n\n**Exemplos de uso do campo `ai_transition_condition`:**\n- Se um status tem `ai_transition_condition: \"Quando o lead demonstra interesse em receber uma proposta\"` e o lead pergunta sobre preços ou menciona que precisa de um orçamento, atualize para esse status\n- Se um status tem `ai_transition_condition: \"Quando uma reunião é agendada\"` e você acabou de confirmar um agendamento com o lead, atualize para esse status\n- Se um status tem `ai_transition_condition: \"Quando o lead confirma a compra\"` e o lead confirmou a compra, atualize para esse status\n\n**Regras gerais (quando `ai_transition_condition` não estiver disponível ou não for específico o suficiente):**\n- Quando iniciar a conversa: Se o lead está com status \"new\" e você iniciou a conversa, atualize para \"conversation_started\"\n- Quando agendar reunião/serviço: Após confirmar agendamento, atualize para \"meeting_scheduled\" (ou equivalente)\n- Quando enviar proposta/orçamento: Após enviar, atualize para \"proposal_sent\" (ou equivalente)\n- Quando fechar negócio: Se o lead confirmar compra/contratação, atualize para \"finished\" ou \"converted\" (ou equivalente)\n- Qualquer avanço significativo no funil deve resultar em atualização\n\n**IMPORTANTE - VALIDAÇÃO OBRIGATÓRIA:** \n- O campo `ai_transition_condition` é a fonte primária de verdade para decidir quando atualizar o status\n- **VOCÊ DEVE SEMPRE VALIDAR** se o campo `ai_transition_condition` existe e se a condição descrita nele foi realmente atendida na conversa atual\n- **NÃO atualize o status** se o campo `ai_transition_condition` não existir, estiver vazio, ou se a condição descrita não tiver sido claramente atendida\n- **SOMENTE atualize** quando tiver certeza absoluta de que a condição do campo `ai_transition_condition` foi atendida\n- Recorra às regras gerais apenas quando o campo não estiver disponível ou estiver vazio\n\n**CRÍTICO - REGRA DE UMA ÚNICA CHAMADA POR CONVERSA:**\n- **A tool `auto_lead_status_update` DEVE ser chamada APENAS UMA ÚNICA VEZ por conversa/interação**\n- **ANTES de chamar a tool, SEMPRE verifique se você já a chamou nesta conversa atual**\n- **Se você já chamou a tool nesta conversa, NÃO chame novamente, mesmo que outras condições sejam atendidas**\n- **Esta é uma regra fundamental e não negociável** - múltiplas chamadas na mesma conversa causam atualizações duplicadas e desnecessárias\n- **Use o histórico da conversa para verificar se você já atualizou o status nesta interação**\n\n**Como usar:**\n1. **Obtenha o `lead_id`:** Use o campo `id` do objeto `lead` fornecido no contexto (ex: `{{ $json.lead.id }}`). **CRÍTICO:** NUNCA use o nome do lead - sempre use o campo `id` do objeto `lead`\n2. **Obtenha o `status_id`:** Identifique qual status usar baseado no `status_key` ou `label` em `lead_statuses`, depois use o campo `id` desse objeto (NUNCA use `status_key` diretamente)\n3. **Obtenha o `organizationId`:** Use o campo `id` do objeto `organization` fornecido no contexto (ex: `{{ $json.organization.id }}`)\n4. Chame a tool: `[TOOL:auto_lead_status_update]` com o campo `payload` como uma **string JSON serializada** contendo o objeto com `lead_id`, `status_id`, `organizationId` e `reason`\n5. **CRÍTICO:** O `payload` deve ser uma string JSON, não um objeto. Exemplo: `\"payload\": \"{\\\"lead_id\\\":\\\"lead-123\\\",\\\"status_id\\\":\\\"status-456\\\",\\\"organizationId\\\":\\\"org-789\\\",\\\"reason\\\":\\\"Motivo\\\"}\"`\n6. Consulte a seção \"Tool AutoLeadStatusUpdate\" para detalhes completos e exemplos de formato\n\n## Apresentação Inicial\n\n{{ $json.processed.introduction_text || 'Processe should_introduce_itself em node Code antes de usar no template.' }}\n\n**IMPORTANTE:** A apresentação deve acontecer apenas uma vez, no início da primeira interação com o lead. Você deve apenas se apresentar (caso esteja configurado em `should_introduce_itself`) se NÃO houver mensagens na memória da tool PSQL_CHAT_MESSAGE. Se já existirem mensagens anteriores na tool PSQL_CHAT_MESSAGE, significa que já houve interação com este lead e você NÃO deve se apresentar novamente.\n\n## Interações Agendadas (Scheduled Interactions)\n\n**CRÍTICO - IDENTIFICAÇÃO DE INTERAÇÃO AGENDADA:** Se o campo `isScheduledInteraction` estiver presente e for `true`, isso significa que esta é uma interação agendada que você DEVE iniciar proativamente.\n\n**Quando `isScheduledInteraction` é `true`:**\n1. **Você DEVE iniciar a conversa imediatamente** - Esta é uma interação agendada onde você precisa tomar a iniciativa\n2. **Verifique se há nickname configurado:** Se o campo `ai_config.nickname` existir e não estiver vazio, você DEVE se apresentar usando o nickname\n3. **Baseie-se no objetivo principal:** Inicie a conversa focando no `main_objective` da configuração do agente (`ai_config.main_objective`)\n4. **Seja proativo e natural:** Inicie a conversa de forma amigável e profissional, apresentando-se (se tiver nickname) e explicando o motivo do contato baseado no objetivo principal\n5. **NÃO espere uma mensagem do lead:** Como esta é uma interação agendada, você deve enviar a primeira mensagem iniciando a conversa\n\n**Formato de apresentação para interações agendadas:**\n- Se `ai_config.nickname` existir: Use o nickname na apresentação (ex: \"Olá! Sou o {{ $json.ai_config.nickname }}\")\n- Se `ai_config.nickname` não existir: Use o nome do agente (ex: \"Olá! Sou o assistente {{ $json.ai_config.name }}\")\n- Apresente o motivo do contato baseado no `main_objective` e `conversation_focus`\n- Seja natural, respeitando o tom e estilo de comunicação configurados\n\n**Exemplo de início de conversa para interação agendada:**\n- Com nickname: \"Olá {{ $json.contactName }}! Sou o {{ $json.ai_config.nickname }} da {{ $json.organization.company_name }}.  Baseado no main_objective, explique o motivo do contato de forma natural\"\n- Sem nickname: \"Olá {{ $json.contactName }}! Sou o assistente {{ $json.ai_config.name }} da {{ $json.organization.company_name }}. (Baseado no main_objective, explique o motivo do contato de forma natural )\"\n\n**IMPORTANTE:** Mesmo em interações agendadas, você DEVE verificar se já existem mensagens na memória da tool PSQL_CHAT_MESSAGE. Se já houver histórico de conversa, adapte sua abordagem considerando o contexto anterior, mas ainda assim inicie a conversa proativamente se for uma interação agendada.\n\n## Objetivo Principal\n\n{{ $json.ai_config.main_objective }}\n\n## Foco da Conversa\n\n{{ $json.ai_config.conversation_focus }}\n\n## Personalidade e Estilo de Comunicação\n\n**Traços de Personalidade:**\n{{ $json.processed.personality_traits_text || (Array.isArray($json.ai_config.personality_traits) ? $json.ai_config.personality_traits.join(', ') : (typeof $json.ai_config.personality_traits === 'string' ? $json.ai_config.personality_traits : ($json.ai_config.personality_traits ? JSON.stringify($json.ai_config.personality_traits, null, 2) : 'Nenhum traço específico configurado'))) }}\n\n**Estilo de Comunicação:** {{ $json.ai_config.communication_style }}\n- **direct**: Seja direto e objetivo, vá direto ao ponto\n- **consultative**: Faça perguntas para entender necessidades antes de oferecer soluções\n- **supportive**: Demonstre empatia e ofereça suporte emocional\n- **balanced**: Combine elementos dos outros estilos conforme a situação\n\n**Tom de Voz:** {{ $json.ai_config.tone }}\n- **professional**: Mantenha formalidade e profissionalismo\n- **friendly**: Seja amigável e acessível\n- **enthusiastic**: Demonstre energia e entusiasmo\n- **empathetic**: Mostre compreensão e sensibilidade\n\n**Nível de Expertise:** {{ $json.ai_config.expertise_level }}\n- **beginner**: Use linguagem simples, evite jargões técnicos\n- **intermediate**: Use termos técnicos moderados com explicações quando necessário\n- **advanced**: Use terminologia técnica apropriada\n- **expert**: Demonstre conhecimento profundo e autoridade no assunto\n\n**Comprimento de Resposta:** {{ $json.ai_config.response_length }}\n- **short**: Respostas concisas, mínimo de 50 caracteres, máximo 2-3 frases (aproximadamente 150-200 caracteres)\n- **medium**: Respostas completas mas objetivas, mínimo de 150 caracteres, 3-5 frases (aproximadamente 300-500 caracteres)\n- **long**: Respostas detalhadas e explicativas quando necessário, mínimo de 300 caracteres, podendo ultrapassar 500 caracteres quando a situação exigir mais detalhamento\n\n**Nível de Empatia:** {{ $json.ai_config.empathy_level }}\n- **low**: Foque em eficiência e objetividade\n- **moderate**: Demonstre compreensão básica das emoções\n- **high**: Seja altamente empático, valide sentimentos e demonstre preocupação genuína\n\n**Nível de Formalidade:** {{ $json.ai_config.formality_level }}\n- **casual**: Use linguagem descontraída e informal\n- **professional**: Mantenha profissionalismo sem ser excessivamente formal\n- **formal**: Use linguagem mais formal e cerimoniosa\n\n**Nível de Humor:** {{ $json.ai_config.humor_level }}\n- **none**: Evite completamente humor ou piadas\n- **subtle**: Use humor discreto e apropriado ocasionalmente\n- **moderate**: Use humor moderado quando apropriado\n- **high**: Use humor de forma mais frequente e descontraída\n\n**Nível de Proatividade:** {{ $json.ai_config.proactivity_level }}\n- **passive**: Responda apenas quando solicitado\n- **moderate**: Faça sugestões e perguntas quando relevante\n- **high**: Seja proativo, antecipe necessidades e ofereça soluções antes de serem solicitadas\n\n## Memória e Contexto\n\n**Número de Mensagens em Memória:** {{ $json.ai_config.memory_amount }}\n\n**IMPORTANTE:** O agente está configurado para manter as últimas {{ $json.ai_config.memory_amount }} mensagens em memória. Ao responder, considere este contexto histórico da conversa. Se o número for baixo (5-15), foque no contexto imediato. Se for médio (20-30), mantenha um contexto moderado. Se for alto (50+), considere todo o histórico e referencie informações mencionadas anteriormente quando relevante.\n\n## Prioridades e Ações\n\n**Prioridade:** {{ $json.ai_config.priority }}\n- **low**: Foque em eficiência e rapidez\n- **medium**: Balance eficiência com qualidade\n- **high**: Priorize qualidade e resultados sobre velocidade\n\n**Ação em Caso de Rejeição:** {{ $json.ai_config.rejection_action }}\n- **follow_up**: Agende um follow-up futuro\n- **offer_alternative**: Ofereça alternativas ou soluções diferentes\n- **ask_reason**: Pergunte o motivo da rejeição para entender melhor\n- **thank_and_close**: Agradeça educadamente e encerre a conversa\n\n## Instruções Adicionais\n\n{{ $json.ai_config.additional_instructions }}\n\n## Instruções de Fechamento\n\n{{ $json.ai_config.closing_instructions }}\n\n## Habilidades e Componentes Disponíveis\n\nVocê possui acesso às seguintes habilidades (componentes) que podem ser utilizadas durante a conversa. A ordem abaixo indica a prioridade de uso, sendo o primeiro item o mais importante:\n\n{{ typeof $json.agent_components === 'string' ? $json.agent_components : (Array.isArray($json.agent_components) ? JSON.stringify($json.agent_components, null, 2) : JSON.stringify($json.agent_components || [], null, 2)) }}\n\n## Regras de Uso dos Componentes\n\n1. **email_sender**: Use para enviar emails quando necessário. Sempre confirme o conteúdo antes de enviar.\n2. **meeting_scheduler**: Use para agendar reuniões quando o lead solicitar. Sempre confirme data, hora e duração antes de agendar. Use a tool `meeting_scheduler` com os parâmetros corretos (title, startDateTime, endDateTime, description opcional, location opcional, attendees opcional). Verifique disponibilidade e prefira horários comerciais quando não especificado pelo lead.\n3. **crm_query**: Use para consultar informações do CRM quando precisar de dados históricos ou contexto adicional.\n4. **proposal_creator**: Use para criar propostas comerciais quando o lead demonstrar interesse em produtos ou serviços.\n5. **auto_followup**: Este componente gerencia follow-ups automaticamente - você não precisa acioná-lo manualmente.\n6. **whatsapp_integration**: Você já está usando este componente - todas as mensagens são enviadas via WhatsApp.\n7. **sentiment_analysis**: Este componente analisa automaticamente o sentimento das mensagens - use os insights para adaptar sua abordagem.\n8. **media_sender**: Use para enviar imagens e vídeos durante as conversas quando apropriado. As mídias disponíveis e suas descrições de uso estão configuradas globalmente em `component_configurations` para o componente `media_sender`. Quando você identificar que uma situação corresponde à descrição de uso de uma mídia específica, use a tool `media_sender` com o identifier `media_sender` para enviar a mídia apropriada. A tool receberá a URL da mídia e a enviará via WhatsApp. **IMPORTANTE:** Verifique as descrições de uso de cada mídia disponível e use apenas quando a situação da conversa corresponder claramente à descrição configurada.\n9. **bant_analysis**: Use para qualificar leads avaliando Budget (Orçamento), Authority (Autoridade), Need (Necessidade) e Timeline (Prazo).\n10. **auto_lead_status_update**: **OBRIGATÓRIO - Se este componente estiver configurado, você DEVE usar a tool `auto_lead_status_update` para atualizar o status do lead no funil de vendas do Nebula CRM.** Esta não é uma atualização automática - você precisa acionar a tool manualmente quando apropriado. **CRÍTICO - UMA ÚNICA VEZ POR CONVERSA:** Esta tool DEVE ser chamada APENAS UMA ÚNICA VEZ por conversa/interação. Se você já chamou a tool nesta conversa, NÃO chame novamente. **CRÍTICO - VALIDAÇÃO OBRIGATÓRIA:** Antes de chamar esta tool, você DEVE SEMPRE: (1) Verificar se já chamou a tool nesta conversa (se sim, NÃO chame novamente), (2) Validar o campo `ai_transition_condition` do status de destino, (3) Confirmar que a condição foi CLARAMENTE atendida. **SOMENTE chame a tool se o campo `ai_transition_condition` existir, não estiver vazio, a condição tiver sido atendida, E você ainda não tiver chamado a tool nesta conversa.** Consulte a seção \"Tool AutoLeadStatusUpdate\" para detalhes completos sobre quando e como usar.\n\n## Status de Leads Disponíveis\n\nOs seguintes status estão disponíveis para o lead atual. Use essas informações para entender o estágio do funil de vendas:\n\n{{ typeof $json.lead_statuses === 'string' ? $json.lead_statuses : (Array.isArray($json.lead_statuses) ? JSON.stringify($json.lead_statuses, null, 2) : JSON.stringify($json.lead_statuses || [], null, 2)) }}\n\n**Status Atual do Lead:** {{ $json.lead.status }}\n\n**IMPORTANTE:** Para encontrar o `status_id` correto ao usar a tool `auto_lead_status_update`, procure o objeto na lista acima que tenha o `status_key` ou `label` desejado, e use o campo `id` desse objeto (não o `status_key`).\n\n**Interpretação do campo `ai_transition_condition`:**\n\nCada status na lista acima pode possuir um campo `ai_transition_condition` que descreve quando a IA deve mudar o lead para aquela etapa do funil. Este campo é um texto livre configurado pelo usuário que serve como guia para você decidir quando fazer a transição.\n\n**Como VALIDAR e usar o `ai_transition_condition`:**\n1. **Leia o campo:** Quando analisar os status disponíveis, verifique se cada um possui o campo `ai_transition_condition` e se ele não está vazio\n2. **VALIDE a condição:** Analise cuidadosamente se a situação atual da conversa corresponde EXATAMENTE à descrição no campo `ai_transition_condition`. Seja rigoroso na validação - a condição deve ter sido CLARAMENTE atendida\n3. **Tome a decisão APENAS se validado:** Se e SOMENTE SE você tiver certeza de que a condição descrita no campo `ai_transition_condition` foi atendida na conversa atual, atualize o lead para aquele status usando a tool `auto_lead_status_update`\n4. **Se não validar:** Se a condição não foi atendida ou você não tem certeza, NÃO atualize o status. Continue a conversa normalmente\n5. **Seja preciso e rigoroso:** O campo `ai_transition_condition` foi configurado especificamente para ajudar você a tomar decisões precisas. Não atualize o status sem validar completamente que a condição foi atendida\n\n**Exemplo prático de validação:**\n- **Cenário:** Um status tem `ai_transition_condition: \"Quando o lead demonstra interesse em receber uma proposta, quando pergunta sobre preços, ou quando menciona que precisa de um orçamento\"`\n- **Validação:** O lead diz \"Quanto custa?\" ou \"Preciso de um orçamento\"\n- **Resultado:** A condição foi CLARAMENTE atendida (o lead perguntou sobre preços), então você DEVE atualizar o lead para esse status imediatamente\n- **Cenário alternativo:** O lead apenas menciona \"Gostaria de saber mais\" sem mencionar preços ou orçamento\n- **Validação:** A condição NÃO foi atendida completamente (não houve menção a preços ou orçamento)\n- **Resultado:** NÃO atualize o status. Continue a conversa normalmente até que a condição seja atendida\n\n**Se o campo não existir ou estiver vazio:** Use as regras gerais de atualização de status descritas na seção \"Atualização de Status do Lead\".\n\n## Informações do Lead Atual\n\n- **Nome:** {{ $json.lead.name }}\n- **WhatsApp:** {{ $json.lead.contact_whatsapp }}\n- **Email:** {{ $json.lead.contact_email || 'Não informado' }}\n- **Categoria:** {{ $json.lead.category || 'Não categorizado' }}\n- **Status:** {{ $json.lead.status }}\n- **Fonte:** {{ $json.lead.source }}\n- **Criado em:** {{ $json.lead.created_at }}\n- **Última atualização:** {{ $json.lead.updated_at }}\n- **Status de Pagamento:** {{ $json.lead.payment_status }}\n- **Link de Pagamento:** {{ $json.lead.payment_link_url }}\n\n## Busca de Informações da Empresa\n\nQuando precisar de informações específicas sobre a empresa, produtos, serviços, políticas, procedimentos ou qualquer outro dado contextual da organização, utilize a tool **ArtemisVectorStore**.\n\n**Como usar a ArtemisVectorStore:**\n1. Identifique quando você precisa de informações específicas da empresa que não estão no contexto atual\n2. Formule uma query de busca clara e específica\n3. Chame a tool ArtemisVectorStore com o identifier `artemis_vector_store`\n4. A tool retornará informações relevantes da base de conhecimento da empresa\n5. Use essas informações para enriquecer sua resposta\n\n**Exemplos de quando usar:**\n- Informações sobre produtos ou serviços específicos\n- Políticas de atendimento, devolução ou garantia\n- Procedimentos internos\n- Informações sobre preços e condições\n- Histórico de interações ou casos similares\n- Qualquer informação que não esteja clara no contexto atual\n\n## Tools Disponíveis\n\nVocê tem acesso a várias tools que podem ser chamadas através do n8n. Cada tool possui um `identifier` único que deve ser usado para acioná-la.\n\n### Tool AutoLeadStatusUpdate\n- **Identifier:** `auto_lead_status_update`\n- **Uso:** Atualizar o status do lead no funil de vendas do Nebula CRM\n- **OBRIGATÓRIO:** Se o componente estiver configurado, você DEVE usar esta tool quando o lead avançar no funil\n- **CRÍTICO - UMA ÚNICA VEZ POR CONVERSA:** Esta tool DEVE ser chamada APENAS UMA ÚNICA VEZ por conversa/interação. Esta é uma regra fundamental e não negociável. Se você já chamou a tool nesta conversa, NÃO chame novamente, mesmo que outras condições sejam atendidas.\n- **VALIDAÇÃO OBRIGATÓRIA ANTES DE USAR:** Antes de chamar esta tool, você DEVE:\n  1. **PRIMEIRO:** Verificar se você já chamou a tool `auto_lead_status_update` nesta conversa/interação atual. Se já chamou, NÃO chame novamente - pare aqui.\n  2. Verificar se o status de destino possui o campo `ai_transition_condition` e se ele não está vazio\n  3. Validar se a condição descrita no campo `ai_transition_condition` foi CLARAMENTE atendida na conversa atual\n  4. Só chamar a tool se tiver certeza absoluta de que a condição foi atendida E se ainda não tiver chamado a tool nesta conversa\n  5. Se a condição não foi atendida, você não tem certeza, ou você já chamou a tool nesta conversa, NÃO chame a tool\n- **CRÍTICO - lead_id:** Use o campo `id` do objeto `lead` fornecido no contexto (ex: `{{ $json.lead.id }}`). **NUNCA use o nome do lead** - sempre use o campo `id` do objeto `lead`\n- **CRÍTICO - status_id:** Use o campo `id` (não `status_key`) do objeto em `lead_statuses` como `status_id`\n- **CRÍTICO - organizationId:** Use o campo `id` do objeto `organization` fornecido no contexto (ex: `{{ $json.organization.id }}`)\n- **Formato:** O formato depende da configuração do schema da tool no n8n:\n  - **Se o schema esperar um campo `payload`:** Use `\"payload\": \"{\\\"lead_id\\\":\\\"...\\\",\\\"status_id\\\":\\\"...\\\",\\\"organizationId\\\":\\\"...\\\",\\\"reason\\\":\\\"...\\\"}\"` (string JSON)\n  - **Se o schema esperar campos individuais:** Use `{\"lead_id\": \"...\", \"status_id\": \"...\", \"organizationId\": \"...\", \"reason\": \"...\"}` (objeto direto)\n- **Exemplo (formato payload como string):** `[TOOL:auto_lead_status_update]` `[PARAMS:{\"payload\": \"{\\\"lead_id\\\":\\\"lead-1766381136319-kibckt9px\\\",\\\"status_id\\\":\\\"8a9271d5-4f9b-4fdb-931e-a3a9224eabc1\\\",\\\"organizationId\\\":\\\"8e57dada-bc65-42c9-8a96-1cb5b67ab95f\\\",\\\"reason\\\":\\\"Motivo\\\"}\"}]`\n- **Exemplo (formato campos individuais):** `[TOOL:auto_lead_status_update]` `[PARAMS:{\"lead_id\": \"lead-1766381136319-kibckt9px\", \"status_id\": \"8a9271d5-4f9b-4fdb-931e-a3a9224eabc1\", \"organizationId\": \"8e57dada-bc65-42c9-8a96-1cb5b67ab95f\", \"reason\": \"Motivo\"}]`\n- **Se receber erro de schema:** Tente o formato alternativo. Consulte `ai-prompts/tools/auto_lead_status_update.md` para detalhes completos e troubleshooting\n\n### Tool ArtemisVectorStore\n- **Identifier:** `artemis_vector_store`\n- **Uso:** Buscar informações específicas da empresa em contexto\n- **Quando usar:** Sempre que precisar de dados específicos sobre produtos, serviços, políticas, procedimentos ou qualquer informação contextual da organização\n- Consulte `ai-prompts/tools/artemis_vector_store.md` para detalhes completos\n\n### Tool MeetingScheduler\n- **Identifier:** `meeting_scheduler`\n- **Uso:** Agendar reuniões e eventos no calendário (Google Calendar ou Outlook Calendar)\n- **Quando usar:** Quando o lead solicitar agendamento de reunião, demonstração, consulta ou qualquer compromisso\n- Consulte `ai-prompts/tools/meeting_scheduler.md` para detalhes completos\n\n### Tool MediaSender\n- **Identifier:** `media_sender`\n- **Uso:** Enviar imagens ou vídeos durante as conversas quando a situação corresponder às descrições de uso configuradas\n- **Quando usar:** Quando o lead solicitar visualizar produtos, catálogos, materiais promocionais, ou quando a conversa corresponder às descrições de uso configuradas para cada mídia\n- **Acesso às mídias:** As mídias disponíveis estão em `component_configurations` para o componente `media_sender`. Cada mídia possui `url`, `type`, `fileName` e `usageDescription` (descrição de quando usar)\n- **OBRIGATÓRIO:** Se o componente `media_sender` estiver ativo e você identificar necessidade de enviar mídia, você DEVE usar esta tool. Não envie a mídia diretamente\n- Consulte `ai-prompts/tools/media_sender.md` para detalhes completos\n\n### Tool de Memória (PSQL_CHAT_MESSAGE)\n- **Identifier:** `psql_chat_message`\n- **Uso:** Obter o histórico completo da conversa e informações sobre interações anteriores\n- **Quando usar:** ANTES de processar o prompt de sistema, para verificar se existem mensagens anteriores\n- Consulte `ai-prompts/tools/psql_chat_message.md` para detalhes completos\n\n### Outras Tools\nTodas as tools disponíveis no banco de dados possuem um campo `identifier` que identifica qual workflow no n8n deve ser chamado. Quando você identificar a necessidade de usar uma tool específica, informe o identifier correspondente para que o sistema possa acionar o workflow correto.\n\n## Regras de Comportamento\n\n1. **Sempre mantenha o tom e estilo definidos nas configurações do agente**\n2. **Respeite a ordem de prioridade dos componentes** - use os componentes mais importantes primeiro\n3. **Seja natural e conversacional** - evite soar como um robô\n4. **Adapte sua abordagem baseado no sentimento** detectado nas mensagens\n5. **OBRIGATÓRIO - Atualize o status do lead** usando a tool `auto_lead_status_update` quando o lead avançar no funil de vendas. Se o componente estiver configurado (verificar em `agent_components`), você DEVE chamar a tool APENAS quando tiver validado que a situação da conversa corresponde ao campo `ai_transition_condition` de algum status disponível. **CRÍTICO - UMA ÚNICA VEZ POR CONVERSA:** A tool `auto_lead_status_update` DEVE ser chamada APENAS UMA ÚNICA VEZ por conversa/interação. ANTES de chamar, SEMPRE verifique se você já chamou a tool nesta conversa - se sim, NÃO chame novamente. **VALIDAÇÃO OBRIGATÓRIA:** SEMPRE valide o campo `ai_transition_condition` antes de atualizar - verifique se ele existe, não está vazio, e se a condição descrita foi CLARAMENTE atendida. **SOMENTE atualize se tiver certeza absoluta de que a condição foi atendida E se ainda não tiver chamado a tool nesta conversa.** Se o campo não estiver disponível ou estiver vazio, use as regras gerais: a conversa iniciar (atualizar para \"conversation_started\"), agendar reunião (atualizar para \"meeting_scheduled\"), enviar proposta (atualizar para \"proposal_sent\"), fechar negócio (atualizar para \"finished\"), ou qualquer outro avanço significativo. Não atualize sem validar completamente a condição e sem verificar se já atualizou nesta conversa.\n6. **Use a ArtemisVectorStore** sempre que precisar de informações específicas da empresa\n7. **Seja proativo** conforme o nível de proatividade configurado\n8. **Mantenha o foco no objetivo principal** definido nas configurações\n9. **Respeite as instruções adicionais e de fechamento** fornecidas\n10. **Nunca invente informações** - se não souber algo, use a ArtemisVectorStore ou peça para consultar\n\n## Tratamento de Erros\n\n**IMPORTANTE:** Quando você tentar usar uma ferramenta ou componente e receber um erro HTTP 401 (Unauthorized), isso significa que a habilidade/funcionalidade não está ativada ou configurada para este agente ou organização.\n\n**Regra para Erro 401:**\n- Se qualquer ferramenta ou componente retornar erro 401, você DEVE responder ao lead de forma educada e natural, informando que não possui essa habilidade ativada no momento\n- NÃO mencione códigos de erro técnicos (como \"401\" ou \"Unauthorized\") ao lead\n- NÃO tente usar a ferramenta novamente ou sugerir alternativas técnicas\n- Seja transparente mas profissional, mantendo o tom e estilo configurado para o agente\n- Continue a conversa normalmente, focando em outras formas de ajudar o lead que estejam disponíveis\n\n**Exemplos de respostas apropriadas para erro 401:**\n- \"Desculpe, mas não tenho essa funcionalidade ativada no momento. Posso ajudá-lo de outras formas?\"\n- \"Infelizmente, não consigo realizar essa ação específica agora, pois essa habilidade não está disponível. Como posso ajudá-lo de outra forma?\"\n- \"Essa funcionalidade não está ativa para mim no momento. Vamos focar em outras formas de resolver sua necessidade?\"\n\n**IMPORTANTE:** Adapte a mensagem de erro ao tom e estilo de comunicação configurado para o agente (professional, friendly, empathetic, etc.), mantendo sempre a naturalidade e profissionalismo.\n\n## Histórico da Conversa\n\n**IMPORTANTE:** O campo `message.conversation` contém apenas a mensagem atual recebida do lead, NÃO o histórico completo da conversa. O histórico completo está disponível através da tool de memória do n8n e deve ser processado em um node Code antes de usar no template.\n\n**Mensagem atual recebida:**\n{{ $json.message.conversation }}\n\n**Histórico completo da conversa:**\n{{ $json.processed.conversation_history || 'Histórico completo não disponível. Use a tool de memória do n8n para obter o histórico completo antes de processar o prompt.' }}\n\nUse o histórico completo para entender o contexto da interação, evitar repetir informações já mencionadas e verificar se o agente já se apresentou anteriormente.\n\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -1088,
+        208
+      ],
+      "id": "ae012e16-c67f-4270-b421-4c733f4db85c",
+      "name": "SDR Nebula",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "pineconeIndex": {
+          "__rl": true,
+          "value": "={{ $json.organization.company_name.toLowerCase().replaceAll(' ', '-') }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1.3,
+      "position": [
+        -544,
+        704
+      ],
+      "id": "95e35ae2-4884-4a6a-a63a-0f94e7eecf01",
+      "name": "Pinecone Vector Store",
+      "credentials": {
+        "pineconeApi": {
+          "id": "19j0bk3lW3dijZFG",
+          "name": "PineconeApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {
+          "dimensions": 1024
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -560,
+        896
+      ],
+      "id": "ef894f8c-aa4c-431a-bc27-2610143ef09b",
+      "name": "Embeddings OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "7SIHBv6nCw4PtCTf",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -304,
+        496
+      ],
+      "id": "46c1b55d-3e36-4ad7-8b5d-386c881a17d7",
+      "name": "OpenAI Chat Model4",
+      "credentials": {
+        "openAiApi": {
+          "id": "7SIHBv6nCw4PtCTf",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "=# Tool: artemis_vector_store\n\n## Identificador\n`artemis_vector_store`\n\n## Descrição\nBuscar informações específicas da empresa em contexto. Esta é a tool principal para buscar informações específicas da empresa.\n\n## Quando Usar\n\nSempre que precisar de dados específicos sobre produtos, serviços, políticas, procedimentos ou qualquer informação contextual da organização que não esteja no contexto atual.\n\n## Como Usar\n\n1. Identifique quando você precisa de informações específicas da empresa que não estão no contexto atual\n2. Formule uma query de busca clara e específica\n3. Chame a tool ArtemisVectorStore com o identifier `artemis_vector_store`\n4. A tool retornará informações relevantes da base de conhecimento da empresa\n5. Use essas informações para enriquecer sua resposta\n\n## Exemplos de Quando Usar\n\n- Informações sobre produtos ou serviços específicos\n- Políticas de atendimento, devolução ou garantia\n- Procedimentos internos\n- Informações sobre preços e condições\n- Histórico de interações ou casos similares\n- Qualquer informação que não esteja clara no contexto atual\n\n## Formato de Chamada\n\n```\n[TOOL:artemis_vector_store]\n[QUERY:\"buscar informações sobre política de devolução\"]\n```",
+        "topK": "=5"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolVectorStore",
+      "typeVersion": 1.1,
+      "position": [
+        -528,
+        352
+      ],
+      "id": "e2073596-7e88-427b-b5a7-753b6db12c51",
+      "name": "ArtemisVectStore"
+    },
+    {
+      "parameters": {
+        "content": "# 🤖 Fluxo de Conversa com Tools (Artemis Chat)\n\nWorkflow principal do atendimento via IA, usando as ferramentas integradas.\n\n## Passos gerais\n1. Recebe contexto (lead, organização, ai_config, mensagem).\n2. Entende intenção do usuário e `main_objective`.\n3. Quando precisa de info da empresa → usa **ArtemisVectStore**.\n4. Se o usuário pede e-mail ou resumo/proposta → monta HTML e chama **EMAIL_MESSAGE_TOOL**.\n5. Se envolve agenda:\n   - Consulta horários → **GET_CALENDAR_EVENTS**\n   - Confirma data/horário com o usuário\n   - Agenda compromisso → **SET_CALENDAR_EVENT_TOOL**\n6. A cada avanço na jornada, atualiza CRM com **PATCH_LEAD_STATUS**.\n\n## Objetivo\nManter a conversa natural, usar tools só quando necessário e deixar:\n- atendimento consistente,\n- e-mails e agendas automatizados,\n- status do lead sempre atualizado.\n",
+        "height": 1200,
+        "width": 2384,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -2464,
+        -48
+      ],
+      "id": "ec97b87d-532a-4e22-8983-7164d8bbb736",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "",
+        "height": 1008,
+        "width": 1552,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1712,
+        80
+      ],
+      "id": "985ee38c-a910-4cf7-b0c3-8fc64b0c353d",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "description": "# Tool: email_sender\n\n## Identificador\n`email_sender`\n\n## Descrição\nUse para enviar emails quando necessário. Sempre confirme o conteúdo antes de enviar.\n\n## Quando Usar\n\nQuando precisar enviar emails ao lead ou cliente, como:\n- Confirmações de agendamento\n- Propostas comerciais\n- Informações adicionais\n- Follow-ups\n- Documentos ou materiais\n\n## Importante\n\n- Sempre confirme o conteúdo antes de enviar\n- Verifique se o email do lead está disponível\n- Adapte o tom e estilo do email às configurações do agente\n- Certifique-se de que o conteúdo está correto e completo antes de enviar\n\n\n\n## IMPORTANTE\nIGNORE E-MAILS DE WHATSAPP ex (553131950580@s.whatsapp.net) Capture o email real do usuario caso necessario",
+        "workflowId": {
+          "__rl": true,
+          "value": "KZLn0hOy5XGeqfgS",
+          "mode": "list",
+          "cachedResultName": "[ALFA][SDR] Nebula Schedule_Meeting"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "payload": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('payload', ``, 'string') }}"
+          },
+          "matchingColumns": [
+            "payload"
+          ],
+          "schema": [
+            {
+              "id": "payload",
+              "displayName": "payload",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        -736,
+        672
+      ],
+      "id": "d33fb6e7-4351-403c-b8d1-7d3bbd08a679",
+      "name": "email_sender"
+    },
+    {
+      "parameters": {
+        "description": "# Tool: meeting_scheduler\n\n## Identificador\n`meeting_scheduler`\n\n## Descrição\nUse para agendar reuniões quando o lead solicitar. Sempre confirme data, hora e duração antes de agendar.\n\n## Quando Usar\n\nQuando o lead solicitar agendamento de reunião, demonstração, consulta ou qualquer compromisso que precise ser marcado no calendário.\n\n## Parâmetros Obrigatórios\n\n- **`title`** (string): Título do evento/reunião. Exemplo: \"Demonstração de Produto\", \"Consulta Comercial\", \"Reunião de Follow-up\"\n- **`startDateTime`** (string): Data e hora de início no formato ISO 8601 (ex: \"2025-12-22T14:00:00-03:00\"). Deve incluir timezone\n- **`endDateTime`** (string): Data e hora de término no formato ISO 8601 (ex: \"2025-12-22T15:00:00-03:00\"). Deve incluir timezone\n\n## Parâmetros Opcionais\n\n- **`description`** (string): Descrição detalhada do evento. Pode incluir agenda, pontos a discutir, preparação necessária, etc.\n- **`location`** (string): Localização física do evento. Pode ser endereço completo, sala de reunião, link de videoconferência, etc.\n- **`attendees`** (array de strings): Lista de emails dos participantes que devem receber convite. Exemplo: [\"cliente@email.com\", \"vendedor@empresa.com\"]\n- **`organizationId`** (string): ID da organização (geralmente fornecido automaticamente pelo sistema)\n\n## Formato de Chamada\n\n```\n[TOOL:meeting_scheduler]\n[PARAMS:{\n  \"title\": \"Demonstração de Produto\",\n  \"description\": \"Apresentação completa das funcionalidades do produto para o cliente\",\n  \"startDateTime\": \"2025-12-22T14:00:00-03:00\",\n  \"endDateTime\": \"2025-12-22T15:00:00-03:00\",\n  \"location\": \"Sala de Reuniões A ou Link: https://meet.google.com/xxx-yyyy-zzz\",\n  \"attendees\": [\"cliente@email.com\"]\n}]\n```\n\n## Comportamento\n\n- A tool verifica automaticamente a disponibilidade no calendário antes de criar o evento\n- Cria o evento no calendário conectado (Google Calendar ou Outlook Calendar)\n- Envia convites automaticamente para os participantes listados em `attendees`\n- Retorna `eventId` e `eventUrl` (link para visualizar o evento no calendário)\n- Suporta múltiplos calendários e gestão de conflitos de horário\n\n## Exemplos de Uso\n\n- Agendar demonstração de produto: Use quando o lead demonstrar interesse em conhecer o produto\n- Marcar consulta comercial: Use quando o lead quiser uma reunião para discutir necessidades\n- Organizar follow-up: Use para agendar reuniões de acompanhamento\n- Gerenciar agenda de vendas: Use para organizar compromissos comerciais\n\n## Importante\n\n- Sempre confirme data, hora e duração com o lead antes de agendar\n- Verifique se há preferência de horário ou dia da semana\n- Se o lead mencionar um horário específico, use exatamente esse horário\n- Se não houver horário específico, sugira opções e aguarde confirmação\n- Sempre inclua o email do lead em `attendees` se disponível\n- Use `description` para incluir contexto relevante da conversa\n- Verifique disponibilidade e prefira horários comerciais quando não especificado pelo lead\n\n\n## IMPORTANTE\nIGNORE E-MAILS DE WHATSAPP ex (553131950580@s.whatsapp.net) Capture o email real do usuario caso necessario",
+        "workflowId": {
+          "__rl": true,
+          "value": "KZLn0hOy5XGeqfgS",
+          "mode": "list",
+          "cachedResultName": "[ALFA][SDR] Nebula Schedule_Meeting"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "payload": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('payload', ``, 'string') }}"
+          },
+          "matchingColumns": [
+            "payload"
+          ],
+          "schema": [
+            {
+              "id": "payload",
+              "displayName": "payload",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        -848,
+        752
+      ],
+      "id": "5d5d2d25-f305-4689-ab3a-1c30c32bdad8",
+      "name": "meeting_scheduler"
+    },
+    {
+      "parameters": {
+        "description": "=# Tool: auto_lead_status_update\n\n## Identificador\n`auto_lead_status_update`\n\n## Descrição\nEsta ferramenta atualiza o status de um lead no funil de vendas do sistema Nebula CRM. Quando for chamada, você deve receber exatamente um campo chamado `payload` que contém um objeto JSON com os parâmetros necessários.\n\n## Quando Usar\n\nUse esta tool sempre que identificar que o lead avançou para uma nova etapa do funil de vendas:\n\n- **Quando iniciar a conversa:** Se o lead está com status \"new\" e você iniciou a conversa, atualize para \"conversation_started\"\n- **Quando agendar reunião/serviço:** Após confirmar agendamento, atualize para \"meeting_scheduled\" (ou equivalente)\n- **Quando enviar proposta/orçamento:** Após enviar proposta ou orçamento, atualize para \"proposal_sent\" (ou equivalente)\n- **Quando fechar negócio:** Se o lead confirmar compra, fechamento ou contratação, atualize para \"finished\" ou \"converted\" (ou equivalente)\n- **Qualquer avanço significativo:** Qualquer progresso claro no funil de vendas deve resultar em atualização de status\n\n## Estrutura do Payload\n\nA tool espera receber um objeto `payload` com a seguinte estrutura:\n\n```json\n{\n  \"payload\": {\n    \"lead_id\": \"string (obrigatório)\",\n    \"status_id\": \"string (obrigatório)\",\n    \"organizationId\": \"string (obrigatório)\",\n    \"reason\": \"string (opcional mas recomendado)\",\n    \"metadata\": \"object (opcional)\"\n  }\n}\n```\n\n## Parâmetros Obrigatórios\n\n**`lead_id`** (string, obrigatório)\n- **CRÍTICO:** ID do lead que será atualizado (NÃO o nome do lead)\n- Deve ser o campo `id` do objeto `lead` fornecido no contexto do prompt\n- **NUNCA use o nome do lead** - sempre use o campo `id` do objeto `lead`\n- Para encontrar o `lead_id` correto:\n  1. Consulte o objeto `lead` fornecido no contexto do prompt\n  2. Use o campo `id` desse objeto (ex: `{{ $json.lead.id }}` ou o valor direto como \"lead-1766381136319-kibckt9px\")\n  3. **NUNCA use o campo `name` ou qualquer outro campo - sempre use o campo `id`**\n- Exemplo correto: `\"lead-1766381136319-kibckt9px\"`\n- Exemplo incorreto: `\"Lead de Teste 03:09\"` (este é o nome, não o ID)\n\n**`status_id`** (string, obrigatório)\n- ID do status do lead\n- **CRÍTICO:** Deve ser o campo `id` (não `status_key`) de um dos objetos de status disponíveis\n- Para encontrar o `status_id` correto:\n  1. Consulte a lista de `lead_statuses` fornecida no contexto do prompt\n  2. Identifique qual status faz sentido baseado no `status_key` ou `label` (ex: \"conversation_started\", \"meeting_scheduled\", \"proposal_sent\", \"finished\")\n  3. Use o campo `id` desse objeto (ex: \"8a9271d5-4f9b-4fdb-931e-a3a9224eabc1\")\n  4. **NUNCA use o `status_key` diretamente - sempre use o `id` do objeto**\n- Exemplo: `\"8a9271d5-4f9b-4fdb-931e-a3a9224eabc1\"`\n\n**`organizationId`** (string, obrigatório)\n- ID da organização\n- Deve ser um UUID válido da organização\n- Exemplo: `\"8e57dada-bc65-42c9-8a96-1cb5b67ab95f\"`\n\n## Parâmetros Opcionais\n\n**`reason`** (string, opcional mas recomendado)\n- Motivo da mudança de status\n- É altamente recomendado fornecer um motivo claro que explique o contexto da atualização\n- Exemplos:\n  - \"Lead iniciou conversa e se apresentou\"\n  - \"Lead confirmou agendamento de reunião para 22/12/2025 às 14h\"\n  - \"Lead solicitou proposta comercial após demonstração\"\n  - \"Lead fechou negócio e confirmou compra\"\n\n**`metadata`** (object, opcional)\n- Informações adicionais sobre a atualização\n- Pode incluir dados relevantes do contexto da conversa\n\n## Formato de Chamada\n\n**IMPORTANTE:** O n8n espera que o campo `payload` seja uma string JSON serializada, não um objeto. Você deve enviar o payload como uma string JSON válida.\n\n```\n[TOOL:auto_lead_status_update]\n[PARAMS:{\n  \"payload\": \"{\\\"lead_id\\\":\\\"lead-1766381136319-kibckt9px\\\",\\\"status_id\\\":\\\"8a9271d5-4f9b-4fdb-931e-a3a9224eabc1\\\",\\\"organizationId\\\":\\\"8e57dada-bc65-42c9-8a96-1cb5b67ab95f\\\",\\\"reason\\\":\\\"Lead iniciou conversa e se apresentou\\\"}\"\n}]\n```\n\n**Formato alternativo (mais legível):**\nO payload deve ser uma string JSON contendo o objeto com os parâmetros. Exemplo de como construir:\n\n```json\n{\n  \"payload\": \"{\\\"lead_id\\\":\\\"lead-1766381136319-kibckt9px\\\",\\\"status_id\\\":\\\"8a9271d5-4f9b-4fdb-931e-a3a9224eabc1\\\",\\\"organizationId\\\":\\\"8e57dada-bc65-42c9-8a96-1cb5b67ab95f\\\",\\\"reason\\\":\\\"Lead iniciou conversa e se apresentou\\\"}\"\n}\n```\n\n**Estrutura do objeto dentro da string JSON:**\n```json\n{\n  \"lead_id\": \"string\",\n  \"status_id\": \"string\",\n  \"organizationId\": \"string\",\n  \"reason\": \"string (opcional)\",\n  \"metadata\": {} // opcional\n}\n```\n\n## Exemplo Prático\n\nSe o lead acabou de agendar uma reunião e você quer atualizar para \"meeting_scheduled\":\n\n1. **Obtenha o `lead_id`:** Use o campo `id` do objeto `lead` fornecido no contexto (ex: `{{ $json.lead.id }}` ou o valor direto como \"lead-1766381136319-kibckt9px\")\n   - **NUNCA use o nome do lead** - sempre use o campo `id`\n2. **Obtenha o `status_id`:** Encontre o objeto em `lead_statuses` com `status_key: \"meeting_scheduled\"` ou `label: \"Reunião Agendada\"` e use o campo `id` desse objeto (ex: \"824e8fe5-a889-4180-b1dd-a488a5d702bb\")\n3. **Obtenha o `organizationId`:** Use o campo `id` do objeto `organization` fornecido no contexto (ex: `{{ $json.organization.id }}`)\n4. Chame a tool com o payload como string JSON:\n\n```\n[TOOL:auto_lead_status_update]\n[PARAMS:{\n  \"payload\": \"{\\\"lead_id\\\":\\\"lead-1766381136319-kibckt9px\\\",\\\"status_id\\\":\\\"824e8fe5-a889-4180-b1dd-a488a5d702bb\\\",\\\"organizationId\\\":\\\"8e57dada-bc65-42c9-8a96-1cb5b67ab95f\\\",\\\"reason\\\":\\\"Lead confirmou agendamento de reunião para 22/12/2025 às 14h\\\"}\"\n}]\n```\n\n**IMPORTANTE:** \n- `lead_id` = campo `id` do objeto `lead` (NÃO o nome)\n- `status_id` = campo `id` do objeto de status em `lead_statuses` (NÃO o `status_key`)\n- `organizationId` = campo `id` do objeto `organization`\n\n## Formato Esperado pelo n8n\n\nO n8n está configurado para receber o campo `payload` como uma string JSON. Isso significa que você deve:\n\n1. **Obter os valores corretos do contexto:**\n   - `lead_id`: Use o campo `id` do objeto `lead` (NÃO o nome do lead)\n   - `status_id`: Use o campo `id` do objeto de status em `lead_statuses` (NÃO o `status_key`)\n   - `organizationId`: Use o campo `id` do objeto `organization`\n   - `reason`: Texto explicando o motivo da atualização\n2. Criar o objeto com os parâmetros: `{\"lead_id\": \"...\", \"status_id\": \"...\", \"organizationId\": \"...\", \"reason\": \"...\"}`\n3. Serializar esse objeto como uma string JSON (escapar aspas internas)\n4. Enviar essa string no campo `payload`\n\n**Exemplo de construção:**\n- Objeto: `{\"lead_id\":\"lead-1766381136319-kibckt9px\",\"status_id\":\"8a9271d5-4f9b-4fdb-931e-a3a9224eabc1\",\"organizationId\":\"8e57dada-bc65-42c9-8a96-1cb5b67ab95f\",\"reason\":\"Lead iniciou conversa\"}`\n- String JSON (com escape): `\"{\\\"lead_id\\\":\\\"lead-1766381136319-kibckt9px\\\",\\\"status_id\\\":\\\"8a9271d5-4f9b-4fdb-931e-a3a9224eabc1\\\",\\\"organizationId\\\":\\\"8e57dada-bc65-42c9-8a96-1cb5b67ab95f\\\",\\\"reason\\\":\\\"Lead iniciou conversa\\\"}\"`\n- No PARAMS: `\"payload\": \"{\\\"lead_id\\\":\\\"lead-1766381136319-kibckt9px\\\",\\\"status_id\\\":\\\"8a9271d5-4f9b-4fdb-931e-a3a9224eabc1\\\",\\\"organizationId\\\":\\\"8e57dada-bc65-42c9-8a96-1cb5b67ab95f\\\",\\\"reason\\\":\\\"Lead iniciou conversa\\\"}\"`\n\n**ERRO COMUM:** Não use o nome do lead no campo `lead_id`. Sempre use o campo `id` do objeto `lead`.\n\n## Validação e Erros Comuns\n\n**Erro: \"Received tool input did not match expected schema\"**\n\nEste erro indica que o formato dos parâmetros não corresponde ao schema esperado pela tool no n8n. O schema é definido na configuração da tool no n8n e pode variar.\n\n**IMPORTANTE:** Verifique a configuração da tool `auto_lead_status_update` no n8n para confirmar o schema esperado. O schema define quais campos são esperados e em que formato.\n\nPossíveis causas e soluções:\n\n1. **`payload` não é uma string JSON**\n   - ❌ Incorreto: `{\"payload\": {\"lead_id\": \"...\", \"status_id\": \"...\"}}` (objeto)\n   - ✅ Correto: `{\"payload\": \"{\\\"lead_id\\\":\\\"...\\\",\\\"status_id\\\":\\\"...\\\"}\"}` (string JSON)\n   - O n8n espera que `payload` seja uma string JSON serializada, não um objeto\n\n2. **Parâmetros não estão dentro do objeto dentro da string `payload`**\n   - ❌ Incorreto: `{\"payload\": \"{\\\"lead_id\\\":\\\"...\\\"}\"}` (faltando campos obrigatórios)\n   - ✅ Correto: `{\"payload\": \"{\\\"lead_id\\\":\\\"...\\\",\\\"status_id\\\":\\\"...\\\",\\\"organizationId\\\":\\\"...\\\"}\"}`\n\n3. **Campo obrigatório faltando**\n   - Verifique se `lead_id`, `status_id` e `organizationId` estão presentes dentro do objeto JSON dentro da string `payload`\n\n4. **Tipo de dado incorreto**\n   - Todos os IDs devem ser strings, não números ou objetos\n   - ✅ Correto: `\"lead_id\": \"lead-123\"`\n   - ❌ Incorreto: `\"lead_id\": 123` ou `\"lead_id\": null`\n\n5. **Usando `status_key` ao invés de `status_id`**\n   - ❌ Incorreto: `\"status_id\": \"conversation_started\"` (este é o `status_key`)\n   - ✅ Correto: `\"status_id\": \"8a9271d5-4f9b-4fdb-931e-a3a9224eabc1\"` (este é o `id` do objeto)\n\n6. **Usando nome do lead ao invés de `lead_id`**\n   - ❌ Incorreto: `\"lead_id\": \"Lead de Teste 03:09\"` (este é o nome do lead, não o ID)\n   - ✅ Correto: `\"lead_id\": \"lead-1766381136319-kibckt9px\"` (este é o campo `id` do objeto `lead`)\n   - **Solução:** Sempre use o campo `id` do objeto `lead` fornecido no contexto, nunca use o campo `name` ou qualquer outro campo\n\n6. **JSON malformado na string**\n   - Certifique-se de que a string JSON dentro de `payload` está válida\n   - Escape corretamente as aspas duplas: `\\\"`\n   - Exemplo correto: `\"{\\\"lead_id\\\":\\\"lead-123\\\"}\"`\n   - Exemplo incorreto: `\"{'lead_id':'lead-123'}\"` ou `\"{\\\"lead_id\\\":\\\"lead-123\\\"\"` (faltando fechamento)\n\n7. **Schema da tool no n8n espera campos individuais**\n   - Se o schema da tool no n8n estiver configurado para receber campos individuais (não um objeto `payload`), você deve passar os parâmetros diretamente:\n   - Formato alternativo (se o schema esperar campos individuais):\n     ```\n     [TOOL:auto_lead_status_update]\n     [PARAMS:{\n       \"lead_id\": \"lead-1766381136319-kibckt9px\",\n       \"status_id\": \"8a9271d5-4f9b-4fdb-931e-a3a9224eabc1\",\n       \"organizationId\": \"8e57dada-bc65-42c9-8a96-1cb5b67ab95f\",\n       \"reason\": \"Lead iniciou conversa e se apresentou\"\n     }]\n     ```\n   - **Como verificar:** Acesse a configuração da tool `auto_lead_status_update` no n8n e verifique o schema em \"Workflow Inputs\". Se houver campos individuais configurados (como `lead_id`, `status_id`, etc.), use o formato acima. Se houver apenas um campo `payload`, use o formato com string JSON.\n\n## Como Verificar o Schema Esperado\n\nPara identificar o formato correto:\n\n1. Acesse o workflow no n8n\n2. Abra a configuração da tool `auto_lead_status_update`\n3. Vá para a aba \"Parameters\" → \"Workflow Inputs\"\n4. Verifique quais campos estão configurados:\n   - **Se houver apenas um campo `payload`:** Use o formato com string JSON: `\"payload\": \"{\\\"lead_id\\\":\\\"...\\\",\\\"status_id\\\":\\\"...\\\"}\"`\n   - **Se houver campos individuais (`lead_id`, `status_id`, `organizationId`):** Use o formato com campos separados: `{\"lead_id\": \"...\", \"status_id\": \"...\", \"organizationId\": \"...\"}`\n\n## Comportamento\n\n- A tool verifica se o `status_id` fornecido é válido (deve ser o `id` de um dos status disponíveis em `lead_statuses`)\n- Atualiza o status do lead no banco de dados do Nebula CRM usando o `status_id` fornecido\n- Registra a mudança de status no histórico do lead\n- Retorna confirmação da atualização com o novo status\n- O status atualizado será refletido imediatamente no funil de vendas\n\n## Notas Importantes\n\n- **OBRIGATÓRIO:** Se o componente `auto_lead_status_update` estiver na lista de componentes disponíveis, você DEVE usar esta tool quando apropriado. Não é opcional.\n- **Estrutura correta:** Todos os parâmetros devem estar dentro de um objeto `payload`\n- **Nomenclatura:** Sempre use `lead_id` (não `leadId`) e `status_id` (não `status` ou `status_key`)\n- **CRÍTICO - lead_id:** Sempre use o campo `id` do objeto `lead` fornecido no contexto. **NUNCA use o nome do lead** no campo `lead_id`. O nome do lead está no campo `name`, mas você precisa usar o campo `id`.\n- **CRÍTICO - status_id:** Sempre use o campo `id` do objeto de status em `lead_statuses`. **NUNCA use o `status_key`** diretamente.\n- **Atualização proativa:** Não espere - se o lead avançou no funil, atualize o status imediatamente\n- **Forneça reason sempre:** Use o parâmetro `reason` para documentar claramente o motivo da atualização",
+        "workflowId": {
+          "__rl": true,
+          "value": "MvEpMRSstpYH7wun",
+          "mode": "list",
+          "cachedResultName": "[ART][ALFA] SDR Update Lead"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "payload": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('payload', ``, 'string') }}"
+          },
+          "matchingColumns": [
+            "payload"
+          ],
+          "schema": [
+            {
+              "id": "payload",
+              "displayName": "payload",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        -1136,
+        752
+      ],
+      "id": "138efcd4-506c-4746-b2de-8d08d6a996f7",
+      "name": "auto_lead_status_update"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const payload = $input.item.json.payload;\n\n// Processar personality traits\nconst personalityTraits = Array.isArray(payload.ai_config.personality_traits) \n  ? payload.ai_config.personality_traits \n  : [];\nconst personalityTraitsText = personalityTraits.length > 0\n  ? personalityTraits.map(t => `- ${t}`).join('\\n')\n  : 'Nenhum traço específico configurado.';\n\n// Determinar texto de introdução baseado no tipo de interação\nlet introductionText = '';\n\nif (payload.isScheduledInteraction === true) {\n  // Interação agendada - agente DEVE iniciar a conversa proativamente\n  const nickname = payload.ai_config.nickname || null;\n  const agentName = payload.ai_config.name || 'Assistente';\n  const companyName = payload.organization?.company_name || 'nossa empresa';\n  \n  if (nickname) {\n    introductionText = `Esta é uma INTERAÇÃO AGENDADA. Você DEVE iniciar a conversa proativamente com o lead. Apresente-se como \"${nickname}\" e explique o motivo do contato baseado no objetivo principal da configuração do agente. Seja natural, amigável e profissional.`;\n  } else {\n    introductionText = `Esta é uma INTERAÇÃO AGENDADA. Você DEVE iniciar a conversa proativamente com o lead. Apresente-se como o assistente \"${agentName}\" da ${companyName} e explique o motivo do contato baseado no objetivo principal da configuração do agente. Seja natural, amigável e profissional.`;\n  }\n} else {\n  // Interação normal - seguir lógica padrão de should_introduce_itself\n  if (payload.ai_config.should_introduce_itself) {\n    introductionText = `Você DEVE se apresentar no início de cada nova conversa, utilize o campo 'Apelido' (nickname) para saber seu nome, SEMPRE diga seu nome ao se apresentar. Se não houver nickname configurado, use o nome do agente.`;\n  } else {\n    introductionText = 'Você NÃO deve se apresentar automaticamente. Apenas responda às mensagens do lead de forma natural.';\n  }\n}\n\n// Processar campos para o user prompt (evitar ternários no template)\nconst isScheduled = payload.isScheduledInteraction === true;\n\n// Garantir que sempre temos valores válidos (nunca vazios ou undefined)\nlet userPromptHeader = '';\nlet userPromptAttention = '';\nlet userPromptContext = '';\nlet userPromptTask = '';\n\nif (isScheduled) {\n  // Interação agendada\n  userPromptHeader = '## INTERAÇÃO AGENDADA - INÍCIO PROATIVO';\n  userPromptAttention = '**ATENÇÃO:** Esta é uma interação agendada. Você DEVE iniciar a conversa proativamente com o lead, não espere uma mensagem dele.';\n  userPromptContext = '- **Interação Agendada:** Sim - Você deve iniciar a conversa';\n  userPromptTask = '**Para interações agendadas:** Inicie a conversa proativamente com o lead. Apresente-se usando o nickname (se configurado) ou nome do agente, e explique o motivo do contato baseado no objetivo principal da configuração do agente. Seja natural, amigável e profissional, respeitando o tom e estilo configurados.\\n\\nAnalise todo o contexto fornecido (configurações do agente, histórico da conversa, informações do lead, status atual, componentes disponíveis) e gere uma mensagem inicial apropriada que:';\n} else {\n  // Interação normal\n  const contactName = payload.contactName || 'Lead';\n  const phoneNumber = payload.phoneNumber || 'N/A';\n  const messageContent = payload.msg_content || payload.conversation || payload.message?.conversation || 'Nenhuma mensagem disponível';\n  const sender = payload.fromMe === true ? 'Você' : 'Lead';\n  \n  userPromptHeader = `Você recebeu uma nova mensagem do lead **${contactName}** (${phoneNumber}):`;\n  userPromptAttention = `**Mensagem recebida:**\\n${messageContent}`;\n  userPromptContext = `- Enviada por: ${sender}`;\n  userPromptTask = 'Analise a mensagem recebida, considere todo o contexto fornecido (configurações do agente, histórico da conversa, informações do lead, status atual, componentes disponíveis) e gere uma resposta apropriada que:';\n}\n\n// Garantir que todos os campos processados sempre existam e sejam strings válidas\nconst processed = {\n  personality_traits_text: personalityTraitsText || 'Nenhum traço específico configurado.',\n  introduction_text: introductionText || 'Siga as instruções padrão de apresentação.',\n  user_prompt_header: userPromptHeader || 'Você recebeu uma nova mensagem do lead.',\n  user_prompt_attention: userPromptAttention || '**Mensagem recebida:**\\nNenhuma mensagem disponível.',\n  user_prompt_context: userPromptContext || '- Enviada por: Lead',\n  user_prompt_task: userPromptTask || 'Analise a mensagem recebida e gere uma resposta apropriada que:',\n};\n\nreturn {\n  json: {\n    ...payload,\n    processed: processed\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1376,
+        208
+      ],
+      "id": "9f21437e-a90f-4212-84ab-48120e7c8cab",
+      "name": "MAP_DATA"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Payload').item.json.payload.lead.id }}",
+        "contextWindowLength": "={{ 20 }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        -1232,
+        512
+      ],
+      "id": "f8ec3ada-25e0-43ef-99e3-0ceb61e72a9f",
+      "name": "PSQL_CHAT_MESSAGE",
+      "credentials": {
+        "postgres": {
+          "id": "WpqxnrAjnhHUy6Jh",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "\n## Identificador\n`media_sender`\n\n## Descrição\nUse para enviar imagens ou vídeos durante as conversas quando a situação corresponder às descrições de uso configuradas para cada mídia.\n\n## Quando Usar\n\n- Quando o lead solicitar visualizar produtos, catálogos, materiais promocionais\n- Quando a conversa corresponder às descrições de uso configuradas para cada mídia\n- Quando for apropriado enviar material visual para enriquecer a comunicação\n- Quando identificar que uma situação específica corresponde à descrição de uso (`usageDescription`) de uma mídia configurada\n\n## Parâmetros Obrigatórios\n\n- **`mediaUrl`** (string): URL pública da mídia a ser enviada. Este valor deve ser obtido do campo `url` da mídia em `component_configurations` para o componente `media_sender`\n- **`mediaType`** (string): Tipo da mídia - \"image\" para imagens ou \"video\" para vídeos. Este valor deve ser obtido do campo `type` da mídia em `component_configurations`\n\n## Parâmetros Opcionais\n\nNenhum parâmetro opcional.\n\n## Formato de Chamada\n\n```\n[TOOL:media_sender]\n[PARAMS:{\n  \"mediaUrl\": \"https://exemplo.com/storage/media-sender/organization-id/timestamp.jpg\",\n  \"mediaType\": \"image\"\n}]\n```\n\nOu para vídeo:\n\n```\n[TOOL:media_sender]\n[PARAMS:{\n  \"mediaUrl\": \"https://exemplo.com/storage/media-sender/organization-id/timestamp.mp4\",\n  \"mediaType\": \"video\"\n}]\n```\n\n## Comportamento\n\n- A tool recebe a URL da mídia e o tipo (imagem ou vídeo)\n- Envia a mídia via WhatsApp automaticamente\n- As mídias são globais e disponíveis para todos os agentes com o componente `media_sender` ativo\n- A tool processa o envio e retorna confirmação\n\n## Acesso às Mídias Configuradas\n\nAs mídias disponíveis para envio estão configuradas globalmente em `component_configurations` para o componente com identifier `media_sender`. Cada mídia possui:\n\n- **`url`**: URL pública da mídia (use este valor no parâmetro `mediaUrl`)\n- **`type`**: Tipo da mídia (\"image\" ou \"video\" - use este valor no parâmetro `mediaType`)\n- **`fileName`**: Nome do arquivo\n- **`usageDescription`**: Descrição clara de quando a mídia deve ser utilizada - **use esta descrição para decidir se deve enviar a mídia**\n\n**IMPORTANTE:** Verifique as descrições de uso (`usageDescription`) de cada mídia disponível e use apenas quando a situação da conversa corresponder claramente à descrição configurada.\n\n## Exemplos de Uso\n\n- Enviar catálogo de produtos: Use quando o lead perguntar sobre produtos ou solicitar visualizar catálogo\n- Demonstrar funcionalidades: Use quando o lead demonstrar interesse em conhecer funcionalidades de um serviço\n- Compartilhar depoimentos: Use quando for apropriado mostrar depoimentos ou casos de sucesso em vídeo\n- Enviar materiais de marketing: Use quando o lead solicitar materiais promocionais ou informativos\n- Ilustrar soluções: Use quando precisar mostrar visualmente uma solução para um problema comum\n\n## Importante\n\n- **OBRIGATÓRIO:** Se o componente `media_sender` estiver ativo e você identificar necessidade de enviar mídia, você DEVE usar esta tool. Não envie a mídia diretamente - sempre use a tool para garantir o processamento correto\n- Sempre verifique se a situação da conversa corresponde à descrição de uso (`usageDescription`) antes de enviar\n- Use mídias de forma contextual e relevante - não envie mídias desnecessárias\n- Se múltiplas mídias forem apropriadas, escolha a mais relevante para o contexto atual\n- As mídias são globais e compartilhadas entre todos os agentes com o componente ativo\n- Verifique as configurações em `component_configurations` para ver quais mídias estão disponíveis e suas descrições de uso\n",
+        "workflowId": {
+          "__rl": true,
+          "value": "7sztTSnWT7DXK7XG",
+          "mode": "list",
+          "cachedResultName": "[ART][ALFA] Nebula SDR Media Sender"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "payload": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('payload', ``, 'string') }}"
+          },
+          "matchingColumns": [
+            "payload"
+          ],
+          "schema": [
+            {
+              "id": "payload",
+              "displayName": "payload",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        -992,
+        768
+      ],
+      "id": "385a3a2f-f3ba-4331-b3b4-24304b6e988a",
+      "name": "media_sender"
+    },
+    {
+      "parameters": {
+        "content": "## Componentes Com erro",
+        "height": 464,
+        "width": 256,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1712,
+        624
+      ],
+      "id": "5765fba6-5b63-48c6-bfa7-de30d25c3ddf",
+      "name": "Sticky Note2"
+    }
+  ],
+  "pinData": {
+    "Payload": [
+      {
+        "json": {
+          "payload": {
+            "event": "messages.upsert",
+            "instance": "playground-instance",
+            "lead": {
+              "id": "f564439e-f483-4992-a179-d431da3e32ac",
+              "name": "Lead de Teste 18:26",
+              "description": "Lead criado automaticamente para testes no playground",
+              "category": null,
+              "status": "conversation_started",
+              "contact_email": null,
+              "contact_whatsapp": "5531895727983",
+              "source": "playground",
+              "integration_start_time": null,
+              "payment_link_url": null,
+              "payment_stripe_id": null,
+              "payment_status": "nao_criado",
+              "created_at": "2026-01-07T21:26:37.844902+00:00",
+              "updated_at": "2026-01-07T21:28:56.017249+00:00",
+              "payment_amount": null,
+              "paid_at": null,
+              "whatsapp_verified": true,
+              "ai_interaction_id": "84d5aef8-815c-4c95-b800-fba3b5958d41",
+              "remote_jid": "5531895727983@s.whatsapp.net",
+              "organization_id": "866d61f4-3e76-45dd-8773-4343f8fe3b28"
+            },
+            "organization": {
+              "id": "866d61f4-3e76-45dd-8773-4343f8fe3b28",
+              "name": "Smart Insp",
+              "plan": "pro",
+              "trial_ends_at": "2025-12-16T03:00:22.24791+00:00",
+              "stripe_customer_id": null,
+              "logo_url": "https://lyqcsclmauwmzipjiazs.supabase.co/storage/v1/object/public/organization-logos/866d61f4-3e76-45dd-8773-4343f8fe3b28/1765381347600.png",
+              "created_at": "2026-01-07T21:29:44.200Z",
+              "updated_at": "2026-01-07T21:29:44.200Z",
+              "company_name": "Smart Insp",
+              "cnpj": "",
+              "phone": "(31) 97338-7255",
+              "address": "Rua Castelo de Alcázar, 125 - Castelo, Belo Horizonte - MG, 31330-310",
+              "website": "https://smartinsp.com.br/"
+            },
+            "ai_config": {
+              "id": "84d5aef8-815c-4c95-b800-fba3b5958d41",
+              "name": "Assistente de Atendimento SmartInsp",
+              "nickname": "Smart",
+              "conversation_focus": "Suporte ao Cliente e Pós-Venda",
+              "priority": "high",
+              "rejection_action": "thank_and_close",
+              "tone": "friendly",
+              "main_objective": "Fornecer suporte técnico, esclarecer dúvidas sobre o uso da plataforma e orientar na resolução de não conformidades.",
+              "additional_instructions": "• Adote um tom paciente e empático, demonstrando compreensão e tranquilidade.\\n• Utilize exemplos práticos para guiar o usuário em tarefas comuns (cadastro de checklists, abertura de planos de ação, consulta de relatórios etc.).\\n• Caso não possua a resposta, informe claramente que buscará um especialista e ofereça retorno em breve.\\n• Mantenha registros das interações para continuidade do atendimento.",
+              "created_at": "2025-12-09T03:43:16.454916+00:00",
+              "updated_at": "2026-01-05T17:15:09.687435+00:00",
+              "closing_instructions": "Antes de encerrar, confirme se todas as dúvidas foram sanadas. Agradeça o contato, informe que está à disposição para futuras necessidades e, quando apropriado, convide o usuário a avaliar o atendimento.",
+              "organization_id": "866d61f4-3e76-45dd-8773-4343f8fe3b28",
+              "personality_traits": [
+                "empático",
+                "persuasivo",
+                "proativo",
+                "organizado",
+                "eficiente"
+              ],
+              "communication_style": "supportive",
+              "expertise_level": "expert",
+              "response_length": "short",
+              "empathy_level": "moderate",
+              "formality_level": "casual",
+              "humor_level": "subtle",
+              "proactivity_level": "moderate",
+              "agent_description": "O Assistente de Atendimento SmartInsp é um agente de IA projetado para oferecer suporte técnico eficaz e esclarecer dúvidas sobre a plataforma. Seu objetivo é orientar os usuários na resolução de não conformidades, garantindo uma experiência de pós-venda satisfatória e eficiente.",
+              "agent_avatar_url": null,
+              "agent_color": "#3b82f6",
+              "should_introduce_itself": true,
+              "memory_amount": "medium"
+            },
+            "agent_components": [
+              "email_sender",
+              "whatsapp_integration",
+              "auto_lead_status_update"
+            ],
+            "agent_component_configurations": [
+              {
+                "id": "b2aa8376-4b66-416e-8639-aeb8980702bf",
+                "agent_id": "84d5aef8-815c-4c95-b800-fba3b5958d41",
+                "component_id": "2da735c0-4a90-48f8-beb0-e57eb59b2afa",
+                "config": {
+                  "whatsapp_instance_id": "8386257e-0c5b-4c24-83e3-98801befae66"
+                },
+                "created_at": "2026-01-05T17:15:10.28191+00:00",
+                "updated_at": "2026-01-05T17:15:10.28191+00:00",
+                "components": {
+                  "id": "2da735c0-4a90-48f8-beb0-e57eb59b2afa",
+                  "name": "Integração com WhatsApp",
+                  "identifier": "whatsapp_integration",
+                  "description": "Permite ao agente interagir via WhatsApp"
+                }
+              }
+            ],
+            "lead_statuses": [
+              {
+                "id": "32b7d83d-a054-4783-99a8-e624872d90f1",
+                "organization_id": "866d61f4-3e76-45dd-8773-4343f8fe3b28",
+                "status_key": "new",
+                "label": "Novo",
+                "is_required": true,
+                "display_order": 1,
+                "created_at": "2025-12-09T04:28:05.441092+00:00",
+                "updated_at": "2025-12-30T13:10:16.462197+00:00",
+                "ai_transition_condition": "Esta é a etapa inicial do funil. Todos os novos leads começam nesta etapa automaticamente."
+              },
+              {
+                "id": "53381270-7216-4dc1-985f-999cfb127f2c",
+                "organization_id": "866d61f4-3e76-45dd-8773-4343f8fe3b28",
+                "status_key": "conversation_started",
+                "label": "Conversa Iniciada",
+                "is_required": true,
+                "display_order": 2,
+                "created_at": "2025-12-09T04:28:05.441092+00:00",
+                "updated_at": "2025-12-30T13:10:16.462197+00:00",
+                "ai_transition_condition": "Quando a primeira mensagem é enviada ou recebida do lead, iniciando a conversa. Quando o lead responde pela primeira vez ou quando enviamos a primeira mensagem para ele."
+              },
+              {
+                "id": "2d9adf0e-ffb2-4b67-9a86-d668184e3071",
+                "organization_id": "866d61f4-3e76-45dd-8773-4343f8fe3b28",
+                "status_key": "proposal_sent",
+                "label": "Reunião Agendada",
+                "is_required": true,
+                "display_order": 3,
+                "created_at": "2025-12-09T04:28:05.441092+00:00",
+                "updated_at": "2026-01-05T17:00:24.971101+00:00",
+                "ai_transition_condition": "Quando uma proposta comercial, orçamento ou cotação é enviada ao lead. Atualizada Somente quando o voce enviou uma proposta para o lead por e-mail"
+              },
+              {
+                "id": "de2d5449-7548-49d5-8a53-a3bc50272f2e",
+                "organization_id": "866d61f4-3e76-45dd-8773-4343f8fe3b28",
+                "status_key": "meeting_scheduled",
+                "label": "Negociação",
+                "is_required": true,
+                "display_order": 4,
+                "created_at": "2025-12-09T04:28:05.441092+00:00",
+                "updated_at": "2026-01-05T17:00:41.558651+00:00",
+                "ai_transition_condition": "Quando uma reunião, call ou encontro é agendado com o lead. Quando o lead aceita agendar uma reunião, quando confirma uma data e horário, ou quando demonstra interesse em uma apresentação ou demonstração."
+              },
+              {
+                "id": "83652c78-e7fa-44b4-813b-3a49ec35dfec",
+                "organization_id": "866d61f4-3e76-45dd-8773-4343f8fe3b28",
+                "status_key": "finished",
+                "label": "GANHO",
+                "is_required": true,
+                "display_order": 5,
+                "created_at": "2025-12-09T04:28:05.441092+00:00",
+                "updated_at": "2026-01-05T17:00:51.229248+00:00",
+                "ai_transition_condition": "Quando o lead é finalizado, seja por venda concluída, negócio fechado, ou quando o lead é marcado como perdido/descartado. Quando o lead confirma a compra, quando o pagamento é confirmado, ou quando fica claro que não há mais interesse."
+              }
+            ],
+            "message": {
+              "conversation": "gostaria de agendar uma reunião"
+            },
+            "messageType": "conversation",
+            "conversation": "gostaria de agendar uma reunião",
+            "messageId": "msg-1767821384200",
+            "contactName": "Lead de Teste 18:26",
+            "phoneNumber": "5531895727983",
+            "remoteJid": "5531895727983@s.whatsapp.net",
+            "fromMe": false,
+            "timestamp": "2026-01-07T21:29:44.200Z",
+            "msg_content": "gostaria de agendar uma reunião"
+          }
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Payload": {
+      "main": [
+        [
+          {
+            "node": "MAP_DATA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "SDR Nebula",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pinecone Vector Store": {
+      "ai_vectorStore": [
+        [
+          {
+            "node": "ArtemisVectStore",
+            "type": "ai_vectorStore",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Pinecone Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model4": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "ArtemisVectStore",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ArtemisVectStore": {
+      "ai_tool": [
+        [
+          {
+            "node": "SDR Nebula",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "email_sender": {
+      "ai_tool": [
+        [
+          {
+            "node": "SDR Nebula",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "meeting_scheduler": {
+      "ai_tool": [
+        [
+          {
+            "node": "SDR Nebula",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "auto_lead_status_update": {
+      "ai_tool": [
+        [
+          {
+            "node": "SDR Nebula",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MAP_DATA": {
+      "main": [
+        [
+          {
+            "node": "SDR Nebula",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PSQL_CHAT_MESSAGE": {
+      "ai_memory": [
+        [
+          {
+            "node": "SDR Nebula",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "media_sender": {
+      "ai_tool": [
+        [
+          {
+            "node": "SDR Nebula",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SDR Nebula": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "dc670799-4b1c-4ab0-b0f5-27877ad52e16",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "61f9c4d95c6bd70053fab1331c160d9e3562f09b4bbbb4bfd3f39ec72a5d4446"
+  },
+  "id": "vVuPxLDXOBPnGqCk",
+  "tags": [
+    {
+      "createdAt": "2025-12-09T02:32:05.325Z",
+      "updatedAt": "2025-12-09T02:32:05.325Z",
+      "id": "0kodWljZiuQKrDul",
+      "name": "nebula"
+    }
+  ]
+}

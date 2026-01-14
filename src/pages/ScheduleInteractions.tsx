@@ -4,19 +4,56 @@ import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Clock, Calendar, Eye, X, Search, RefreshCw, Bot, Users, Settings2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Clock,
+  Calendar,
+  Eye,
+  X,
+  Search,
+  RefreshCw,
+  Bot,
+  Users,
+  Settings2,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatPhoneDisplay } from "@/lib/utils";
 import { useOrganization } from "@/hooks/useOrganization";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { LeadsDragDrop } from "@/components/LeadsDragDrop";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 
@@ -67,13 +104,18 @@ const ScheduleInteractions = () => {
   const [leads, setLeads] = useState<ScheduledInteraction[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [defaultAiInteractionId, setDefaultAiInteractionId] = useState<string>("");
+  const [defaultAiInteractionId, setDefaultAiInteractionId] =
+    useState<string>("");
   const [instanceName, setInstanceName] = useState<string>("");
-  const [scheduledInteractions, setScheduledInteractions] = useState<ScheduledInteractionRow[]>([]);
+  const [scheduledInteractions, setScheduledInteractions] = useState<
+    ScheduledInteractionRow[]
+  >([]);
   const [loadingScheduled, setLoadingScheduled] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [aiInteractionSettings, setAiInteractionSettings] = useState<AIInteractionSetting[]>([]);
+  const [aiInteractionSettings, setAiInteractionSettings] = useState<
+    AIInteractionSetting[]
+  >([]);
   const [loadingSettings, setLoadingSettings] = useState(false);
   const [availableLeads, setAvailableLeads] = useState<AvailableLead[]>([]);
   const [loadingAvailableLeads, setLoadingAvailableLeads] = useState(false);
@@ -108,12 +150,19 @@ const ScheduleInteractions = () => {
           leadWhatsApp: lead.contact_whatsapp || "",
           remoteJid: lead.remote_jid || "",
           scheduledDateTime: format(scheduledDate, "yyyy-MM-dd'T'HH:mm"),
-          aiInteractionId: defaultAiInteractionId || aiInteractionSettings[0]?.id || "",
+          aiInteractionId:
+            defaultAiInteractionId || aiInteractionSettings[0]?.id || "",
           instanceName: instanceName,
         };
       })
       .filter((lead): lead is ScheduledInteraction => lead !== null);
-  }, [selectedLeadIds, availableLeads, defaultAiInteractionId, aiInteractionSettings, instanceName]);
+  }, [
+    selectedLeadIds,
+    availableLeads,
+    defaultAiInteractionId,
+    aiInteractionSettings,
+    instanceName,
+  ]);
 
   useEffect(() => {
     if (selectedLeadIds.length === 0) {
@@ -124,14 +173,14 @@ const ScheduleInteractions = () => {
     setLeads((prevLeads) => {
       const prevLeadIds = new Set(prevLeads.map((l) => l.leadId));
       const newLeadIds = new Set(computedScheduledLeads.map((l) => l.leadId));
-      
+
       if (
         prevLeadIds.size === newLeadIds.size &&
         [...prevLeadIds].every((id) => newLeadIds.has(id))
       ) {
         return prevLeads;
       }
-      
+
       return computedScheduledLeads;
     });
   }, [computedScheduledLeads, selectedLeadIds.length]);
@@ -139,7 +188,9 @@ const ScheduleInteractions = () => {
   const fetchAvailableLeads = async () => {
     setLoadingAvailableLeads(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data: profile } = await supabase
@@ -208,7 +259,11 @@ const ScheduleInteractions = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const state = location.state as { leads?: any[]; aiInteractionId?: string; instanceName?: string };
+        const state = location.state as {
+          leads?: any[];
+          aiInteractionId?: string;
+          instanceName?: string;
+        };
 
         if (!state?.leads || state.leads.length === 0) {
           const { data: whatsappInstances } = await supabase
@@ -230,8 +285,10 @@ const ScheduleInteractions = () => {
           .order("created_at", { ascending: false })
           .limit(1);
 
-        const instance = state.instanceName || whatsappInstances?.[0]?.instance_name || "";
-        const aiInteractionId = state.aiInteractionId || defaultAiInteractionId || "";
+        const instance =
+          state.instanceName || whatsappInstances?.[0]?.instance_name || "";
+        const aiInteractionId =
+          state.aiInteractionId || defaultAiInteractionId || "";
 
         setInstanceName(instance);
         if (aiInteractionId) {
@@ -256,7 +313,8 @@ const ScheduleInteractions = () => {
     try {
       let query = supabase
         .from("scheduled_interactions")
-        .select(`
+        .select(
+          `
           *,
           leads (
             name,
@@ -265,31 +323,44 @@ const ScheduleInteractions = () => {
           ai_interaction_settings (
             name
           )
-        `)
+        `
+        )
         .order("scheduled_at", { ascending: false });
 
       if (statusFilter !== "all") {
-        query = query.eq("status", statusFilter);
+        if (statusFilter === "executed") {
+          query = query.eq("status", "completed");
+        } else if (statusFilter === "cancelled_or_completed") {
+          query = query.in("status", ["cancelled", "completed"]);
+        } else if (statusFilter === "pending_or_active") {
+          query = query.in("status", ["pending", "active"]);
+        } else {
+          query = query.eq("status", statusFilter);
+        }
       }
 
       const { data, error } = await query;
 
       if (error) throw error;
 
-      const interactionsWithInfo: ScheduledInteractionRow[] = (data || []).map((interaction: any) => ({
-        id: interaction.id,
-        lead_id: interaction.lead_id,
-        lead_name: interaction.leads?.name || "Lead não encontrado",
-        lead_whatsapp: interaction.leads?.contact_whatsapp || "",
-        remote_jid: interaction.remote_jid,
-        scheduled_at: interaction.scheduled_at,
-        ai_interaction_id: interaction.ai_interaction_id,
-        ai_interaction_name: interaction.ai_interaction_settings?.name || "Configuração não encontrada",
-        instance_name: interaction.instance_name,
-        status: interaction.status,
-        created_at: interaction.created_at,
-        updated_at: interaction.updated_at,
-      }));
+      const interactionsWithInfo: ScheduledInteractionRow[] = (data || []).map(
+        (interaction: any) => ({
+          id: interaction.id,
+          lead_id: interaction.lead_id,
+          lead_name: interaction.leads?.name || "Lead não encontrado",
+          lead_whatsapp: interaction.leads?.contact_whatsapp || "",
+          remote_jid: interaction.remote_jid,
+          scheduled_at: interaction.scheduled_at,
+          ai_interaction_id: interaction.ai_interaction_id,
+          ai_interaction_name:
+            interaction.ai_interaction_settings?.name ||
+            "Configuração não encontrada",
+          instance_name: interaction.instance_name,
+          status: interaction.status,
+          created_at: interaction.created_at,
+          updated_at: interaction.updated_at,
+        })
+      );
 
       setScheduledInteractions(interactionsWithInfo);
     } catch (error: any) {
@@ -325,65 +396,83 @@ const ScheduleInteractions = () => {
 
   const getStatusBadge = (status: string) => {
     const configs: Record<string, { label: string; className: string }> = {
-      pending: { label: "Pendente", className: "bg-yellow-500/20 text-yellow-600 border-yellow-500/30" },
-      active: { label: "Ativa", className: "bg-blue-500/20 text-blue-600 border-blue-500/30" },
-      completed: { label: "Concluída", className: "bg-green-500/20 text-green-600 border-green-500/30" },
-      cancelled: { label: "Cancelada", className: "bg-gray-500/20 text-gray-600 border-gray-500/30" },
+      pending: {
+        label: "Pendente",
+        className: "bg-yellow-500/20 text-yellow-600 border-yellow-500/30",
+      },
+      active: {
+        label: "Ativa",
+        className: "bg-blue-500/20 text-blue-600 border-blue-500/30",
+      },
+      completed: {
+        label: "Concluída",
+        className: "bg-green-500/20 text-green-600 border-green-500/30",
+      },
+      cancelled: {
+        label: "Cancelada",
+        className: "bg-gray-500/20 text-gray-600 border-gray-500/30",
+      },
     };
 
     const config = configs[status] || configs.pending;
 
     return (
-      <Badge variant="outline" className={`${config.className} border font-medium`}>
+      <Badge
+        variant="outline"
+        className={`${config.className} border font-medium`}
+      >
         {config.label}
       </Badge>
     );
   };
 
-  const filteredScheduledInteractions = scheduledInteractions.filter((interaction) => {
-    const matchesSearch = searchQuery.trim() === "" ||
-      interaction.lead_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      interaction.ai_interaction_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      formatPhoneDisplay(interaction.lead_whatsapp).includes(searchQuery);
+  const filteredScheduledInteractions = scheduledInteractions.filter(
+    (interaction) => {
+      const matchesSearch =
+        searchQuery.trim() === "" ||
+        interaction.lead_name
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase()) ||
+        interaction.ai_interaction_name
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase()) ||
+        formatPhoneDisplay(interaction.lead_whatsapp).includes(searchQuery);
 
-    return matchesSearch;
-  });
+      return matchesSearch;
+    }
+  );
 
   const updateScheduledTime = (leadId: string, dateTime: string) => {
-    setLeads(prevLeads =>
-      prevLeads.map(lead =>
-        lead.leadId === leadId
-          ? { ...lead, scheduledDateTime: dateTime }
-          : lead
+    setLeads((prevLeads) =>
+      prevLeads.map((lead) =>
+        lead.leadId === leadId ? { ...lead, scheduledDateTime: dateTime } : lead
       )
     );
   };
 
   const updateAiInteraction = (leadId: string, aiInteractionId: string) => {
-    setLeads(prevLeads =>
-      prevLeads.map(lead =>
-        lead.leadId === leadId
-          ? { ...lead, aiInteractionId }
-          : lead
+    setLeads((prevLeads) =>
+      prevLeads.map((lead) =>
+        lead.leadId === leadId ? { ...lead, aiInteractionId } : lead
       )
     );
   };
 
   const applyToAll = (field: "aiInteraction" | "time", value: string) => {
     if (field === "aiInteraction") {
-      setLeads(prevLeads =>
-        prevLeads.map(lead => ({ ...lead, aiInteractionId: value }))
+      setLeads((prevLeads) =>
+        prevLeads.map((lead) => ({ ...lead, aiInteractionId: value }))
       );
       setDefaultAiInteractionId(value);
     } else if (field === "time") {
       const baseDate = new Date(value);
-      setLeads(prevLeads =>
+      setLeads((prevLeads) =>
         prevLeads.map((lead, index) => {
           const newDate = new Date(baseDate);
-          newDate.setMinutes(newDate.getMinutes() + (index * 5));
+          newDate.setMinutes(newDate.getMinutes() + index * 5);
           return {
             ...lead,
-            scheduledDateTime: format(newDate, "yyyy-MM-dd'T'HH:mm")
+            scheduledDateTime: format(newDate, "yyyy-MM-dd'T'HH:mm"),
           };
         })
       );
@@ -396,22 +485,26 @@ const ScheduleInteractions = () => {
       return;
     }
 
-    const invalidLeads = leads.filter(lead => !lead.aiInteractionId || !lead.remoteJid);
+    const invalidLeads = leads.filter(
+      (lead) => !lead.aiInteractionId || !lead.remoteJid
+    );
     if (invalidLeads.length > 0) {
-      toast.error("Alguns leads não têm configuração de IA ou WhatsApp configurado");
+      toast.error(
+        "Alguns leads não têm configuração de IA ou WhatsApp configurado"
+      );
       return;
     }
 
     setSaving(true);
 
     try {
-      const scheduledInteractions = leads.map(lead => ({
+      const scheduledInteractions = leads.map((lead) => ({
         lead_id: lead.leadId,
         ai_interaction_id: lead.aiInteractionId,
         instance_name: lead.instanceName,
         remote_jid: lead.remoteJid,
         scheduled_at: new Date(lead.scheduledDateTime).toISOString(),
-        status: "pending"
+        status: "pending",
       }));
 
       const { data: insertedData, error: insertError } = await supabase
@@ -436,7 +529,9 @@ const ScheduleInteractions = () => {
       navigate("/schedule-interactions", { replace: true });
     } catch (error: any) {
       console.error("Erro ao agendar interações:", error);
-      toast.error("Erro ao agendar interações: " + (error.message || "Erro desconhecido"));
+      toast.error(
+        "Erro ao agendar interações: " + (error.message || "Erro desconhecido")
+      );
     } finally {
       setSaving(false);
     }
@@ -493,10 +588,12 @@ const ScheduleInteractions = () => {
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <Users className="w-16 h-16 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Nenhum lead selecionado</h3>
+                  <h3 className="text-lg font-semibold mb-2">
+                    Nenhum lead selecionado
+                  </h3>
                   <p className="text-muted-foreground text-center mb-6 max-w-md">
-                    Para agendar interações, você precisa selecionar leads primeiro.
-                    Use o botão abaixo para abrir o seletor de leads.
+                    Para agendar interações, você precisa selecionar leads
+                    primeiro. Use o botão abaixo para abrir o seletor de leads.
                   </p>
                   <Sheet open={leadsSheetOpen} onOpenChange={setLeadsSheetOpen}>
                     <SheetTrigger asChild>
@@ -505,11 +602,15 @@ const ScheduleInteractions = () => {
                         Selecionar Leads
                       </Button>
                     </SheetTrigger>
-                    <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+                    <SheetContent
+                      side="right"
+                      className="w-full sm:max-w-lg overflow-y-auto"
+                    >
                       <SheetHeader>
                         <SheetTitle>Selecionar Leads</SheetTitle>
                         <SheetDescription>
-                          Selecione os leads que deseja agendar. Você pode arrastar os leads selecionados para reordená-los.
+                          Selecione os leads que deseja agendar. Você pode
+                          arrastar os leads selecionados para reordená-los.
                         </SheetDescription>
                       </SheetHeader>
                       <div className="mt-6">
@@ -545,7 +646,10 @@ const ScheduleInteractions = () => {
                           Leads que serão agendados para interações
                         </CardDescription>
                       </div>
-                      <Sheet open={leadsSheetOpen} onOpenChange={setLeadsSheetOpen}>
+                      <Sheet
+                        open={leadsSheetOpen}
+                        onOpenChange={setLeadsSheetOpen}
+                      >
                         <SheetTrigger asChild>
                           <Button variant="outline" className="gap-2">
                             <Settings2 className="w-4 h-4" />
@@ -557,11 +661,15 @@ const ScheduleInteractions = () => {
                             )}
                           </Button>
                         </SheetTrigger>
-                        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+                        <SheetContent
+                          side="right"
+                          className="w-full sm:max-w-lg overflow-y-auto"
+                        >
                           <SheetHeader>
                             <SheetTitle>Selecionar Leads</SheetTitle>
                             <SheetDescription>
-                              Selecione os leads que deseja agendar. Você pode arrastar os leads selecionados para reordená-los.
+                              Selecione os leads que deseja agendar. Você pode
+                              arrastar os leads selecionados para reordená-los.
                             </SheetDescription>
                           </SheetHeader>
                           <div className="mt-6">
@@ -596,7 +704,7 @@ const ScheduleInteractions = () => {
                             variant="ghost"
                             size="sm"
                             onClick={() => removeLeadFromSchedule(lead.leadId)}
-                            className="h-auto p-0 w-4 h-4 hover:bg-destructive/20 rounded-full"
+                            className="h-4 w-4 p-0 hover:bg-destructive/20 rounded-full"
                           >
                             <X className="w-3 h-3" />
                           </Button>
@@ -622,10 +730,14 @@ const ScheduleInteractions = () => {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="default-ai-interaction">Configuração de IA Padrão</Label>
+                      <Label htmlFor="default-ai-interaction">
+                        Configuração de IA Padrão
+                      </Label>
                       <Select
                         value={defaultAiInteractionId}
-                        onValueChange={(value) => applyToAll("aiInteraction", value)}
+                        onValueChange={(value) =>
+                          applyToAll("aiInteraction", value)
+                        }
                         disabled={loadingSettings}
                       >
                         <SelectTrigger id="default-ai-interaction">
@@ -641,14 +753,22 @@ const ScheduleInteractions = () => {
                       </Select>
                       {defaultAiInteractionId && (
                         <p className="text-xs text-muted-foreground">
-                          {aiInteractionSettings.find(s => s.id === defaultAiInteractionId)?.conversation_focus}
+                          {
+                            aiInteractionSettings.find(
+                              (s) => s.id === defaultAiInteractionId
+                            )?.conversation_focus
+                          }
                         </p>
                       )}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="start-time">Horário de Início</Label>
                       <DateTimePicker
-                        value={leads.length > 0 ? leads[0].scheduledDateTime : getMinDateTime()}
+                        value={
+                          leads.length > 0
+                            ? leads[0].scheduledDateTime
+                            : getMinDateTime()
+                        }
                         onChange={(value) => {
                           if (value) {
                             applyToAll("time", value);
@@ -667,7 +787,8 @@ const ScheduleInteractions = () => {
                       Interações Agendadas ({leads.length})
                     </CardTitle>
                     <CardDescription>
-                      Configure individualmente o horário e configuração de IA para cada lead
+                      Configure individualmente o horário e configuração de IA
+                      para cada lead
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -678,7 +799,9 @@ const ScheduleInteractions = () => {
                             <TableHead>Lead</TableHead>
                             <TableHead>WhatsApp</TableHead>
                             <TableHead>Data e Hora</TableHead>
-                            <TableHead className="min-w-[300px]">Configuração de IA</TableHead>
+                            <TableHead className="min-w-[300px]">
+                              Configuração de IA
+                            </TableHead>
                             <TableHead>Ações</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -689,12 +812,16 @@ const ScheduleInteractions = () => {
                                 {lead.leadName}
                               </TableCell>
                               <TableCell>
-                                {lead.leadWhatsApp ? formatPhoneDisplay(lead.leadWhatsApp) : "-"}
+                                {lead.leadWhatsApp
+                                  ? formatPhoneDisplay(lead.leadWhatsApp)
+                                  : "-"}
                               </TableCell>
                               <TableCell>
                                 <DateTimePicker
                                   value={lead.scheduledDateTime}
-                                  onChange={(value) => updateScheduledTime(lead.leadId, value)}
+                                  onChange={(value) =>
+                                    updateScheduledTime(lead.leadId, value)
+                                  }
                                   min={getMinDateTime()}
                                   className="w-[240px]"
                                 />
@@ -702,7 +829,9 @@ const ScheduleInteractions = () => {
                               <TableCell>
                                 <Select
                                   value={lead.aiInteractionId}
-                                  onValueChange={(value) => updateAiInteraction(lead.leadId, value)}
+                                  onValueChange={(value) =>
+                                    updateAiInteraction(lead.leadId, value)
+                                  }
                                   disabled={loadingSettings}
                                 >
                                   <SelectTrigger className="w-full">
@@ -710,7 +839,10 @@ const ScheduleInteractions = () => {
                                   </SelectTrigger>
                                   <SelectContent>
                                     {aiInteractionSettings.map((setting) => (
-                                      <SelectItem key={setting.id} value={setting.id}>
+                                      <SelectItem
+                                        key={setting.id}
+                                        value={setting.id}
+                                      >
                                         {setting.name}
                                       </SelectItem>
                                     ))}
@@ -721,7 +853,9 @@ const ScheduleInteractions = () => {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => removeLeadFromSchedule(lead.leadId)}
+                                  onClick={() =>
+                                    removeLeadFromSchedule(lead.leadId)
+                                  }
                                   className="text-destructive hover:text-destructive"
                                 >
                                   <X className="w-4 h-4" />
@@ -756,7 +890,9 @@ const ScheduleInteractions = () => {
                   className="gap-2"
                 >
                   <Bot className="w-4 h-4" />
-                  {saving ? "Agendando..." : `Agendar ${leads.length} Interação(ões)`}
+                  {saving
+                    ? "Agendando..."
+                    : `Agendar ${leads.length} Interação(ões)`}
                 </Button>
               </div>
             )}
@@ -782,7 +918,11 @@ const ScheduleInteractions = () => {
                     disabled={loadingScheduled}
                     className="gap-2"
                   >
-                    <RefreshCw className={`w-4 h-4 ${loadingScheduled ? "animate-spin" : ""}`} />
+                    <RefreshCw
+                      className={`w-4 h-4 ${
+                        loadingScheduled ? "animate-spin" : ""
+                      }`}
+                    />
                     Atualizar
                   </Button>
                 </div>
@@ -799,7 +939,7 @@ const ScheduleInteractions = () => {
                     />
                   </div>
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[180px]">
+                    <SelectTrigger className="w-[220px]">
                       <SelectValue placeholder="Filtrar por status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -808,6 +948,15 @@ const ScheduleInteractions = () => {
                       <SelectItem value="active">Ativa</SelectItem>
                       <SelectItem value="completed">Concluída</SelectItem>
                       <SelectItem value="cancelled">Cancelada</SelectItem>
+                      <SelectItem value="executed">
+                        Executadas (Concluídas)
+                      </SelectItem>
+                      <SelectItem value="cancelled_or_completed">
+                        Canceladas ou Concluídas
+                      </SelectItem>
+                      <SelectItem value="pending_or_active">
+                        Pendentes ou Ativas
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -824,7 +973,9 @@ const ScheduleInteractions = () => {
                           <TableHead>Lead</TableHead>
                           <TableHead>WhatsApp</TableHead>
                           <TableHead>Data/Hora Agendada</TableHead>
-                          <TableHead className="min-w-[200px]">Configuração de IA</TableHead>
+                          <TableHead className="min-w-[200px]">
+                            Configuração de IA
+                          </TableHead>
                           <TableHead>Status</TableHead>
                           <TableHead>Ações</TableHead>
                         </TableRow>
@@ -837,21 +988,36 @@ const ScheduleInteractions = () => {
                                 {interaction.lead_name}
                               </TableCell>
                               <TableCell>
-                                {interaction.lead_whatsapp ? formatPhoneDisplay(interaction.lead_whatsapp) : "-"}
+                                {interaction.lead_whatsapp
+                                  ? formatPhoneDisplay(
+                                      interaction.lead_whatsapp
+                                    )
+                                  : "-"}
                               </TableCell>
                               <TableCell>
                                 <div className="flex flex-col">
                                   <span className="font-medium">
-                                    {format(new Date(interaction.scheduled_at), "dd/MM/yyyy", { locale: ptBR })}
+                                    {format(
+                                      new Date(interaction.scheduled_at),
+                                      "dd/MM/yyyy",
+                                      { locale: ptBR }
+                                    )}
                                   </span>
                                   <span className="text-sm text-muted-foreground">
-                                    {format(new Date(interaction.scheduled_at), "HH:mm", { locale: ptBR })}
+                                    {format(
+                                      new Date(interaction.scheduled_at),
+                                      "HH:mm",
+                                      { locale: ptBR }
+                                    )}
                                   </span>
                                 </div>
                               </TableCell>
                               <TableCell>
                                 <div className="max-w-[300px]">
-                                  <p className="text-sm font-medium" title={interaction.ai_interaction_name}>
+                                  <p
+                                    className="text-sm font-medium"
+                                    title={interaction.ai_interaction_name}
+                                  >
                                     {interaction.ai_interaction_name}
                                   </p>
                                 </div>
@@ -864,7 +1030,9 @@ const ScheduleInteractions = () => {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => handleCancelScheduled(interaction.id)}
+                                    onClick={() =>
+                                      handleCancelScheduled(interaction.id)
+                                    }
                                     className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
                                   >
                                     <X className="w-4 h-4" />
@@ -872,14 +1040,19 @@ const ScheduleInteractions = () => {
                                   </Button>
                                 )}
                                 {interaction.status !== "pending" && (
-                                  <span className="text-sm text-muted-foreground">-</span>
+                                  <span className="text-sm text-muted-foreground">
+                                    -
+                                  </span>
                                 )}
                               </TableCell>
                             </TableRow>
                           ))
                         ) : (
                           <TableRow>
-                            <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                            <TableCell
+                              colSpan={6}
+                              className="text-center text-muted-foreground py-8"
+                            >
                               {searchQuery.trim() || statusFilter !== "all"
                                 ? "Nenhuma interação encontrada com os filtros aplicados"
                                 : "Nenhuma interação agendada"}
@@ -893,7 +1066,8 @@ const ScheduleInteractions = () => {
 
                 {filteredScheduledInteractions.length > 0 && (
                   <div className="text-sm text-muted-foreground text-center">
-                    Mostrando {filteredScheduledInteractions.length} de {scheduledInteractions.length} interação(ões)
+                    Mostrando {filteredScheduledInteractions.length} de{" "}
+                    {scheduledInteractions.length} interação(ões)
                   </div>
                 )}
               </CardContent>
@@ -906,4 +1080,3 @@ const ScheduleInteractions = () => {
 };
 
 export default ScheduleInteractions;
-

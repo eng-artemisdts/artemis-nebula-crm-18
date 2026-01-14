@@ -20,6 +20,7 @@ import {
   Trash2,
   Image as ImageIcon,
   Video,
+  FileText,
   ArrowLeft,
   Plus,
   Loader2,
@@ -40,7 +41,7 @@ import { cn } from "@/lib/utils";
 
 interface MediaItem {
   id: string;
-  type: "image" | "video";
+  type: "image" | "video" | "document";
   url: string;
   fileName: string;
   usageDescription: string;
@@ -96,7 +97,7 @@ export default function MediaSenderConfiguration() {
     }
   };
 
-  const detectMediaType = (file: File): "image" | "video" | null => {
+  const detectMediaType = (file: File): "image" | "video" | "document" | null => {
     const validImageTypes = [
       "image/jpeg",
       "image/jpg",
@@ -104,12 +105,16 @@ export default function MediaSenderConfiguration() {
       "image/gif",
     ];
     const validVideoTypes = ["video/mp4", "video/mov", "video/quicktime"];
+    const validDocumentTypes = ["application/pdf"];
 
     if (validImageTypes.includes(file.type)) {
       return "image";
     }
     if (validVideoTypes.includes(file.type)) {
       return "video";
+    }
+    if (validDocumentTypes.includes(file.type)) {
+      return "document";
     }
     return null;
   };
@@ -120,13 +125,17 @@ export default function MediaSenderConfiguration() {
     const mediaType = detectMediaType(file);
     if (!mediaType) {
       toast.error(
-        "Tipo de arquivo não suportado. Use imagens (JPG, PNG, GIF) ou vídeos (MP4, MOV)."
+        "Tipo de arquivo não suportado. Use imagens (JPG, PNG, GIF), vídeos (MP4, MOV) ou PDFs."
       );
       return;
     }
 
     const MAX_FILE_SIZE =
-      mediaType === "image" ? 10 * 1024 * 1024 : 50 * 1024 * 1024;
+      mediaType === "image"
+        ? 10 * 1024 * 1024
+        : mediaType === "video"
+        ? 50 * 1024 * 1024
+        : 20 * 1024 * 1024;
     if (file.size > MAX_FILE_SIZE) {
       toast.error(
         `Arquivo muito grande. Tamanho máximo: ${MAX_FILE_SIZE / 1024 / 1024}MB`
@@ -377,7 +386,7 @@ export default function MediaSenderConfiguration() {
                       ? "Solte os arquivos aqui"
                       : uploading
                       ? "Enviando mídia..."
-                      : "Arraste e solte imagens ou vídeos aqui"}
+                      : "Arraste e solte imagens, vídeos ou PDFs aqui"}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     ou use os botões abaixo para selecionar arquivos
@@ -386,7 +395,7 @@ export default function MediaSenderConfiguration() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Card className="p-4 border-2 border-dashed hover:border-primary/50 transition-all">
                 <div className="space-y-4">
                   <div className="flex items-center gap-3">
@@ -432,6 +441,29 @@ export default function MediaSenderConfiguration() {
                   />
                 </div>
               </Card>
+
+              <Card className="p-4 border-2 border-dashed hover:border-primary/50 transition-all">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold">Adicionar PDF</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Arquivos PDF (máx. 20MB)
+                      </p>
+                    </div>
+                  </div>
+                  <Input
+                    type="file"
+                    accept="application/pdf"
+                    onChange={(e) => handleFileUpload(e, "document" as "image")}
+                    disabled={uploading}
+                    className="cursor-pointer"
+                  />
+                </div>
+              </Card>
             </div>
 
             {uploading && (
@@ -455,17 +487,25 @@ export default function MediaSenderConfiguration() {
                         <div className="space-y-4">
                           <div className="flex items-start justify-between">
                             <div className="flex items-center gap-2">
-                              {media.type === "image" ? (
+                              {media.type === "image" && (
                                 <ImageIcon className="w-5 h-5 text-primary" />
-                              ) : (
+                              )}
+                              {media.type === "video" && (
                                 <Video className="w-5 h-5 text-primary" />
+                              )}
+                              {media.type === "document" && (
+                                <FileText className="w-5 h-5 text-primary" />
                               )}
                               <div className="flex-1 min-w-0">
                                 <p className="font-medium text-sm truncate">
                                   {media.fileName}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                  {media.type === "image" ? "Imagem" : "Vídeo"}
+                                  {media.type === "image"
+                                    ? "Imagem"
+                                    : media.type === "video"
+                                    ? "Vídeo"
+                                    : "PDF"}
                                 </p>
                               </div>
                             </div>
@@ -496,6 +536,30 @@ export default function MediaSenderConfiguration() {
                                 controls
                                 className="w-full h-48"
                               />
+                            </div>
+                          )}
+
+                          {media.type === "document" && (
+                            <div className="rounded-lg border bg-muted/40 p-3 flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <FileText className="w-5 h-5 text-primary" />
+                                <span className="text-sm truncate max-w-[220px]">
+                                  {media.fileName}
+                                </span>
+                              </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                asChild
+                              >
+                                <a
+                                  href={media.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  Abrir PDF
+                                </a>
+                              </Button>
                             </div>
                           )}
 
@@ -534,8 +598,8 @@ export default function MediaSenderConfiguration() {
                 <div className="text-center space-y-2">
                   <ImageIcon className="w-12 h-12 mx-auto text-muted-foreground" />
                   <p className="text-muted-foreground">
-                    Nenhuma mídia configurada ainda. Adicione imagens ou vídeos
-                    acima.
+                    Nenhuma mídia configurada ainda. Adicione imagens, vídeos ou
+                    PDFs acima.
                   </p>
                 </div>
               </Card>
