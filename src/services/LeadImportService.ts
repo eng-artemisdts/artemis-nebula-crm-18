@@ -71,6 +71,58 @@ export class LeadImportService {
       };
     }
 
+    const { data: instancesData } = await supabase
+      .from("whatsapp_instances")
+      .select("id, instance_name, status")
+      .eq("organization_id", organizationId)
+      .eq("status", "connected")
+      .limit(1);
+
+    const hasInstance = instancesData && instancesData.length > 0;
+    const leadsWithWhatsApp = leads.filter((lead) => lead.contact_whatsapp);
+    let validatedCount = 0;
+
+    if (hasInstance && leadsWithWhatsApp.length > 0 && !skipWhatsAppValidation) {
+      try {
+        const phoneNumbers = leadsWithWhatsApp.map((lead) =>
+          formatWhatsAppNumber(lead.contact_whatsapp!)
+        );
+
+        const { data: checkData, error: checkError } = await supabase.functions.invoke(
+          "evolution-check-whatsapp",
+          {
+            body: { numbers: phoneNumbers },
+          }
+        );
+
+        if (!checkError && checkData?.results) {
+          const validationMap = new Map<string, { jid: string; exists: boolean }>();
+          checkData.results.forEach((result: any, index: number) => {
+            if (result.exists && result.jid) {
+              validationMap.set(phoneNumbers[index], {
+                jid: result.jid,
+                exists: true,
+              });
+            }
+          });
+
+          leads.forEach((lead) => {
+            if (lead.contact_whatsapp) {
+              const formattedPhone = formatWhatsAppNumber(lead.contact_whatsapp);
+              const validation = validationMap.get(formattedPhone);
+              if (validation) {
+                (lead as any).remote_jid = validation.jid;
+                (lead as any).whatsapp_verified = true;
+                validatedCount++;
+              }
+            }
+          });
+        }
+      } catch (error) {
+        console.error("Erro ao validar WhatsApps durante importação:", error);
+      }
+    }
+
     const leadsToInsert = leads.map((lead) => ({
       name: lead.name,
       description: lead.description || null,
@@ -84,8 +136,8 @@ export class LeadImportService {
         : null,
       payment_amount: lead.payment_amount || null,
       organization_id: organizationId,
-      whatsapp_verified: false,
-      remote_jid: null,
+      whatsapp_verified: (lead as any).whatsapp_verified || false,
+      remote_jid: (lead as any).remote_jid || null,
       payment_status: "nao_criado",
     }));
 
@@ -120,13 +172,27 @@ export class LeadImportService {
         };
       }
 
+      let message = `${imported} lead(s) importado(s) com sucesso`;
+      
+      if (validatedCount > 0) {
+        message += `. ${validatedCount} lead(s) com WhatsApp validado automaticamente.`;
+      } else if (leadsWithWhatsApp.length > 0 && !hasInstance) {
+        message += ` ⚠️ Nenhuma instância WhatsApp conectada. Os leads com WhatsApp precisarão ser validados posteriormente.`;
+      } else if (leadsWithWhatsApp.length > 0) {
+        message += ` ⚠️ Alguns WhatsApps não puderam ser validados. Você pode validá-los posteriormente na lista de leads.`;
+      }
+
+      if (skipped > 0) {
+        message += ` ${skipped} lead(s) ignorado(s).`;
+      }
+
       return {
         success: true,
         totalRows,
         imported,
         errors,
         skipped,
-        message: `${imported} lead(s) importado(s) com sucesso${skipped > 0 ? `. ${skipped} lead(s) ignorado(s).` : "."}`,
+        message,
       };
     } catch (error: any) {
       console.error("Erro detalhado na importação:", error);

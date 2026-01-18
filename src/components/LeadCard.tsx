@@ -346,15 +346,15 @@ Se quiser saber mais, é só acessar:
       style={style}
       {...attributesWithoutClassName}
       {...listeners}
-      className="p-4 cursor-pointer hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/10 group min-w-0 w-full overflow-hidden"
+      className="p-5 cursor-pointer hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/10 group min-w-0 w-full overflow-hidden h-full flex flex-col"
       onClick={(e) => {
         if (!isDragging) {
           navigate(`/lead/${lead.id}`);
         }
       }}
     >
-      <div className="space-y-3">
-        <div>
+      <div className="flex flex-col flex-1 min-h-0">
+        <div className="mb-3">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -367,114 +367,122 @@ Se quiser saber mais, é só acessar:
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          <div className="mt-1.5">
+          <div className="mt-2">
             <StatusBadge status={lead.status as any} />
           </div>
         </div>
 
-        {lead.description && (
-          <p className="text-sm text-muted-foreground line-clamp-2 break-words overflow-hidden">{lead.description}</p>
-        )}
+        <div className="flex-1 flex flex-col min-h-0">
+          <div className="space-y-3">
+            {lead.description && (
+              <p className="text-sm text-muted-foreground line-clamp-2 break-words overflow-hidden">{lead.description}</p>
+            )}
 
-        <div className="flex flex-wrap gap-2">
-          {lead.category && (
-            <span className="inline-flex items-center px-2 py-1 rounded-md bg-secondary text-xs font-medium break-all">
-              {lead.category}
-            </span>
-          )}
-          {lead.source && (
-            <span className="inline-flex items-center px-2 py-1 rounded-md bg-muted text-xs break-all">
-              {lead.source}
-            </span>
+            <div className="flex flex-wrap gap-2">
+              {lead.category && (
+                <span className="inline-flex items-center px-2 py-1 rounded-md bg-secondary text-xs font-medium break-all">
+                  {lead.category}
+                </span>
+              )}
+              {lead.source && (
+                <span className="inline-flex items-center px-2 py-1 rounded-md bg-muted text-xs break-all">
+                  {lead.source}
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 text-sm text-muted-foreground">
+              {lead.contact_email && (
+                <a
+                  href={`mailto:${lead.contact_email}`}
+                  className="flex items-center gap-1 hover:text-primary transition-colors min-w-0 flex-1 sm:flex-initial"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Mail className="w-4 h-4 flex-shrink-0" />
+                  <span className="break-all min-w-0">{lead.contact_email}</span>
+                </a>
+              )}
+              {lead.contact_whatsapp && (
+                <a
+                  href={`https://wa.me/${formatWhatsAppNumber(lead.contact_whatsapp)}?text=${encodeURIComponent(`Olá ${lead.name}! Tudo bem?`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 hover:text-primary transition-colors min-w-0 flex-1 sm:flex-initial"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Phone className="w-4 h-4 flex-shrink-0" />
+                  <span className="break-all min-w-0">{formatPhoneDisplay(lead.contact_whatsapp)}</span>
+                </a>
+              )}
+            </div>
+
+            {lead.payment_amount && (
+              <div className="flex flex-col p-2.5 bg-accent/10 rounded-md gap-1 min-w-0">
+                <span className="text-sm font-medium text-muted-foreground">Valor da Proposta:</span>
+                <span className="text-lg font-bold text-accent">
+                  {new Intl.NumberFormat("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  }).format(lead.payment_amount)}
+                </span>
+              </div>
+            )}
+
+            {lead.status === "pago" && lead.paid_at && (
+              <div className="flex items-center gap-2 p-2.5 bg-status-pago/10 rounded-md">
+                <CheckCircle className="w-4 h-4 text-status-pago flex-shrink-0" />
+                <span className="text-xs text-status-pago break-words min-w-0">
+                  Pago em {format(new Date(lead.paid_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {(needsWhatsAppValidation || canStartConversation) && (
+            <div className="mt-auto pt-4 space-y-2">
+              {needsWhatsAppValidation && (
+                <Button
+                  onClick={handleValidateWhatsApp}
+                  disabled={isValidatingWhatsApp}
+                  variant="outline"
+                  className="w-full gap-2 border-amber-500/50 text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950"
+                  size="sm"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isValidatingWhatsApp ? "animate-spin" : ""}`} />
+                  {isValidatingWhatsApp ? "Validando..." : "Validar WhatsApp"}
+                </Button>
+              )}
+
+              {canStartConversation && (
+                <>
+                  <Button
+                    onClick={handleShowPreview}
+                    disabled={isStartingConversation}
+                    className="w-full gap-2"
+                    size="sm"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    Iniciar Conversa
+                  </Button>
+                  <MessagePreviewDialog
+                    open={showPreview}
+                    onOpenChange={setShowPreview}
+                    onConfirm={handleConfirmSend}
+                    message={previewMessage}
+                    imageUrl={previewImageUrl}
+                    leadName={lead.name}
+                    isLoading={isStartingConversation}
+                    instances={availableInstances}
+                    selectedInstanceName={previewInstanceName}
+                    onInstanceChange={setPreviewInstanceName}
+                  />
+                </>
+              )}
+            </div>
           )}
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 text-sm text-muted-foreground">
-          {lead.contact_email && (
-            <a
-              href={`mailto:${lead.contact_email}`}
-              className="flex items-center gap-1 hover:text-primary transition-colors min-w-0 flex-1 sm:flex-initial"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Mail className="w-4 h-4 flex-shrink-0" />
-              <span className="break-all min-w-0">{lead.contact_email}</span>
-            </a>
-          )}
-          {lead.contact_whatsapp && (
-            <a
-              href={`https://wa.me/${formatWhatsAppNumber(lead.contact_whatsapp)}?text=${encodeURIComponent(`Olá ${lead.name}! Tudo bem?`)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 hover:text-primary transition-colors min-w-0 flex-1 sm:flex-initial"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Phone className="w-4 h-4 flex-shrink-0" />
-              <span className="break-all min-w-0">{formatPhoneDisplay(lead.contact_whatsapp)}</span>
-            </a>
-          )}
-        </div>
-
-        {lead.payment_amount && (
-          <div className="flex flex-col p-2 bg-accent/10 rounded-md gap-1 min-w-0">
-            <span className="text-sm font-medium text-muted-foreground">Valor da Proposta:</span>
-            <span className="text-lg font-bold text-accent">
-              {new Intl.NumberFormat("pt-BR", {
-                style: "currency",
-                currency: "BRL",
-              }).format(lead.payment_amount)}
-            </span>
-          </div>
-        )}
-
-        {lead.status === "pago" && lead.paid_at && (
-          <div className="flex items-center gap-2 p-2 bg-status-pago/10 rounded-md">
-            <CheckCircle className="w-4 h-4 text-status-pago flex-shrink-0" />
-            <span className="text-xs text-status-pago break-words min-w-0">
-              Pago em {format(new Date(lead.paid_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-            </span>
-          </div>
-        )}
-
-        {needsWhatsAppValidation && (
-          <Button
-            onClick={handleValidateWhatsApp}
-            disabled={isValidatingWhatsApp}
-            variant="outline"
-            className="w-full gap-2 border-amber-500/50 text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950"
-            size="sm"
-          >
-            <RefreshCw className={`w-4 h-4 ${isValidatingWhatsApp ? "animate-spin" : ""}`} />
-            {isValidatingWhatsApp ? "Validando..." : "Validar WhatsApp"}
-          </Button>
-        )}
-
-        {canStartConversation && (
-          <>
-            <Button
-              onClick={handleShowPreview}
-              disabled={isStartingConversation}
-              className="w-full gap-2"
-              size="sm"
-            >
-              <MessageCircle className="w-4 h-4" />
-              Iniciar Conversa
-            </Button>
-            <MessagePreviewDialog
-              open={showPreview}
-              onOpenChange={setShowPreview}
-              onConfirm={handleConfirmSend}
-              message={previewMessage}
-              imageUrl={previewImageUrl}
-              leadName={lead.name}
-              isLoading={isStartingConversation}
-              instances={availableInstances}
-              selectedInstanceName={previewInstanceName}
-              onInstanceChange={setPreviewInstanceName}
-            />
-          </>
-        )}
-
-        <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/50 gap-2">
+        <div className="flex items-center justify-between text-xs text-muted-foreground pt-4 mt-4 border-t border-border/50 gap-2">
           <div className="flex items-center gap-1 min-w-0">
             <Clock className="w-3 h-3 flex-shrink-0" />
             <span className="whitespace-nowrap">{format(new Date(lead.created_at), "dd/MM/yyyy", { locale: ptBR })}</span>

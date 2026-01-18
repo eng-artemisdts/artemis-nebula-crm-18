@@ -36,7 +36,9 @@ import {
   TrendingUp,
   Users,
   FileText,
-  Sparkles
+  Sparkles,
+  Plus,
+  X
 } from "lucide-react";
 import { useOrganization } from "@/hooks/useOrganization";
 import { cleanPhoneNumber, formatPhoneDisplay, formatWhatsAppNumber, cn } from "@/lib/utils";
@@ -98,6 +100,7 @@ const LeadForm = () => {
     payment_stripe_id: "",
     payment_status: "nao_criado",
   });
+  const [customValues, setCustomValues] = useState<Array<{ value: string; description: string }>>([]);
 
   useEffect(() => {
     fetchCategories();
@@ -205,6 +208,18 @@ const LeadForm = () => {
         });
         setLeadRemoteJid(data.remote_jid);
         setLeadWhatsappVerified(data.whatsapp_verified || false);
+        
+        if (data.custom_values && Array.isArray(data.custom_values)) {
+          const formattedValues = data.custom_values.map((item: any) => ({
+            value: typeof item.value === 'number' 
+              ? item.value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+              : (item.value || ""),
+            description: item.description || ""
+          }));
+          setCustomValues(formattedValues);
+        } else {
+          setCustomValues([]);
+        }
       }
     } catch (error: any) {
       toast.error("Erro ao carregar lead");
@@ -223,6 +238,47 @@ const LeadForm = () => {
     ];
     const filledFields = fields.filter(f => f && f.trim() !== "").length;
     return Math.round((filledFields / fields.length) * 100);
+  };
+
+  const formatCustomValuesForSave = () => {
+    return customValues
+      .filter(item => item.value && item.value.trim() !== "")
+      .map(item => {
+        const numericValue = item.value.replace(/\./g, "").replace(",", ".");
+        const parsedValue = parseFloat(numericValue);
+        return {
+          value: isNaN(parsedValue) ? item.value : parsedValue,
+          description: item.description || ""
+        };
+      });
+  };
+
+  const addCustomValue = () => {
+    setCustomValues([...customValues, { value: "", description: "" }]);
+  };
+
+  const removeCustomValue = (index: number) => {
+    setCustomValues(customValues.filter((_, i) => i !== index));
+  };
+
+  const updateCustomValue = (index: number, field: "value" | "description", newValue: string) => {
+    const updated = [...customValues];
+    if (field === "value") {
+      const cleaned = newValue.replace(/\D/g, "");
+      if (cleaned === "") {
+        updated[index] = { ...updated[index], value: "" };
+      } else {
+        const amount = parseFloat(cleaned) / 100;
+        const formatted = amount.toLocaleString("pt-BR", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+        updated[index] = { ...updated[index], value: formatted };
+      }
+    } else {
+      updated[index] = { ...updated[index], description: newValue };
+    }
+    setCustomValues(updated);
   };
 
   const handleSubmitWithoutValidation = async () => {
@@ -274,6 +330,7 @@ const LeadForm = () => {
         industry: formData.industry || null,
         annual_revenue: annualRevenue,
         number_of_employees: formData.number_of_employees ? parseInt(formData.number_of_employees) : null,
+        custom_values: formatCustomValuesForSave(),
         ...(isEdit ? {} : { organization_id: organization?.id }),
       };
 
@@ -327,71 +384,47 @@ const LeadForm = () => {
 
       let remoteJid = null;
       let whatsappVerified = false;
+      let hasInstance = false;
+
+      const { data: instancesData } = await supabase
+        .from("whatsapp_instances")
+        .select("id, instance_name, status")
+        .eq("organization_id", organization?.id)
+        .eq("status", "connected")
+        .limit(1);
+
+      hasInstance = instancesData && instancesData.length > 0;
 
       if (cleanedPhone && !invalidWhatsAppConfirmed) {
         try {
-          const { data: checkData, error: checkError } = await supabase.functions.invoke('evolution-check-whatsapp', {
-            body: { numbers: [cleanedPhone] }
-          });
 
-          if (checkError) {
-            console.error("Error checking WhatsApp:", checkError);
+          if (hasInstance) {
+            const { data: checkData, error: checkError } = await supabase.functions.invoke('evolution-check-whatsapp', {
+              body: { numbers: [cleanedPhone] }
+            });
 
-            const isNoInstanceError = checkError.message?.includes("No connected WhatsApp instance") ||
-              checkError.message?.includes("connected WhatsApp instance");
-
-            if (isNoInstanceError) {
-              setLoading(false);
-              setShowWhatsAppDialog(true);
-              return;
+            if (checkError) {
+              console.error("Error checking WhatsApp:", checkError);
+              toast.warning("Não foi possível validar o WhatsApp automaticamente. O lead será criado sem validação.");
+              remoteJid = null;
+              whatsappVerified = false;
+            } else if (checkData?.results?.[0]?.exists && checkData.results[0].jid) {
+              remoteJid = checkData.results[0].jid;
+              whatsappVerified = true;
+              console.log("WhatsApp verified, jid:", remoteJid);
+            } else {
+              toast.warning("Este número não está registrado no WhatsApp. O lead será criado sem validação.");
+              remoteJid = null;
+              whatsappVerified = false;
             }
-
-            const shouldContinue = window.confirm(
-              "Não foi possível validar o número no WhatsApp. Deseja cadastrar mesmo assim?\n\n" +
-              "⚠️ Atenção: Não será possível enviar mensagens automaticamente para este lead."
-            );
-
-            if (!shouldContinue) {
-              setLoading(false);
-              return;
-            }
-
-            remoteJid = null;
-            whatsappVerified = false;
-          } else if (checkData?.results?.[0]?.exists && checkData.results[0].jid) {
-            remoteJid = checkData.results[0].jid;
-            whatsappVerified = true;
-            console.log("WhatsApp verified, jid:", remoteJid);
           } else {
-            const shouldContinue = window.confirm(
-              "⚠️ Este número não está registrado no WhatsApp!\n\n" +
-              "Deseja cadastrar o lead mesmo assim?\n\n" +
-              "Nota: Não será possível enviar mensagens automaticamente para este lead."
-            );
-
-            if (!shouldContinue) {
-              setLoading(false);
-              return;
-            }
-
-            setInvalidWhatsAppConfirmed(true);
+            toast.info("⚠️ Nenhuma instância WhatsApp conectada na organização. O lead será criado, mas será necessário validar o WhatsApp posteriormente para agendar interações.");
             remoteJid = null;
             whatsappVerified = false;
           }
         } catch (error) {
           console.error("Error validating WhatsApp:", error);
-
-          const shouldContinue = window.confirm(
-            "Erro ao validar WhatsApp. Deseja cadastrar mesmo assim?\n\n" +
-            "⚠️ Verifique se há uma instância WhatsApp conectada.\n" +
-            "Não será possível enviar mensagens automaticamente para este lead."
-          );
-
-          if (!shouldContinue) {
-            setLoading(false);
-            return;
-          }
-
+          toast.warning("Erro ao validar WhatsApp. O lead será criado sem validação.");
           remoteJid = null;
           whatsappVerified = false;
         }
@@ -430,6 +463,7 @@ const LeadForm = () => {
         industry: formData.industry || null,
         annual_revenue: annualRevenue,
         number_of_employees: formData.number_of_employees ? parseInt(formData.number_of_employees) : null,
+        custom_values: formatCustomValuesForSave(),
         ...(isEdit ? {} : { organization_id: organization?.id }),
       };
 
@@ -445,8 +479,10 @@ const LeadForm = () => {
 
         if (whatsappVerified) {
           toast.success("Lead atualizado com sucesso! ✅ WhatsApp verificado - pronto para agendar interações.");
+        } else if (cleanedPhone && !hasInstance) {
+          toast.success("Lead atualizado com sucesso! ⚠️ Para validar o WhatsApp e agendar interações, configure uma instância WhatsApp conectada na organização.");
         } else if (cleanedPhone) {
-          toast.warning("Lead atualizado! ⚠️ WhatsApp não verificado. Não será possível agendar interações ou iniciar conversas automáticas até que o WhatsApp seja verificado. Configure uma instância WhatsApp conectada e tente novamente.");
+          toast.success("Lead atualizado com sucesso! ⚠️ WhatsApp não verificado. Você pode validar posteriormente na lista de leads.");
         } else {
           toast.success("Lead atualizado com sucesso! ⚠️ Para agendar interações, adicione um WhatsApp válido.");
         }
@@ -459,8 +495,10 @@ const LeadForm = () => {
 
         if (whatsappVerified) {
           toast.success("Lead criado com sucesso! ✅ WhatsApp verificado - pronto para agendar interações.");
+        } else if (cleanedPhone && !hasInstance) {
+          toast.success("Lead criado com sucesso! ⚠️ Para validar o WhatsApp e agendar interações, configure uma instância WhatsApp conectada na organização.");
         } else if (cleanedPhone) {
-          toast.warning("Lead criado! ⚠️ WhatsApp não verificado. Não será possível agendar interações ou iniciar conversas automáticas até que o WhatsApp seja verificado. Configure uma instância WhatsApp conectada e tente novamente.");
+          toast.success("Lead criado com sucesso! ⚠️ WhatsApp não verificado. Você pode validar posteriormente na lista de leads.");
         } else {
           toast.success("Lead criado com sucesso! ⚠️ Para agendar interações, adicione um WhatsApp válido.");
         }
@@ -1147,6 +1185,80 @@ const LeadForm = () => {
                     Valor individual desta proposta em Reais
                   </p>
                 </div>
+
+                <Separator />
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-base font-semibold">Valores Personalizados</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addCustomValue}
+                      className="gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Adicionar Valor
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Defina valores personalizados com descrições para este lead (ex: valor inicial, desconto, adicional, etc.)
+                  </p>
+
+                  {customValues.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+                      <DollarSign className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Nenhum valor personalizado adicionado</p>
+                      <p className="text-xs mt-1">Clique em "Adicionar Valor" para começar</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {customValues.map((item, index) => (
+                        <Card key={index} className="p-4 border-2">
+                          <div className="grid gap-4 md:grid-cols-[1fr_2fr_auto] items-end">
+                            <div className="space-y-2">
+                              <Label htmlFor={`custom-value-${index}`}>Valor (R$)</Label>
+                              <div className="relative">
+                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                <Input
+                                  id={`custom-value-${index}`}
+                                  type="text"
+                                  value={item.value}
+                                  onChange={(e) => updateCustomValue(index, "value", e.target.value)}
+                                  placeholder="0,00"
+                                  className="pl-10 transition-all focus:scale-[1.02]"
+                                />
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor={`custom-description-${index}`}>Descrição</Label>
+                              <Input
+                                id={`custom-description-${index}`}
+                                type="text"
+                                value={item.description}
+                                onChange={(e) => updateCustomValue(index, "description", e.target.value)}
+                                placeholder="Ex: Valor inicial, Desconto, Adicional..."
+                                className="transition-all focus:scale-[1.02]"
+                              />
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeCustomValue(index)}
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <Separator />
 
                 <div className="space-y-2">
                   <Label htmlFor="notes">Notas Adicionais</Label>

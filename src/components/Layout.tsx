@@ -19,6 +19,8 @@ import {
   Brain,
   Play,
   TrendingUp,
+  Clock,
+  CalendarDays,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -251,37 +253,54 @@ const MenuItemWithSubItems = ({
 };
 
 const menuItems: MenuItem[] = [
-  {
-    title: "Funil de Vendas",
-    icon: TrendingUp,
-    subItems: [
-      { title: "Painel", url: "/dashboard", icon: Home },
-      { title: "Funil de Vendas", url: "/status-manager", icon: TrendingUp },
-    ],
-  },
-  { title: "Calendário", url: "/calendar", icon: Calendar },
+  { title: "Painel", url: "/dashboard", icon: Home },
   {
     title: "Leads",
     icon: Users,
     subItems: [
       { title: "Todos os Leads", url: "/leads", icon: List },
       { title: "Buscar Leads", url: "/lead-search", icon: SearchCheck },
+      { title: "Categorias", url: "/categories", icon: FolderKanban },
+      {
+        title: "Gerenciar Categorias",
+        url: "/category-manager",
+        icon: FolderKanban,
+      },
+    ],
+  },
+  { title: "Funil de Vendas", url: "/status-manager", icon: TrendingUp },
+  { title: "Calendário", url: "/calendar", icon: Calendar },
+  {
+    title: "WhatsApp",
+    icon: MessageCircle,
+    subItems: [
+      { title: "Conectar WhatsApp", url: "/whatsapp", icon: Smartphone },
+      {
+        title: "Mensagens Agendadas",
+        url: "/schedule-messages",
+        icon: Clock,
+      },
+      {
+        title: "Mensagem Padrão",
+        url: "/message-configuration",
+        icon: MessageSquare,
+      },
+      { title: "Chat", url: "/chat", icon: MessageCircle, comingSoon: true },
+    ],
+  },
+  {
+    title: "Agendamentos",
+    icon: CalendarDays,
+    subItems: [
       {
         title: "Agendar Interações",
         url: "/schedule-interactions",
         icon: Calendar,
       },
       {
-        title: "Categorias",
-        icon: FolderKanban,
-        subItems: [
-          { title: "Categorias", url: "/categories", icon: Users },
-          {
-            title: "Gerenciar Categorias",
-            url: "/category-manager",
-            icon: FolderKanban,
-          },
-        ],
+        title: "Agendar Mensagens",
+        url: "/schedule-messages",
+        icon: MessageSquare,
       },
     ],
   },
@@ -301,19 +320,6 @@ const menuItems: MenuItem[] = [
         url: "/playground",
         icon: Play,
       },
-    ],
-  },
-  {
-    title: "Mensagens",
-    icon: MessageSquare,
-    subItems: [
-      {
-        title: "Mensagem Padrão",
-        url: "/message-configuration",
-        icon: MessageSquare,
-      },
-      { title: "Chat", url: "/chat", icon: MessageCircle, comingSoon: true },
-      { title: "Conectar WhatsApp", url: "/whatsapp", icon: Smartphone },
     ],
   },
   { title: "Configurações", url: "/settings", icon: Settings },

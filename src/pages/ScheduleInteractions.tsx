@@ -39,6 +39,10 @@ import {
   Bot,
   Users,
   Settings2,
+  Grid3x3,
+  List,
+  Filter,
+  Smartphone,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -56,6 +60,7 @@ import {
 } from "@/components/ui/sheet";
 import { LeadsDragDrop } from "@/components/LeadsDragDrop";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
+import { DatePicker } from "@/components/ui/date-picker";
 
 interface ScheduledInteraction {
   leadId: string;
@@ -111,8 +116,14 @@ const ScheduleInteractions = () => {
     ScheduledInteractionRow[]
   >([]);
   const [loadingScheduled, setLoadingScheduled] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("not_cancelled");
   const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
+  const [scheduledDateFilterStart, setScheduledDateFilterStart] = useState<string>("");
+  const [scheduledDateFilterEnd, setScheduledDateFilterEnd] = useState<string>("");
+  const [aiInteractionFilter, setAiInteractionFilter] = useState<string>("all");
+  const [instanceFilter, setInstanceFilter] = useState<string>("all");
+  const [availableInstances, setAvailableInstances] = useState<string[]>([]);
   const [aiInteractionSettings, setAiInteractionSettings] = useState<
     AIInteractionSetting[]
   >([]);
@@ -122,13 +133,84 @@ const ScheduleInteractions = () => {
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
   const [leadsSheetOpen, setLeadsSheetOpen] = useState(false);
   const [searchAvailableLeads, setSearchAvailableLeads] = useState("");
+  const [dateFilterStart, setDateFilterStart] = useState<string>("");
+  const [dateFilterEnd, setDateFilterEnd] = useState<string>("");
+  const [remoteJidFilter, setRemoteJidFilter] = useState<string>("all");
+  const [sheetWidth, setSheetWidth] = useState<number>(512);
+  const [isResizing, setIsResizing] = useState(false);
 
-  useEffect(() => {
-    fetchAiInteractionSettings();
-    if (activeTab === "schedule") {
-      fetchAvailableLeads();
+  const fetchAvailableLeads = useCallback(async () => {
+    setLoadingAvailableLeads(true);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("organization_id")
+        .eq("id", user.id)
+        .single();
+
+      if (!profile?.organization_id) {
+        setLoadingAvailableLeads(false);
+        return;
+      }
+
+      let query = supabase
+        .from("leads")
+        .select(
+          "id, name, contact_whatsapp, remote_jid, whatsapp_verified, created_at"
+        )
+        .eq("organization_id", profile.organization_id)
+        .or("is_test.is.null,is_test.eq.false")
+        .not("contact_whatsapp", "is", null)
+        .eq("whatsapp_verified", true);
+
+      if (remoteJidFilter === "with") {
+        query = query.not("remote_jid", "is", null);
+      } else if (remoteJidFilter === "without") {
+        query = query.is("remote_jid", null);
+      }
+
+      if (dateFilterStart) {
+        const startDate = new Date(dateFilterStart);
+        startDate.setHours(0, 0, 0, 0);
+        query = query.gte("created_at", startDate.toISOString());
+      }
+
+      if (dateFilterEnd) {
+        const endDate = new Date(dateFilterEnd);
+        endDate.setHours(23, 59, 59, 999);
+        query = query.lte("created_at", endDate.toISOString());
+      }
+
+      const { data, error } = await query
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (error) {
+        console.error("Erro na query:", error);
+        throw error;
+      }
+
+      const leadsData: AvailableLead[] = (data || []).map((lead) => ({
+        id: lead.id,
+        name: lead.name,
+        contact_whatsapp: lead.contact_whatsapp,
+        remote_jid: lead.remote_jid,
+        whatsapp_verified: lead.whatsapp_verified || false,
+      }));
+
+      setAvailableLeads(leadsData);
+    } catch (error: any) {
+      console.error("Erro ao carregar leads disponíveis:", error);
+      toast.error("Erro ao carregar leads disponíveis");
+    } finally {
+      setLoadingAvailableLeads(false);
     }
-  }, [activeTab]);
+  }, [dateFilterStart, dateFilterEnd, remoteJidFilter]);
 
   const computedScheduledLeads = useMemo(() => {
     if (availableLeads.length === 0 || selectedLeadIds.length === 0) {
@@ -185,56 +267,7 @@ const ScheduleInteractions = () => {
     });
   }, [computedScheduledLeads, selectedLeadIds.length]);
 
-  const fetchAvailableLeads = async () => {
-    setLoadingAvailableLeads(true);
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("organization_id")
-        .eq("id", user.id)
-        .single();
-
-      if (!profile?.organization_id) {
-        setLoadingAvailableLeads(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("leads")
-        .select("id, name, contact_whatsapp, remote_jid, whatsapp_verified")
-        .eq("organization_id", profile.organization_id)
-        .or("is_test.is.null,is_test.eq.false")
-        .not("contact_whatsapp", "is", null)
-        .not("remote_jid", "is", null)
-        .eq("whatsapp_verified", true)
-        .order("created_at", { ascending: false })
-        .limit(50);
-
-      if (error) throw error;
-
-      const leadsData: AvailableLead[] = (data || []).map((lead) => ({
-        id: lead.id,
-        name: lead.name,
-        contact_whatsapp: lead.contact_whatsapp,
-        remote_jid: lead.remote_jid,
-        whatsapp_verified: lead.whatsapp_verified || false,
-      }));
-
-      setAvailableLeads(leadsData);
-    } catch (error: any) {
-      console.error("Erro ao carregar leads disponíveis:", error);
-      toast.error("Erro ao carregar leads disponíveis");
-    } finally {
-      setLoadingAvailableLeads(false);
-    }
-  };
-
-  const fetchAiInteractionSettings = async () => {
+  const fetchAiInteractionSettings = useCallback(async () => {
     setLoadingSettings(true);
     try {
       const { data, error } = await supabase
@@ -254,7 +287,23 @@ const ScheduleInteractions = () => {
     } finally {
       setLoadingSettings(false);
     }
-  };
+  }, [defaultAiInteractionId]);
+
+  useEffect(() => {
+    fetchAiInteractionSettings();
+  }, [fetchAiInteractionSettings]);
+
+  useEffect(() => {
+    if (activeTab === "schedule") {
+      fetchAvailableLeads();
+    }
+  }, [
+    activeTab,
+    dateFilterStart,
+    dateFilterEnd,
+    remoteJidFilter,
+    fetchAvailableLeads,
+  ]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -328,7 +377,9 @@ const ScheduleInteractions = () => {
         .order("scheduled_at", { ascending: false });
 
       if (statusFilter !== "all") {
-        if (statusFilter === "executed") {
+        if (statusFilter === "not_cancelled") {
+          query = query.neq("status", "cancelled");
+        } else if (statusFilter === "executed") {
           query = query.eq("status", "completed");
         } else if (statusFilter === "cancelled_or_completed") {
           query = query.in("status", ["cancelled", "completed"]);
@@ -337,6 +388,26 @@ const ScheduleInteractions = () => {
         } else {
           query = query.eq("status", statusFilter);
         }
+      }
+
+      if (scheduledDateFilterStart) {
+        const startDate = new Date(scheduledDateFilterStart);
+        startDate.setHours(0, 0, 0, 0);
+        query = query.gte("scheduled_at", startDate.toISOString());
+      }
+
+      if (scheduledDateFilterEnd) {
+        const endDate = new Date(scheduledDateFilterEnd);
+        endDate.setHours(23, 59, 59, 999);
+        query = query.lte("scheduled_at", endDate.toISOString());
+      }
+
+      if (aiInteractionFilter !== "all") {
+        query = query.eq("ai_interaction_id", aiInteractionFilter);
+      }
+
+      if (instanceFilter !== "all") {
+        query = query.eq("instance_name", instanceFilter);
       }
 
       const { data, error } = await query;
@@ -369,13 +440,34 @@ const ScheduleInteractions = () => {
     } finally {
       setLoadingScheduled(false);
     }
-  }, [statusFilter]);
+  }, [
+    statusFilter,
+    scheduledDateFilterStart,
+    scheduledDateFilterEnd,
+    aiInteractionFilter,
+    instanceFilter,
+  ]);
+
+  const fetchAvailableInstances = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("whatsapp_instances")
+        .select("instance_name")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setAvailableInstances((data || []).map((i) => i.instance_name));
+    } catch (error: any) {
+      console.error("Erro ao carregar instâncias:", error);
+    }
+  }, []);
 
   useEffect(() => {
     if (activeTab === "view") {
       fetchScheduledInteractions();
+      fetchAvailableInstances();
     }
-  }, [activeTab, fetchScheduledInteractions]);
+  }, [activeTab, fetchScheduledInteractions, fetchAvailableInstances]);
 
   const handleCancelScheduled = async (interactionId: string) => {
     try {
@@ -426,8 +518,8 @@ const ScheduleInteractions = () => {
     );
   };
 
-  const filteredScheduledInteractions = scheduledInteractions.filter(
-    (interaction) => {
+  const filteredScheduledInteractions = useMemo(() => {
+    return scheduledInteractions.filter((interaction) => {
       const matchesSearch =
         searchQuery.trim() === "" ||
         interaction.lead_name
@@ -439,8 +531,8 @@ const ScheduleInteractions = () => {
         formatPhoneDisplay(interaction.lead_whatsapp).includes(searchQuery);
 
       return matchesSearch;
-    }
-  );
+    });
+  }, [scheduledInteractions, searchQuery]);
 
   const updateScheduledTime = (leadId: string, dateTime: string) => {
     setLeads((prevLeads) =>
@@ -546,6 +638,43 @@ const ScheduleInteractions = () => {
     setSelectedLeadIds((prev) => prev.filter((id) => id !== leadId));
   };
 
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  };
+
+  useEffect(() => {
+    const handleResize = (e: MouseEvent) => {
+      if (!isResizing) return;
+
+      const newWidth = window.innerWidth - e.clientX;
+      const minWidth = 400;
+      const maxWidth = window.innerWidth * 0.9;
+
+      if (newWidth >= minWidth && newWidth <= maxWidth) {
+        setSheetWidth(newWidth);
+      }
+    };
+
+    const handleResizeEnd = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      document.addEventListener("mousemove", handleResize);
+      document.addEventListener("mouseup", handleResizeEnd);
+      document.body.style.cursor = "ew-resize";
+      document.body.style.userSelect = "none";
+    }
+
+    return () => {
+      document.removeEventListener("mousemove", handleResize);
+      document.removeEventListener("mouseup", handleResizeEnd);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+  }, [isResizing]);
+
   return (
     <Layout>
       <div className="space-y-6 animate-fade-in">
@@ -604,8 +733,15 @@ const ScheduleInteractions = () => {
                     </SheetTrigger>
                     <SheetContent
                       side="right"
-                      className="w-full sm:max-w-lg overflow-y-auto"
+                      className="overflow-y-auto"
+                      style={{ width: `${sheetWidth}px`, maxWidth: "90vw" }}
                     >
+                      <div
+                        className="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-primary/20 transition-colors z-50 group"
+                        onMouseDown={handleResizeStart}
+                      >
+                        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-16 bg-border rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
                       <SheetHeader>
                         <SheetTitle>Selecionar Leads</SheetTitle>
                         <SheetDescription>
@@ -613,7 +749,91 @@ const ScheduleInteractions = () => {
                           arrastar os leads selecionados para reordená-los.
                         </SheetDescription>
                       </SheetHeader>
-                      <div className="mt-6">
+                      <div className="mt-6 space-y-4">
+                        <div className="space-y-4 border-b pb-4">
+                          <div className="flex items-center gap-2 mb-4">
+                            <Settings2 className="w-4 h-4 text-muted-foreground" />
+                            <h3 className="text-sm font-semibold">
+                              Filtros de Busca
+                            </h3>
+                          </div>
+                          <div className="space-y-3">
+                            <div className="space-y-2">
+                              <Label
+                                htmlFor="remote-jid-filter"
+                                className="text-sm font-medium"
+                              >
+                                Status do WhatsApp
+                              </Label>
+                              <Select
+                                value={remoteJidFilter}
+                                onValueChange={setRemoteJidFilter}
+                              >
+                                <SelectTrigger id="remote-jid-filter">
+                                  <SelectValue placeholder="Selecione o filtro" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">Todos</SelectItem>
+                                  <SelectItem value="with">
+                                    WhatsApp Disponível
+                                  </SelectItem>
+                                  <SelectItem value="without">
+                                    WhatsApp Não Disponível
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label
+                                  htmlFor="date-start"
+                                  className="text-sm font-medium flex items-center gap-1.5"
+                                >
+                                  <Calendar className="w-3.5 h-3.5" />
+                                  Data Inicial
+                                </Label>
+                                <DatePicker
+                                  value={dateFilterStart}
+                                  onChange={setDateFilterStart}
+                                  max={dateFilterEnd || undefined}
+                                  placeholder="Selecione a data inicial"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label
+                                  htmlFor="date-end"
+                                  className="text-sm font-medium flex items-center gap-1.5"
+                                >
+                                  <Calendar className="w-3.5 h-3.5" />
+                                  Data Final
+                                </Label>
+                                <DatePicker
+                                  value={dateFilterEnd}
+                                  onChange={setDateFilterEnd}
+                                  min={dateFilterStart || undefined}
+                                  placeholder="Selecione a data final"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                          {(dateFilterStart ||
+                            dateFilterEnd ||
+                            remoteJidFilter !== "all") && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setDateFilterStart("");
+                                setDateFilterEnd("");
+                                setRemoteJidFilter("all");
+                              }}
+                              className="w-full mt-3"
+                            >
+                              <X className="w-4 h-4 mr-2" />
+                              Limpar Filtros
+                            </Button>
+                          )}
+                        </div>
                         {loadingAvailableLeads ? (
                           <div className="text-center py-8 text-muted-foreground">
                             Carregando leads...
@@ -663,8 +883,15 @@ const ScheduleInteractions = () => {
                         </SheetTrigger>
                         <SheetContent
                           side="right"
-                          className="w-full sm:max-w-lg overflow-y-auto"
+                          className="overflow-y-auto"
+                          style={{ width: `${sheetWidth}px`, maxWidth: "90vw" }}
                         >
+                          <div
+                            className="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-primary/20 transition-colors z-50 group"
+                            onMouseDown={handleResizeStart}
+                          >
+                            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-16 bg-border rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </div>
                           <SheetHeader>
                             <SheetTitle>Selecionar Leads</SheetTitle>
                             <SheetDescription>
@@ -672,7 +899,91 @@ const ScheduleInteractions = () => {
                               arrastar os leads selecionados para reordená-los.
                             </SheetDescription>
                           </SheetHeader>
-                          <div className="mt-6">
+                          <div className="mt-6 space-y-4">
+                            <div className="space-y-4 border-b pb-4">
+                              <div className="flex items-center gap-2 mb-4">
+                                <Settings2 className="w-4 h-4 text-muted-foreground" />
+                                <h3 className="text-sm font-semibold">
+                                  Filtros de Busca
+                                </h3>
+                              </div>
+                              <div className="space-y-3">
+                                <div className="space-y-2">
+                                  <Label
+                                    htmlFor="remote-jid-filter-2"
+                                    className="text-sm font-medium"
+                                  >
+                                    Status do WhatsApp
+                                  </Label>
+                                  <Select
+                                    value={remoteJidFilter}
+                                    onValueChange={setRemoteJidFilter}
+                                  >
+                                    <SelectTrigger id="remote-jid-filter-2">
+                                      <SelectValue placeholder="Selecione o filtro" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="all">Todos</SelectItem>
+                                      <SelectItem value="with">
+                                        WhatsApp Conectado
+                                      </SelectItem>
+                                      <SelectItem value="without">
+                                        WhatsApp Não Conectado
+                                      </SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-2">
+                                    <Label
+                                      htmlFor="date-start-2"
+                                      className="text-sm font-medium flex items-center gap-1.5"
+                                    >
+                                      <Calendar className="w-3.5 h-3.5" />
+                                      Data Inicial
+                                    </Label>
+                                    <DatePicker
+                                      value={dateFilterStart}
+                                      onChange={setDateFilterStart}
+                                      max={dateFilterEnd || undefined}
+                                      placeholder="Selecione a data inicial"
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label
+                                      htmlFor="date-end-2"
+                                      className="text-sm font-medium flex items-center gap-1.5"
+                                    >
+                                      <Calendar className="w-3.5 h-3.5" />
+                                      Data Final
+                                    </Label>
+                                    <DatePicker
+                                      value={dateFilterEnd}
+                                      onChange={setDateFilterEnd}
+                                      min={dateFilterStart || undefined}
+                                      placeholder="Selecione a data final"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                              {(dateFilterStart ||
+                                dateFilterEnd ||
+                                remoteJidFilter !== "all") && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setDateFilterStart("");
+                                    setDateFilterEnd("");
+                                    setRemoteJidFilter("all");
+                                  }}
+                                  className="w-full mt-3"
+                                >
+                                  <X className="w-4 h-4 mr-2" />
+                                  Limpar Filtros
+                                </Button>
+                              )}
+                            </div>
                             {loadingAvailableLeads ? (
                               <div className="text-center py-8 text-muted-foreground">
                                 Carregando leads...
@@ -928,61 +1239,197 @@ const ScheduleInteractions = () => {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex gap-4 items-center">
-                  <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                    <Input
-                      placeholder="Buscar por lead ou configuração de IA..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10"
-                    />
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Filter className="w-4 h-4 text-muted-foreground" />
+                      <h3 className="text-sm font-semibold">Filtros</h3>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant={viewMode === "table" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setViewMode("table")}
+                        className="gap-2"
+                      >
+                        <List className="w-4 h-4" />
+                        Tabela
+                      </Button>
+                      <Button
+                        variant={viewMode === "cards" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setViewMode("cards")}
+                        className="gap-2"
+                      >
+                        <Grid3x3 className="w-4 h-4" />
+                        Cards
+                      </Button>
+                    </div>
                   </div>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[220px]">
-                      <SelectValue placeholder="Filtrar por status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos os status</SelectItem>
-                      <SelectItem value="pending">Pendente</SelectItem>
-                      <SelectItem value="active">Ativa</SelectItem>
-                      <SelectItem value="completed">Concluída</SelectItem>
-                      <SelectItem value="cancelled">Cancelada</SelectItem>
-                      <SelectItem value="executed">
-                        Executadas (Concluídas)
-                      </SelectItem>
-                      <SelectItem value="cancelled_or_completed">
-                        Canceladas ou Concluídas
-                      </SelectItem>
-                      <SelectItem value="pending_or_active">
-                        Pendentes ou Ativas
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+
+                  <div className="flex gap-4 items-center flex-wrap">
+                    <div className="flex-1 relative min-w-[250px]">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                      <Input
+                        placeholder="Buscar por lead ou configuração de IA..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="w-[200px]">
+                        <SelectValue placeholder="Filtrar por status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos os status</SelectItem>
+                        <SelectItem value="not_cancelled">
+                          Excluir Canceladas
+                        </SelectItem>
+                        <SelectItem value="pending">Pendente</SelectItem>
+                        <SelectItem value="active">Ativa</SelectItem>
+                        <SelectItem value="completed">Concluída</SelectItem>
+                        <SelectItem value="cancelled">Cancelada</SelectItem>
+                        <SelectItem value="executed">
+                          Executadas (Concluídas)
+                        </SelectItem>
+                        <SelectItem value="cancelled_or_completed">
+                          Canceladas ou Concluídas
+                        </SelectItem>
+                        <SelectItem value="pending_or_active">
+                          Pendentes ou Ativas
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="scheduled-date-start"
+                        className="text-sm font-medium flex items-center gap-1.5"
+                      >
+                        <Calendar className="w-3.5 h-3.5" />
+                        Data Inicial
+                      </Label>
+                      <DatePicker
+                        value={scheduledDateFilterStart}
+                        onChange={setScheduledDateFilterStart}
+                        max={scheduledDateFilterEnd || undefined}
+                        placeholder="Data inicial"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="scheduled-date-end"
+                        className="text-sm font-medium flex items-center gap-1.5"
+                      >
+                        <Calendar className="w-3.5 h-3.5" />
+                        Data Final
+                      </Label>
+                      <DatePicker
+                        value={scheduledDateFilterEnd}
+                        onChange={setScheduledDateFilterEnd}
+                        min={scheduledDateFilterStart || undefined}
+                        placeholder="Data final"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="ai-interaction-filter"
+                        className="text-sm font-medium flex items-center gap-1.5"
+                      >
+                        <Bot className="w-3.5 h-3.5" />
+                        Agente de IA
+                      </Label>
+                      <Select
+                        value={aiInteractionFilter}
+                        onValueChange={setAiInteractionFilter}
+                      >
+                        <SelectTrigger id="ai-interaction-filter">
+                          <SelectValue placeholder="Todos os agentes" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos os agentes</SelectItem>
+                          {aiInteractionSettings.map((setting) => (
+                            <SelectItem key={setting.id} value={setting.id}>
+                              {setting.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="instance-filter"
+                        className="text-sm font-medium flex items-center gap-1.5"
+                      >
+                        <Smartphone className="w-3.5 h-3.5" />
+                        Instância
+                      </Label>
+                      <Select
+                        value={instanceFilter}
+                        onValueChange={setInstanceFilter}
+                      >
+                        <SelectTrigger id="instance-filter">
+                          <SelectValue placeholder="Todas as instâncias" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todas as instâncias</SelectItem>
+                          {availableInstances.map((instance) => (
+                            <SelectItem key={instance} value={instance}>
+                              {instance}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {(scheduledDateFilterStart ||
+                    scheduledDateFilterEnd ||
+                    aiInteractionFilter !== "all" ||
+                    instanceFilter !== "all") && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setScheduledDateFilterStart("");
+                        setScheduledDateFilterEnd("");
+                        setAiInteractionFilter("all");
+                        setInstanceFilter("all");
+                      }}
+                      className="gap-2"
+                    >
+                      <X className="w-4 h-4" />
+                      Limpar Filtros
+                    </Button>
+                  )}
                 </div>
 
                 {loadingScheduled ? (
                   <div className="text-center py-8 text-muted-foreground">
                     Carregando interações agendadas...
                   </div>
-                ) : (
-                  <div className="border rounded-lg overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Lead</TableHead>
-                          <TableHead>WhatsApp</TableHead>
-                          <TableHead>Data/Hora Agendada</TableHead>
-                          <TableHead className="min-w-[200px]">
-                            Configuração de IA
-                          </TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Ações</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredScheduledInteractions.length > 0 ? (
-                          filteredScheduledInteractions.map((interaction) => (
+                ) : filteredScheduledInteractions.length > 0 ? (
+                  viewMode === "table" ? (
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Lead</TableHead>
+                            <TableHead>WhatsApp</TableHead>
+                            <TableHead>Data/Hora Agendada</TableHead>
+                            <TableHead className="min-w-[200px]">
+                              Configuração de IA
+                            </TableHead>
+                            <TableHead>Instância</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Ações</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredScheduledInteractions.map((interaction) => (
                             <TableRow key={interaction.id}>
                               <TableCell className="font-medium">
                                 {interaction.lead_name}
@@ -1023,6 +1470,11 @@ const ScheduleInteractions = () => {
                                 </div>
                               </TableCell>
                               <TableCell>
+                                <span className="text-sm text-muted-foreground">
+                                  {interaction.instance_name || "-"}
+                                </span>
+                              </TableCell>
+                              <TableCell>
                                 {getStatusBadge(interaction.status)}
                               </TableCell>
                               <TableCell>
@@ -1046,21 +1498,95 @@ const ScheduleInteractions = () => {
                                 )}
                               </TableCell>
                             </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell
-                              colSpan={6}
-                              className="text-center text-muted-foreground py-8"
-                            >
-                              {searchQuery.trim() || statusFilter !== "all"
-                                ? "Nenhuma interação encontrada com os filtros aplicados"
-                                : "Nenhuma interação agendada"}
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {filteredScheduledInteractions.map((interaction) => (
+                        <Card key={interaction.id}>
+                          <CardHeader>
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <CardTitle className="text-lg">
+                                  {interaction.lead_name}
+                                </CardTitle>
+                                <CardDescription className="mt-1">
+                                  {interaction.lead_whatsapp
+                                    ? formatPhoneDisplay(
+                                        interaction.lead_whatsapp
+                                      )
+                                    : "Sem WhatsApp"}
+                                </CardDescription>
+                              </div>
+                              {getStatusBadge(interaction.status)}
+                            </div>
+                          </CardHeader>
+                          <CardContent className="space-y-3">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Calendar className="w-4 h-4" />
+                                <span className="font-medium">Agendado para:</span>
+                              </div>
+                              <div className="pl-6">
+                                <div className="font-medium">
+                                  {format(
+                                    new Date(interaction.scheduled_at),
+                                    "dd/MM/yyyy 'às' HH:mm",
+                                    { locale: ptBR }
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Bot className="w-4 h-4" />
+                                <span className="font-medium">Agente:</span>
+                              </div>
+                              <div className="pl-6 text-sm">
+                                {interaction.ai_interaction_name}
+                              </div>
+                            </div>
+                            {interaction.instance_name && (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <Smartphone className="w-4 h-4" />
+                                  <span className="font-medium">Instância:</span>
+                                </div>
+                                <div className="pl-6 text-sm">
+                                  {interaction.instance_name}
+                                </div>
+                              </div>
+                            )}
+                            {interaction.status === "pending" && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  handleCancelScheduled(interaction.id)
+                                }
+                                className="w-full gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <X className="w-4 h-4" />
+                                Cancelar
+                              </Button>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground border rounded-lg">
+                    {searchQuery.trim() ||
+                    statusFilter !== "not_cancelled" ||
+                    scheduledDateFilterStart ||
+                    scheduledDateFilterEnd ||
+                    aiInteractionFilter !== "all" ||
+                    instanceFilter !== "all"
+                      ? "Nenhuma interação encontrada com os filtros aplicados"
+                      : "Nenhuma interação agendada"}
                   </div>
                 )}
 
