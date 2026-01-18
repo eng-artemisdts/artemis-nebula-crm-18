@@ -258,6 +258,7 @@ export type Database = {
           whatsapp_verified: boolean | null
           zip_code: string | null
           address: string | null
+          custom_values: Json | null
         }
         Insert: {
           ai_interaction_id?: string | null
@@ -295,6 +296,7 @@ export type Database = {
           whatsapp_verified?: boolean | null
           zip_code?: string | null
           address?: string | null
+          custom_values?: Json | null
         }
         Update: {
           ai_interaction_id?: string | null
@@ -332,6 +334,7 @@ export type Database = {
           whatsapp_verified?: boolean | null
           zip_code?: string | null
           address?: string | null
+          custom_values?: Json | null
         }
         Relationships: [
           {
