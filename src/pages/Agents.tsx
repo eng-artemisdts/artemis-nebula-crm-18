@@ -30,6 +30,9 @@ import {
   LayoutGrid,
   List,
   Star,
+  Download,
+  Upload,
+  Loader2,
 } from "lucide-react";
 import { ComponentRepository } from "@/services/components/ComponentRepository";
 import {
@@ -41,11 +44,22 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AgentViewModal } from "@/components/agents/AgentViewModal";
 import { AgentWithComponents } from "@/components/agents/types";
+import { AgentExportImportService } from "@/services/agents/AgentExportImportService";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useOrganization } from "@/hooks/useOrganization";
 
 type ViewMode = "compact" | "detailed";
 
 const Agents = () => {
   const navigate = useNavigate();
+  const { organization } = useOrganization();
   const [agents, setAgents] = useState<AgentWithComponents[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedAgent, setSelectedAgent] =
@@ -56,7 +70,11 @@ const Agents = () => {
     const saved = localStorage.getItem("agentViewMode");
     return (saved as ViewMode) || "detailed";
   });
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const componentRepository = useMemo(() => new ComponentRepository(), []);
+  const exportImportService = useMemo(() => new AgentExportImportService(), []);
 
   useEffect(() => {
     localStorage.setItem("agentViewMode", viewMode);
@@ -226,6 +244,81 @@ const Agents = () => {
     }
   };
 
+  const handleExport = async (agentId: string) => {
+    try {
+      const exportedAgent = await exportImportService.exportAgent(agentId);
+      exportImportService.downloadAsJson(exportedAgent);
+      toast.success("Agente exportado com sucesso!");
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Erro desconhecido";
+      toast.error(`Erro ao exportar agente: ${errorMessage}`);
+      console.error(error);
+    }
+  };
+
+  const handleImport = async (file: File) => {
+    if (!organization?.id) {
+      toast.error("Organização não encontrada");
+      return;
+    }
+
+    if (!file.name.endsWith('.json') && file.type !== 'application/json') {
+      toast.error("Por favor, selecione um arquivo JSON válido");
+      return;
+    }
+
+    setImporting(true);
+    try {
+      const exportedAgent = await exportImportService.parseJsonFile(file);
+      await exportImportService.importAgent(exportedAgent, organization.id);
+      toast.success("Agente importado com sucesso!");
+      setImportDialogOpen(false);
+      fetchAgents();
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Erro desconhecido";
+      toast.error(`Erro ao importar agente: ${errorMessage}`);
+      console.error(error);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    const jsonFile = files.find(
+      (file) => file.name.endsWith('.json') || file.type === 'application/json'
+    );
+
+    if (jsonFile) {
+      handleImport(jsonFile);
+    } else {
+      toast.error("Por favor, solte um arquivo JSON válido");
+    }
+  };
+
   const getComponentIcon = (identifier: string) => {
     const icons: Record<string, React.ReactNode> = {
       email_sender: <Mail className="w-4 h-4" />,
@@ -331,6 +424,15 @@ const Agents = () => {
                 <span className="text-xs">Detalhado</span>
               </Button>
             </div>
+            <Button
+              variant="outline"
+              size="lg"
+              className="gap-2 transition-all hover:scale-105"
+              onClick={() => setImportDialogOpen(true)}
+            >
+              <Upload className="w-5 h-5" />
+              Importar
+            </Button>
             <Button
               size="lg"
               className="gap-2 transition-all hover:scale-105"
@@ -509,6 +611,15 @@ const Agents = () => {
                           >
                             <Star className={`w-4 h-4 mr-2 ${defaultAgentId === agent.id ? 'fill-yellow-400 text-yellow-400' : ''}`} />
                             {defaultAgentId === agent.id ? 'Remover como padrão' : 'Definir como padrão'}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleExport(agent.id);
+                            }}
+                          >
+                            <Download className="w-4 h-4 mr-2" />
+                            Exportar
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={(e) => {
@@ -779,6 +890,15 @@ const Agents = () => {
                           <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation();
+                              handleExport(agent.id);
+                            }}
+                          >
+                            <Download className="w-4 h-4 mr-2" />
+                            Exportar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
                               handleDelete(agent.id);
                             }}
                             className="text-destructive"
@@ -1030,6 +1150,94 @@ const Agents = () => {
           </div>
         )}
       </div>
+
+      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Importar Agente</DialogTitle>
+            <DialogDescription>
+              Selecione um arquivo JSON exportado para importar um agente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div
+              onDragEnter={handleDragEnter}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`flex items-center justify-center w-full transition-all duration-200 ${
+                isDragging
+                  ? "border-primary bg-primary/5 scale-[1.02]"
+                  : "border-border hover:bg-muted/50"
+              }`}
+            >
+              <label
+                htmlFor="import-file"
+                className={`flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer transition-all duration-200 ${
+                  isDragging
+                    ? "border-primary bg-primary/10"
+                    : "border-border hover:border-primary/50"
+                } ${importing ? "opacity-50 cursor-not-allowed" : ""}`}
+              >
+                <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4">
+                  {importing ? (
+                    <>
+                      <Loader2 className="w-8 h-8 mb-2 text-primary animate-spin" />
+                      <p className="mb-2 text-sm font-medium text-foreground">
+                        Importando agente...
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <Upload
+                        className={`w-8 h-8 mb-2 transition-colors ${
+                          isDragging
+                            ? "text-primary"
+                            : "text-muted-foreground"
+                        }`}
+                      />
+                      <p className="mb-2 text-sm text-foreground">
+                        <span className="font-semibold">
+                          Clique para selecionar
+                        </span>{" "}
+                        ou arraste o arquivo aqui
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Apenas arquivos JSON
+                      </p>
+                    </>
+                  )}
+                </div>
+                <input
+                  id="import-file"
+                  type="file"
+                  className="hidden"
+                  accept=".json,application/json"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      handleImport(file);
+                    }
+                  }}
+                  disabled={importing}
+                />
+              </label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setImportDialogOpen(false);
+                setIsDragging(false);
+              }}
+              disabled={importing}
+            >
+              Cancelar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 };

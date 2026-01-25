@@ -22,6 +22,18 @@ export interface IAgentData {
   agent_color: string;
   should_introduce_itself: boolean;
   memory_amount: string;
+  scenario_detection_enabled?: boolean;
+  proactive_opening_message?: string | null;
+  proactive_hook_message?: string | null;
+  proactive_development_paper?: string | null;
+  proactive_development_system?: string | null;
+  receptive_welcome_template?: string | null;
+  receptive_qualification_question?: string | null;
+  receptive_deepening_question?: string | null;
+  receptive_value_proposition?: string | null;
+  company_clients?: string[];
+  total_clients?: string | null;
+  script_id?: string | null;
 }
 
 export class Agent {

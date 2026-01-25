@@ -37,6 +37,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { AgentScriptSelector } from "@/components/agents/AgentScriptSelector";
 
 const AVAILABLE_TRAITS = [
   "empático",
@@ -172,6 +173,7 @@ const AgentCreate = () => {
       agent_color: "#3b82f6",
       should_introduce_itself: true,
       memory_amount: "20",
+      script_id: null,
     })
   );
 
@@ -1441,6 +1443,46 @@ const AgentCreate = () => {
                         />
                       </div>
                     </div>
+
+                    <Card className="p-6 border-primary/30 bg-gradient-to-br from-primary/5 via-primary/5 to-primary/10 mt-6">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="w-5 h-5 text-primary" />
+                            <h4 className="text-lg font-semibold text-foreground">
+                              Roteiro de Conversação
+                            </h4>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate("/agent-scripts")}
+                          >
+                            Gerenciar Roteiros
+                          </Button>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Selecione um roteiro pré-configurado ou deixe em branco para não usar roteiro específico
+                        </p>
+
+                        <div className="space-y-2">
+                          <LabelWithTooltip
+                            htmlFor="script_id"
+                            tooltip="Selecione um roteiro de conversação pré-configurado. Os roteiros definem como o agente deve se comportar em diferentes cenários (prospecção ativa ou atendimento receptivo)."
+                          >
+                            Roteiro (Opcional)
+                          </LabelWithTooltip>
+                          <AgentScriptSelector
+                            organizationId={organization?.id || ""}
+                            value={agentData.script_id || null}
+                            onChange={(scriptId) =>
+                              handleFieldChange("script_id", scriptId)
+                            }
+                          />
+                        </div>
+                      </div>
+                    </Card>
                   </div>
                 </div>
               )}

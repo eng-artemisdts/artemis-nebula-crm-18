@@ -15,6 +15,7 @@ import StatusManager from "./pages/StatusManager";
 import LeadSearch from "./pages/LeadSearch";
 import Agents from "./pages/Agents";
 import AgentCreate from "./pages/AgentCreate";
+import AgentScripts from "./pages/AgentScripts";
 import { ComponentConfiguration } from "./pages/ComponentConfiguration";
 import Documents from "./pages/Documents";
 import AIContextDocuments from "./pages/AIContextDocuments";
@@ -121,6 +122,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <AgentCreate />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/agent-scripts"
+              element={
+                <ProtectedRoute>
+                  <AgentScripts />
                 </ProtectedRoute>
               }
             />
