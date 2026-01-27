@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const USE_LOCAL_EXPLICIT = import.meta.env.VITE_USE_LOCAL_SUPABASE;
+const USE_LOCAL_EXPLICIT = 'false';
 const USE_LOCAL = USE_LOCAL_EXPLICIT === undefined || USE_LOCAL_EXPLICIT === 'true';
 
 const LOCAL_SUPABASE_URL = import.meta.env.VITE_LOCAL_SUPABASE_URL || 'http://localhost:54321';
