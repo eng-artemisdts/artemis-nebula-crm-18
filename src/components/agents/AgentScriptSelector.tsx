@@ -51,16 +51,18 @@ export const AgentScriptSelector = ({
     );
   }
 
+  const NONE_VALUE = "__none__";
+
   return (
     <Select
-      value={value || ""}
-      onValueChange={(val) => onChange(val === "" ? null : val)}
+      value={value || NONE_VALUE}
+      onValueChange={(val) => onChange(val === NONE_VALUE ? null : val)}
     >
       <SelectTrigger>
         <SelectValue placeholder="Selecione um roteiro ou deixe em branco" />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="">Nenhum roteiro</SelectItem>
+        <SelectItem value={NONE_VALUE}>Nenhum roteiro</SelectItem>
         {scripts.map((script) => (
           <SelectItem key={script.id} value={script.id}>
             {script.name}
