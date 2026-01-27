@@ -103,6 +103,8 @@ serve(async (req) => {
       .from("component_configurations")
       .select("config")
       .eq("component_id", mediaComponent.id)
+      .eq("organization_id", organizationId)
+      .is("user_id", null)
       .maybeSingle();
 
     if (configError) {

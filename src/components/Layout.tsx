@@ -309,6 +309,7 @@ const menuItems: MenuItem[] = [
     icon: Bot,
     subItems: [
       { title: "Agentes de IA", url: "/ai-interaction", icon: Bot },
+      { title: "Roteiros de Conversação", url: "/agent-scripts", icon: FileText },
       { title: "Habilidades e Integrações", url: "/abilities", icon: Bot },
       {
         title: "Documentação e Contexto",

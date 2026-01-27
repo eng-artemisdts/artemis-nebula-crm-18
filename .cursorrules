@@ -131,9 +131,7 @@ function createLead(id: string, name: string, email: string) {
 - Utilitários simples podem ser funções puras
 - Quando a complexidade não justifica OOP, use funções, mas mantenha SOLID
 
-## Atualização Automática de Documentação de Prompts
-
-### Regra de Atualização do PROMPTS_AI_AGENTE.md
+## Atualização Automática de Documentação de Prompts### Regra de Atualização do PROMPTS_AI_AGENTE.md
 
 **SEMPRE que houver alterações em agentes ou componentes, atualize o arquivo `PROMPTS_AI_AGENTE.md`:**
 
@@ -150,9 +148,7 @@ function createLead(id: string, name: string, email: string) {
    - Seção "Habilidades e Componentes Disponíveis" - se componentes forem modificados
    - Seção "Regras de Uso dos Componentes" - se comportamento de componentes mudar
    - Seção "Tools Disponíveis no n8n" - se novas tools forem adicionadas ou parâmetros modificados
-   - Seção "Template de Geração Dinâmica" - se variáveis do template mudarem
-
-3. **Como atualizar:**
+   - Seção "Template de Geração Dinâmica" - se variáveis do template mudarem3. **Como atualizar:**
    - Mantenha o formato de variáveis do n8n: `{{ $json.payload.* }}`
    - Adicione notas explicativas quando necessário para processamento de arrays ou objetos complexos
    - Inclua exemplos de uso para novas funcionalidades
@@ -171,4 +167,3 @@ function createLead(id: string, name: string, email: string) {
    - Sempre verifique se o arquivo `PROMPTS_AI_AGENTE.md` está sincronizado após mudanças
    - Confirme que todas as variáveis estão no formato correto do n8n
    - Valide que exemplos e documentação estão atualizados
-
