@@ -995,13 +995,15 @@ const Playground = () => {
             "media_sender"
           );
 
-          if (mediaComponent) {
+          if (mediaComponent && organization?.id) {
             const { data: mediaData, error: mediaError } = await (
               supabase as any
             )
               .from("component_configurations")
               .select("config")
               .eq("component_id", mediaComponent.id)
+              .eq("organization_id", organization.id)
+              .is("user_id", null)
               .maybeSingle();
 
             if (!mediaError && mediaData?.config?.mediaItems) {

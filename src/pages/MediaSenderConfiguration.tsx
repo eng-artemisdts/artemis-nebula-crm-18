@@ -82,6 +82,8 @@ export default function MediaSenderConfiguration() {
         .from("component_configurations")
         .select("config")
         .eq("component_id", mediaComponent.id)
+        .eq("organization_id", organization.id)
+        .is("user_id", null)
         .maybeSingle();
 
       if (error) throw error;
@@ -291,22 +293,42 @@ export default function MediaSenderConfiguration() {
         throw new Error("Componente media_sender não encontrado");
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any)
+      // First, check if configuration exists
+      const { data: existingConfig } = await (supabase as any)
         .from("component_configurations")
-        .upsert(
-          {
-            component_id: mediaComponent.id,
+        .select("id")
+        .eq("component_id", mediaComponent.id)
+        .eq("organization_id", organization.id)
+        .is("user_id", null)
+        .maybeSingle();
+
+      if (existingConfig) {
+        // Update existing configuration
+        const { error } = await (supabase as any)
+          .from("component_configurations")
+          .update({
             config: {
               mediaItems: mediaItems,
             },
-          },
-          {
-            onConflict: "component_id",
-          }
-        );
+          })
+          .eq("id", existingConfig.id);
 
-      if (error) throw error;
+        if (error) throw error;
+      } else {
+        // Insert new configuration
+        const { error } = await (supabase as any)
+          .from("component_configurations")
+          .insert({
+            component_id: mediaComponent.id,
+            organization_id: organization.id,
+            user_id: null,
+            config: {
+              mediaItems: mediaItems,
+            },
+          });
+
+        if (error) throw error;
+      }
 
       toast.success("Configuração salva com sucesso!");
     } catch (error) {
