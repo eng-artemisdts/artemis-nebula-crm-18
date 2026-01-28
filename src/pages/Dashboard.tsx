@@ -19,6 +19,7 @@ import { ptBR } from "date-fns/locale";
 import { formatWhatsAppNumber, formatPhoneDisplay } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useOrganization } from "@/hooks/useOrganization";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import {
   DndContext,
   DragEndEvent,
@@ -173,11 +174,13 @@ const StatusColumn = memo(({
   column,
   columnLeads,
   onLeadUpdate,
+  onLeadClick,
   maxVisibleLeads = 10
 }: {
   column: { id: string; label: string };
   columnLeads: any[];
   onLeadUpdate?: (updatedLead: any) => void;
+  onLeadClick?: (lead: any) => void;
   maxVisibleLeads?: number;
 }) => {
   const { setNodeRef, isOver } = useDroppable({
@@ -210,6 +213,7 @@ const StatusColumn = memo(({
                 lead={lead}
                 isDraggable
                 onLeadUpdate={onLeadUpdate}
+                onClick={onLeadClick}
               />
             ))}
             {hasMore && !showAll && (
@@ -254,7 +258,11 @@ const Dashboard = () => {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [hasDefaultAI, setHasDefaultAI] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [viewMode, setViewMode] = useState<"kanban" | "table">("table");
+  const [viewMode, setViewMode] = useState<"kanban" | "table">(() => {
+    if (typeof window === "undefined") return "table";
+    const stored = window.localStorage.getItem("dashboardViewMode");
+    return stored === "kanban" || stored === "table" ? stored : "table";
+  });
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(50);
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
@@ -268,6 +276,8 @@ const Dashboard = () => {
   const [isStartingConversation, setIsStartingConversation] = useState(false);
   const [isStartingBulkConversation, setIsStartingBulkConversation] = useState(false);
   const [statusColumns, setStatusColumns] = useState<{ id: string; label: string }[]>([]);
+  const [selectedLead, setSelectedLead] = useState<any | null>(null);
+  const [isLeadDialogOpen, setIsLeadDialogOpen] = useState(false);
   const statusService = new LeadStatusService();
 
   const sensors = useSensors(
@@ -348,6 +358,11 @@ const Dashboard = () => {
     checkDefaultAI();
     fetchStatuses();
   }, [organization?.id]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("dashboardViewMode", viewMode);
+  }, [viewMode]);
 
   useEffect(() => {
     if (searchQuery.trim() || viewMode === "kanban") {
@@ -1126,6 +1141,10 @@ Se quiser saber mais, é só acessar:
                           prevLeads.map(l => l.id === updatedLead.id ? updatedLead : l)
                         );
                       }}
+                      onLeadClick={(lead) => {
+                        setSelectedLead(lead);
+                        setIsLeadDialogOpen(true);
+                      }}
                     />
                   );
                 })}
@@ -1309,6 +1328,230 @@ Se quiser saber mais, é só acessar:
           )}
         </div>
       </div>
+
+      <Dialog open={isLeadDialogOpen} onOpenChange={setIsLeadDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          {selectedLead && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="truncate text-xl font-semibold">{selectedLead.name}</span>
+                    <StatusBadge
+                      status={selectedLead.status as any}
+                      label={statusColumns.find(col => col.id === selectedLead.status)?.label}
+                    />
+                  </div>
+                  {selectedLead.company_name && (
+                    <p className="text-sm text-muted-foreground truncate">
+                      {selectedLead.company_name}
+                    </p>
+                  )}
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground">
+                  Visualização completa do lead selecionado no Kanban.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="mt-4 space-y-6">
+                {selectedLead.description && (
+                  <div className="rounded-lg border bg-muted/30 p-3">
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                      {selectedLead.description}
+                    </p>
+                  </div>
+                )}
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-3 text-sm">
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      Contato
+                    </h3>
+                    {selectedLead.contact_email && (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground">Email</span>
+                        <a
+                          href={`mailto:${selectedLead.contact_email}`}
+                          className="font-medium text-primary truncate"
+                        >
+                          {selectedLead.contact_email}
+                        </a>
+                      </div>
+                    )}
+                    {selectedLead.contact_whatsapp && (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground">WhatsApp</span>
+                        <a
+                          href={`https://wa.me/${formatWhatsAppNumber(selectedLead.contact_whatsapp)}?text=${encodeURIComponent(`Olá ${selectedLead.name}! Tudo bem?`)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-primary truncate"
+                        >
+                          {formatPhoneDisplay(selectedLead.contact_whatsapp)}
+                        </a>
+                      </div>
+                    )}
+                    {selectedLead.phone && (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground">Telefone</span>
+                        <span className="font-medium truncate">
+                          {formatPhoneDisplay(selectedLead.phone)}
+                        </span>
+                      </div>
+                    )}
+                    {selectedLead.linkedin_url && (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground">LinkedIn</span>
+                        <a
+                          href={selectedLead.linkedin_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-primary truncate"
+                        >
+                          {selectedLead.linkedin_url}
+                        </a>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-3 text-sm">
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      Empresa e Localização
+                    </h3>
+                    {selectedLead.company_name && (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground">Empresa</span>
+                        <span className="font-medium truncate">{selectedLead.company_name}</span>
+                      </div>
+                    )}
+                    {selectedLead.job_title && (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground">Cargo</span>
+                        <span className="font-medium truncate">{selectedLead.job_title}</span>
+                      </div>
+                    )}
+                    {(selectedLead.city || selectedLead.state || selectedLead.country) && (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground">Localização</span>
+                        <span className="font-medium truncate">
+                          {[selectedLead.city, selectedLead.state, selectedLead.country]
+                            .filter(Boolean)
+                            .join(" - ")}
+                        </span>
+                      </div>
+                    )}
+                    {selectedLead.category && (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground">Categoria</span>
+                        <span className="font-medium truncate">{selectedLead.category}</span>
+                      </div>
+                    )}
+                    {selectedLead.source && (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground">Origem</span>
+                        <span className="font-medium truncate">{selectedLead.source}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2 text-sm">
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      Financeiro
+                    </h3>
+                    {selectedLead.payment_amount && (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground">Valor da Proposta</span>
+                        <span className="font-semibold">
+                          {new Intl.NumberFormat("pt-BR", {
+                            style: "currency",
+                            currency: "BRL",
+                          }).format(selectedLead.payment_amount)}
+                        </span>
+                      </div>
+                    )}
+                    {selectedLead.payment_status && selectedLead.payment_status !== "nao_criado" && (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground">Status Pagamento</span>
+                        <span className="font-medium capitalize truncate">
+                          {selectedLead.payment_status.replace(/_/g, " ")}
+                        </span>
+                      </div>
+                    )}
+                    {Array.isArray(selectedLead.custom_values) && selectedLead.custom_values.length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mt-2">
+                          Outros Valores
+                        </h4>
+                        <div className="space-y-1.5">
+                          {selectedLead.custom_values.map((item: { value: any; description: string }, index: number) => (
+                            <div
+                              key={index}
+                              className="flex items-center justify-between gap-2"
+                            >
+                              <span className="text-muted-foreground truncate">
+                                {item.description || `Valor ${index + 1}`}
+                              </span>
+                              <span className="font-medium truncate">
+                                {typeof item.value === "number"
+                                  ? new Intl.NumberFormat("pt-BR", {
+                                      style: "currency",
+                                      currency: "BRL",
+                                    }).format(item.value)
+                                  : item.value}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      Datas e Anotações
+                    </h3>
+                    {selectedLead.created_at && (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground">Criado em</span>
+                        <span className="font-medium">
+                          {format(new Date(selectedLead.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                        </span>
+                      </div>
+                    )}
+                    {selectedLead.notes && (
+                      <div className="rounded-lg border bg-muted/20 p-2">
+                        <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                          {selectedLead.notes}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter className="mt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsLeadDialogOpen(false)}
+                >
+                  Fechar
+                </Button>
+                <Button
+                  onClick={() => {
+                    setIsLeadDialogOpen(false);
+                    navigate(`/lead/${selectedLead.id}`);
+                  }}
+                  className="gap-2"
+                >
+                  Ver detalhes completos
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 };

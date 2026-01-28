@@ -5,7 +5,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Mail, Phone, Clock, DollarSign, CheckCircle, MessageCircle, RefreshCw, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useNavigate } from "react-router-dom";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,13 +35,14 @@ type Lead = {
 export const LeadCard = ({
   lead,
   isDraggable = false,
-  onLeadUpdate
+  onLeadUpdate,
+  onClick,
 }: {
   lead: Lead;
   isDraggable?: boolean;
   onLeadUpdate?: (updatedLead: Lead) => void;
+  onClick?: (lead: Lead) => void;
 }) => {
-  const navigate = useNavigate();
   const [isStartingConversation, setIsStartingConversation] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [previewMessage, setPreviewMessage] = useState("");
@@ -347,9 +347,9 @@ Se quiser saber mais, é só acessar:
       {...attributesWithoutClassName}
       {...listeners}
       className="p-5 cursor-pointer hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/10 group min-w-0 w-full overflow-hidden h-full flex flex-col"
-      onClick={(e) => {
-        if (!isDragging) {
-          navigate(`/lead/${lead.id}`);
+      onClick={() => {
+        if (!isDragging && onClick) {
+          onClick(lead);
         }
       }}
     >
