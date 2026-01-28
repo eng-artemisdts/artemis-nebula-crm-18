@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import { useOrganization } from "@/hooks/useOrganization";
 import { cleanPhoneNumber, formatPhoneDisplay, formatWhatsAppNumber, cn } from "@/lib/utils";
+import { LeadStatusService } from "@/services/LeadStatusService";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -58,6 +59,7 @@ const LeadForm = () => {
   const navigate = useNavigate();
   const isEdit = id && id !== "new";
   const { organization } = useOrganization();
+  const statusService = new LeadStatusService();
 
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
@@ -69,11 +71,12 @@ const LeadForm = () => {
   const [leadRemoteJid, setLeadRemoteJid] = useState<string | null>(null);
   const [leadWhatsappVerified, setLeadWhatsappVerified] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState("basic");
+  const [statusOptions, setStatusOptions] = useState<Array<{ id: string; label: string }>>([]);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     category: "",
-    status: "novo",
+    status: "",
     contact_email: "",
     contact_whatsapp: "",
     phone: "",
@@ -106,10 +109,36 @@ const LeadForm = () => {
     fetchCategories();
     fetchAIInteractions();
     fetchDefaultAIInteraction();
-    if (isEdit) {
-      fetchLead();
-    }
-  }, [id]);
+  }, []);
+
+  useEffect(() => {
+    if (!organization?.id) return;
+
+    const loadData = async () => {
+      try {
+        const statuses = await statusService.getAll(organization.id);
+        const options = statuses.map(s => ({ id: s.status_key, label: s.label }));
+        setStatusOptions(options);
+
+        if (!isEdit && !formData.status) {
+          const newStatus = statuses.find(s => s.status_key === "new");
+          const initialStatus = newStatus?.status_key || statuses[0]?.status_key || "";
+          if (initialStatus) {
+            setFormData(prev => ({ ...prev, status: initialStatus }));
+          }
+        }
+      } catch (error: any) {
+        console.error("Error fetching lead statuses:", error);
+        toast.error("Erro ao carregar status de lead");
+      }
+
+      if (isEdit) {
+        await fetchLead();
+      }
+    };
+
+    loadData();
+  }, [organization?.id, isEdit, id]);
 
   const fetchCategories = async () => {
     const { data } = await supabase.from("lead_categories").select("*");
@@ -780,12 +809,16 @@ const LeadForm = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="novo">Novo</SelectItem>
-                        <SelectItem value="conversa_iniciada">Conversa Iniciada</SelectItem>
-                        <SelectItem value="proposta_enviada">Proposta Enviada</SelectItem>
-                        <SelectItem value="link_pagamento_enviado">Link de Pagamento Enviado</SelectItem>
-                        <SelectItem value="pago">Pago</SelectItem>
-                        <SelectItem value="perdido">Perdido</SelectItem>
+                        {statusOptions.map((status) => (
+                          <SelectItem key={status.id} value={status.id}>
+                            {status.label}
+                          </SelectItem>
+                        ))}
+                        {!statusOptions.find(option => option.id === formData.status) && formData.status && (
+                          <SelectItem value={formData.status}>
+                            {formData.status}
+                          </SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>

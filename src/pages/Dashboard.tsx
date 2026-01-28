@@ -407,7 +407,23 @@ const Dashboard = () => {
   }, [totalPages, currentPage]);
 
   const getLeadsByStatus = (status: string) => {
-    return filteredLeads.filter((lead) => lead.status === status);
+    const column = statusColumns.find((c) => c.id === status);
+    const normalizedLabel = column?.label?.toString().toLowerCase();
+    const normalizedLabelId = normalizedLabel?.replace(/\s+/g, "_");
+
+    return filteredLeads.filter((lead) => {
+      const leadStatus = (lead.status || "").toString();
+      if (!leadStatus) return false;
+
+      if (leadStatus === status) return true;
+
+      const leadStatusLower = leadStatus.toLowerCase();
+
+      if (normalizedLabel && leadStatusLower === normalizedLabel) return true;
+      if (normalizedLabelId && leadStatusLower === normalizedLabelId) return true;
+
+      return false;
+    });
   };
 
   const handleDragStart = (event: DragStartEvent) => {
