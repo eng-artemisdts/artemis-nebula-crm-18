@@ -683,6 +683,7 @@ const Leads = () => {
                             prevLeads.map(l => l.id === updatedLead.id ? updatedLead : l)
                           );
                         }}
+                        onClick={() => navigate(`/lead/${lead.id}`)}
                       />
                     </div>
                   </div>
